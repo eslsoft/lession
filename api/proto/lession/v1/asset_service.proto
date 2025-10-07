@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package lession.v1;
+
+option go_package = "github.com/eslsoft/lession/pkg/api/lession/v1;lessionv1";
+
+import "google/protobuf/field_mask.proto";
+import "lession/v1/asset.proto";
+
+// AssetService manages lifecycle operations for media assets and upload sessions.
+service AssetService {
+  // CreateUpload establishes a new upload session and returns client instructions.
+  rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
+
+  // GetUpload retrieves details for an existing upload session.
+  rpc GetUpload(GetUploadRequest) returns (GetUploadResponse);
+
+  // CompleteUpload finalizes an upload session and transitions the asset to processing.
+  rpc CompleteUpload(CompleteUploadRequest) returns (CompleteUploadResponse);
+
+  // GetAsset returns details for a single managed asset.
+  rpc GetAsset(GetAssetRequest) returns (GetAssetResponse);
+
+  // ListAssets returns a filtered, paginated collection of assets.
+  rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
+
+  // UpdateAsset applies partial updates to an asset (e.g., change metadata).
+  rpc UpdateAsset(UpdateAssetRequest) returns (UpdateAssetResponse);
+
+  // DeleteAsset archives or permanently deletes an asset.
+  rpc DeleteAsset(DeleteAssetRequest) returns (DeleteAssetResponse);
+}
+
+// UpdateAssetRequest applies partial updates to an asset.
+message UpdateAssetRequest {
+  // asset contains the desired fields to update.
+  Asset asset = 1;
+
+  // update_mask indicates which fields in asset should be applied.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+// UpdateAssetResponse returns the updated asset resource.
+message UpdateAssetResponse {
+  // asset is the persisted asset after the update.
+  Asset asset = 1;
+}

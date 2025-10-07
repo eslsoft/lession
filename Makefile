@@ -25,6 +25,7 @@ build: dep ## Build the binary file
 
 generate: ## Regenerate protobuf and ent code
 	@cd api && buf generate
+	@cd internal/app/server && wire
 	@go generate ./internal/adapter/db/ent/schema
 
 run: ## Run the lesson service locally

@@ -11,8 +11,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/lesson"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/predicate"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 	"github.com/google/uuid"
 )
 
@@ -25,39 +26,48 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeLesson = "Lesson"
+	TypeAsset         = "Asset"
+	TypeUploadSession = "UploadSession"
 )
 
-// LessonMutation represents an operation that mutates the Lesson nodes in the graph.
-type LessonMutation struct {
+// AssetMutation represents an operation that mutates the Asset nodes in the graph.
+type AssetMutation struct {
 	config
 	op                  Op
 	typ                 string
 	id                  *uuid.UUID
-	title               *string
-	description         *string
-	teacher             *string
-	duration_minutes    *int
-	addduration_minutes *int
+	asset_key           *string
+	_type               *int
+	add_type            *int
+	status              *int
+	addstatus           *int
+	original_filename   *string
+	mime_type           *string
+	filesize            *int64
+	addfilesize         *int64
+	duration_seconds    *int
+	addduration_seconds *int
+	playback_url        *string
 	created_at          *time.Time
 	updated_at          *time.Time
+	ready_at            *time.Time
 	clearedFields       map[string]struct{}
 	done                bool
-	oldValue            func(context.Context) (*Lesson, error)
-	predicates          []predicate.Lesson
+	oldValue            func(context.Context) (*Asset, error)
+	predicates          []predicate.Asset
 }
 
-var _ ent.Mutation = (*LessonMutation)(nil)
+var _ ent.Mutation = (*AssetMutation)(nil)
 
-// lessonOption allows management of the mutation configuration using functional options.
-type lessonOption func(*LessonMutation)
+// assetOption allows management of the mutation configuration using functional options.
+type assetOption func(*AssetMutation)
 
-// newLessonMutation creates new mutation for the Lesson entity.
-func newLessonMutation(c config, op Op, opts ...lessonOption) *LessonMutation {
-	m := &LessonMutation{
+// newAssetMutation creates new mutation for the Asset entity.
+func newAssetMutation(c config, op Op, opts ...assetOption) *AssetMutation {
+	m := &AssetMutation{
 		config:        c,
 		op:            op,
-		typ:           TypeLesson,
+		typ:           TypeAsset,
 		clearedFields: make(map[string]struct{}),
 	}
 	for _, opt := range opts {
@@ -66,20 +76,20 @@ func newLessonMutation(c config, op Op, opts ...lessonOption) *LessonMutation {
 	return m
 }
 
-// withLessonID sets the ID field of the mutation.
-func withLessonID(id uuid.UUID) lessonOption {
-	return func(m *LessonMutation) {
+// withAssetID sets the ID field of the mutation.
+func withAssetID(id uuid.UUID) assetOption {
+	return func(m *AssetMutation) {
 		var (
 			err   error
 			once  sync.Once
-			value *Lesson
+			value *Asset
 		)
-		m.oldValue = func(ctx context.Context) (*Lesson, error) {
+		m.oldValue = func(ctx context.Context) (*Asset, error) {
 			once.Do(func() {
 				if m.done {
 					err = errors.New("querying old values post mutation is not allowed")
 				} else {
-					value, err = m.Client().Lesson.Get(ctx, id)
+					value, err = m.Client().Asset.Get(ctx, id)
 				}
 			})
 			return value, err
@@ -88,10 +98,10 @@ func withLessonID(id uuid.UUID) lessonOption {
 	}
 }
 
-// withLesson sets the old Lesson of the mutation.
-func withLesson(node *Lesson) lessonOption {
-	return func(m *LessonMutation) {
-		m.oldValue = func(context.Context) (*Lesson, error) {
+// withAsset sets the old Asset of the mutation.
+func withAsset(node *Asset) assetOption {
+	return func(m *AssetMutation) {
+		m.oldValue = func(context.Context) (*Asset, error) {
 			return node, nil
 		}
 		m.id = &node.ID
@@ -100,7 +110,7 @@ func withLesson(node *Lesson) lessonOption {
 
 // Client returns a new `ent.Client` from the mutation. If the mutation was
 // executed in a transaction (ent.Tx), a transactional client is returned.
-func (m LessonMutation) Client() *Client {
+func (m AssetMutation) Client() *Client {
 	client := &Client{config: m.config}
 	client.init()
 	return client
@@ -108,7 +118,7 @@ func (m LessonMutation) Client() *Client {
 
 // Tx returns an `ent.Tx` for mutations that were executed in transactions;
 // it returns an error otherwise.
-func (m LessonMutation) Tx() (*Tx, error) {
+func (m AssetMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
 		return nil, errors.New("generated: mutation is not running in a transaction")
 	}
@@ -118,14 +128,14 @@ func (m LessonMutation) Tx() (*Tx, error) {
 }
 
 // SetID sets the value of the id field. Note that this
-// operation is only accepted on creation of Lesson entities.
-func (m *LessonMutation) SetID(id uuid.UUID) {
+// operation is only accepted on creation of Asset entities.
+func (m *AssetMutation) SetID(id uuid.UUID) {
 	m.id = &id
 }
 
 // ID returns the ID value in the mutation. Note that the ID is only available
 // if it was provided to the builder or after it was returned from the database.
-func (m *LessonMutation) ID() (id uuid.UUID, exists bool) {
+func (m *AssetMutation) ID() (id uuid.UUID, exists bool) {
 	if m.id == nil {
 		return
 	}
@@ -136,7 +146,7 @@ func (m *LessonMutation) ID() (id uuid.UUID, exists bool) {
 // That means, if the mutation is applied within a transaction with an isolation level such
 // as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
 // or updated by the mutation.
-func (m *LessonMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+func (m *AssetMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	switch {
 	case m.op.Is(OpUpdateOne | OpDeleteOne):
 		id, exists := m.ID()
@@ -145,209 +155,400 @@ func (m *LessonMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 		}
 		fallthrough
 	case m.op.Is(OpUpdate | OpDelete):
-		return m.Client().Lesson.Query().Where(m.predicates...).IDs(ctx)
+		return m.Client().Asset.Query().Where(m.predicates...).IDs(ctx)
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
 }
 
-// SetTitle sets the "title" field.
-func (m *LessonMutation) SetTitle(s string) {
-	m.title = &s
+// SetAssetKey sets the "asset_key" field.
+func (m *AssetMutation) SetAssetKey(s string) {
+	m.asset_key = &s
 }
 
-// Title returns the value of the "title" field in the mutation.
-func (m *LessonMutation) Title() (r string, exists bool) {
-	v := m.title
+// AssetKey returns the value of the "asset_key" field in the mutation.
+func (m *AssetMutation) AssetKey() (r string, exists bool) {
+	v := m.asset_key
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldTitle returns the old "title" field's value of the Lesson entity.
-// If the Lesson object wasn't provided to the builder, the object is fetched from the database.
+// OldAssetKey returns the old "asset_key" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *LessonMutation) OldTitle(ctx context.Context) (v string, err error) {
+func (m *AssetMutation) OldAssetKey(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+		return v, errors.New("OldAssetKey is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTitle requires an ID field in the mutation")
+		return v, errors.New("OldAssetKey requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+		return v, fmt.Errorf("querying old value for OldAssetKey: %w", err)
 	}
-	return oldValue.Title, nil
+	return oldValue.AssetKey, nil
 }
 
-// ResetTitle resets all changes to the "title" field.
-func (m *LessonMutation) ResetTitle() {
-	m.title = nil
+// ResetAssetKey resets all changes to the "asset_key" field.
+func (m *AssetMutation) ResetAssetKey() {
+	m.asset_key = nil
 }
 
-// SetDescription sets the "description" field.
-func (m *LessonMutation) SetDescription(s string) {
-	m.description = &s
+// SetType sets the "type" field.
+func (m *AssetMutation) SetType(i int) {
+	m._type = &i
+	m.add_type = nil
 }
 
-// Description returns the value of the "description" field in the mutation.
-func (m *LessonMutation) Description() (r string, exists bool) {
-	v := m.description
+// GetType returns the value of the "type" field in the mutation.
+func (m *AssetMutation) GetType() (r int, exists bool) {
+	v := m._type
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldDescription returns the old "description" field's value of the Lesson entity.
-// If the Lesson object wasn't provided to the builder, the object is fetched from the database.
+// OldType returns the old "type" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *LessonMutation) OldDescription(ctx context.Context) (v *string, err error) {
+func (m *AssetMutation) OldType(ctx context.Context) (v int, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldDescription requires an ID field in the mutation")
+		return v, errors.New("OldType requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
 	}
-	return oldValue.Description, nil
+	return oldValue.Type, nil
 }
 
-// ClearDescription clears the value of the "description" field.
-func (m *LessonMutation) ClearDescription() {
-	m.description = nil
-	m.clearedFields[lesson.FieldDescription] = struct{}{}
-}
-
-// DescriptionCleared returns if the "description" field was cleared in this mutation.
-func (m *LessonMutation) DescriptionCleared() bool {
-	_, ok := m.clearedFields[lesson.FieldDescription]
-	return ok
-}
-
-// ResetDescription resets all changes to the "description" field.
-func (m *LessonMutation) ResetDescription() {
-	m.description = nil
-	delete(m.clearedFields, lesson.FieldDescription)
-}
-
-// SetTeacher sets the "teacher" field.
-func (m *LessonMutation) SetTeacher(s string) {
-	m.teacher = &s
-}
-
-// Teacher returns the value of the "teacher" field in the mutation.
-func (m *LessonMutation) Teacher() (r string, exists bool) {
-	v := m.teacher
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldTeacher returns the old "teacher" field's value of the Lesson entity.
-// If the Lesson object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *LessonMutation) OldTeacher(ctx context.Context) (v *string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTeacher is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTeacher requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTeacher: %w", err)
-	}
-	return oldValue.Teacher, nil
-}
-
-// ClearTeacher clears the value of the "teacher" field.
-func (m *LessonMutation) ClearTeacher() {
-	m.teacher = nil
-	m.clearedFields[lesson.FieldTeacher] = struct{}{}
-}
-
-// TeacherCleared returns if the "teacher" field was cleared in this mutation.
-func (m *LessonMutation) TeacherCleared() bool {
-	_, ok := m.clearedFields[lesson.FieldTeacher]
-	return ok
-}
-
-// ResetTeacher resets all changes to the "teacher" field.
-func (m *LessonMutation) ResetTeacher() {
-	m.teacher = nil
-	delete(m.clearedFields, lesson.FieldTeacher)
-}
-
-// SetDurationMinutes sets the "duration_minutes" field.
-func (m *LessonMutation) SetDurationMinutes(i int) {
-	m.duration_minutes = &i
-	m.addduration_minutes = nil
-}
-
-// DurationMinutes returns the value of the "duration_minutes" field in the mutation.
-func (m *LessonMutation) DurationMinutes() (r int, exists bool) {
-	v := m.duration_minutes
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldDurationMinutes returns the old "duration_minutes" field's value of the Lesson entity.
-// If the Lesson object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *LessonMutation) OldDurationMinutes(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldDurationMinutes is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldDurationMinutes requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldDurationMinutes: %w", err)
-	}
-	return oldValue.DurationMinutes, nil
-}
-
-// AddDurationMinutes adds i to the "duration_minutes" field.
-func (m *LessonMutation) AddDurationMinutes(i int) {
-	if m.addduration_minutes != nil {
-		*m.addduration_minutes += i
+// AddType adds i to the "type" field.
+func (m *AssetMutation) AddType(i int) {
+	if m.add_type != nil {
+		*m.add_type += i
 	} else {
-		m.addduration_minutes = &i
+		m.add_type = &i
 	}
 }
 
-// AddedDurationMinutes returns the value that was added to the "duration_minutes" field in this mutation.
-func (m *LessonMutation) AddedDurationMinutes() (r int, exists bool) {
-	v := m.addduration_minutes
+// AddedType returns the value that was added to the "type" field in this mutation.
+func (m *AssetMutation) AddedType() (r int, exists bool) {
+	v := m.add_type
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetDurationMinutes resets all changes to the "duration_minutes" field.
-func (m *LessonMutation) ResetDurationMinutes() {
-	m.duration_minutes = nil
-	m.addduration_minutes = nil
+// ResetType resets all changes to the "type" field.
+func (m *AssetMutation) ResetType() {
+	m._type = nil
+	m.add_type = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *AssetMutation) SetStatus(i int) {
+	m.status = &i
+	m.addstatus = nil
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *AssetMutation) Status() (r int, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AssetMutation) OldStatus(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// AddStatus adds i to the "status" field.
+func (m *AssetMutation) AddStatus(i int) {
+	if m.addstatus != nil {
+		*m.addstatus += i
+	} else {
+		m.addstatus = &i
+	}
+}
+
+// AddedStatus returns the value that was added to the "status" field in this mutation.
+func (m *AssetMutation) AddedStatus() (r int, exists bool) {
+	v := m.addstatus
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *AssetMutation) ResetStatus() {
+	m.status = nil
+	m.addstatus = nil
+}
+
+// SetOriginalFilename sets the "original_filename" field.
+func (m *AssetMutation) SetOriginalFilename(s string) {
+	m.original_filename = &s
+}
+
+// OriginalFilename returns the value of the "original_filename" field in the mutation.
+func (m *AssetMutation) OriginalFilename() (r string, exists bool) {
+	v := m.original_filename
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOriginalFilename returns the old "original_filename" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AssetMutation) OldOriginalFilename(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOriginalFilename is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOriginalFilename requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOriginalFilename: %w", err)
+	}
+	return oldValue.OriginalFilename, nil
+}
+
+// ResetOriginalFilename resets all changes to the "original_filename" field.
+func (m *AssetMutation) ResetOriginalFilename() {
+	m.original_filename = nil
+}
+
+// SetMimeType sets the "mime_type" field.
+func (m *AssetMutation) SetMimeType(s string) {
+	m.mime_type = &s
+}
+
+// MimeType returns the value of the "mime_type" field in the mutation.
+func (m *AssetMutation) MimeType() (r string, exists bool) {
+	v := m.mime_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMimeType returns the old "mime_type" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AssetMutation) OldMimeType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMimeType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMimeType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMimeType: %w", err)
+	}
+	return oldValue.MimeType, nil
+}
+
+// ResetMimeType resets all changes to the "mime_type" field.
+func (m *AssetMutation) ResetMimeType() {
+	m.mime_type = nil
+}
+
+// SetFilesize sets the "filesize" field.
+func (m *AssetMutation) SetFilesize(i int64) {
+	m.filesize = &i
+	m.addfilesize = nil
+}
+
+// Filesize returns the value of the "filesize" field in the mutation.
+func (m *AssetMutation) Filesize() (r int64, exists bool) {
+	v := m.filesize
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFilesize returns the old "filesize" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AssetMutation) OldFilesize(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFilesize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFilesize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFilesize: %w", err)
+	}
+	return oldValue.Filesize, nil
+}
+
+// AddFilesize adds i to the "filesize" field.
+func (m *AssetMutation) AddFilesize(i int64) {
+	if m.addfilesize != nil {
+		*m.addfilesize += i
+	} else {
+		m.addfilesize = &i
+	}
+}
+
+// AddedFilesize returns the value that was added to the "filesize" field in this mutation.
+func (m *AssetMutation) AddedFilesize() (r int64, exists bool) {
+	v := m.addfilesize
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFilesize resets all changes to the "filesize" field.
+func (m *AssetMutation) ResetFilesize() {
+	m.filesize = nil
+	m.addfilesize = nil
+}
+
+// SetDurationSeconds sets the "duration_seconds" field.
+func (m *AssetMutation) SetDurationSeconds(i int) {
+	m.duration_seconds = &i
+	m.addduration_seconds = nil
+}
+
+// DurationSeconds returns the value of the "duration_seconds" field in the mutation.
+func (m *AssetMutation) DurationSeconds() (r int, exists bool) {
+	v := m.duration_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDurationSeconds returns the old "duration_seconds" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AssetMutation) OldDurationSeconds(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDurationSeconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDurationSeconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDurationSeconds: %w", err)
+	}
+	return oldValue.DurationSeconds, nil
+}
+
+// AddDurationSeconds adds i to the "duration_seconds" field.
+func (m *AssetMutation) AddDurationSeconds(i int) {
+	if m.addduration_seconds != nil {
+		*m.addduration_seconds += i
+	} else {
+		m.addduration_seconds = &i
+	}
+}
+
+// AddedDurationSeconds returns the value that was added to the "duration_seconds" field in this mutation.
+func (m *AssetMutation) AddedDurationSeconds() (r int, exists bool) {
+	v := m.addduration_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDurationSeconds resets all changes to the "duration_seconds" field.
+func (m *AssetMutation) ResetDurationSeconds() {
+	m.duration_seconds = nil
+	m.addduration_seconds = nil
+}
+
+// SetPlaybackURL sets the "playback_url" field.
+func (m *AssetMutation) SetPlaybackURL(s string) {
+	m.playback_url = &s
+}
+
+// PlaybackURL returns the value of the "playback_url" field in the mutation.
+func (m *AssetMutation) PlaybackURL() (r string, exists bool) {
+	v := m.playback_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlaybackURL returns the old "playback_url" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AssetMutation) OldPlaybackURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlaybackURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlaybackURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlaybackURL: %w", err)
+	}
+	return oldValue.PlaybackURL, nil
+}
+
+// ClearPlaybackURL clears the value of the "playback_url" field.
+func (m *AssetMutation) ClearPlaybackURL() {
+	m.playback_url = nil
+	m.clearedFields[asset.FieldPlaybackURL] = struct{}{}
+}
+
+// PlaybackURLCleared returns if the "playback_url" field was cleared in this mutation.
+func (m *AssetMutation) PlaybackURLCleared() bool {
+	_, ok := m.clearedFields[asset.FieldPlaybackURL]
+	return ok
+}
+
+// ResetPlaybackURL resets all changes to the "playback_url" field.
+func (m *AssetMutation) ResetPlaybackURL() {
+	m.playback_url = nil
+	delete(m.clearedFields, asset.FieldPlaybackURL)
 }
 
 // SetCreatedAt sets the "created_at" field.
-func (m *LessonMutation) SetCreatedAt(t time.Time) {
+func (m *AssetMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
 }
 
 // CreatedAt returns the value of the "created_at" field in the mutation.
-func (m *LessonMutation) CreatedAt() (r time.Time, exists bool) {
+func (m *AssetMutation) CreatedAt() (r time.Time, exists bool) {
 	v := m.created_at
 	if v == nil {
 		return
@@ -355,10 +556,10 @@ func (m *LessonMutation) CreatedAt() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// OldCreatedAt returns the old "created_at" field's value of the Lesson entity.
-// If the Lesson object wasn't provided to the builder, the object is fetched from the database.
+// OldCreatedAt returns the old "created_at" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *LessonMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+func (m *AssetMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
 	}
@@ -373,17 +574,17 @@ func (m *LessonMutation) OldCreatedAt(ctx context.Context) (v time.Time, err err
 }
 
 // ResetCreatedAt resets all changes to the "created_at" field.
-func (m *LessonMutation) ResetCreatedAt() {
+func (m *AssetMutation) ResetCreatedAt() {
 	m.created_at = nil
 }
 
 // SetUpdatedAt sets the "updated_at" field.
-func (m *LessonMutation) SetUpdatedAt(t time.Time) {
+func (m *AssetMutation) SetUpdatedAt(t time.Time) {
 	m.updated_at = &t
 }
 
 // UpdatedAt returns the value of the "updated_at" field in the mutation.
-func (m *LessonMutation) UpdatedAt() (r time.Time, exists bool) {
+func (m *AssetMutation) UpdatedAt() (r time.Time, exists bool) {
 	v := m.updated_at
 	if v == nil {
 		return
@@ -391,10 +592,10 @@ func (m *LessonMutation) UpdatedAt() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// OldUpdatedAt returns the old "updated_at" field's value of the Lesson entity.
-// If the Lesson object wasn't provided to the builder, the object is fetched from the database.
+// OldUpdatedAt returns the old "updated_at" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *LessonMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+func (m *AssetMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
 	}
@@ -409,19 +610,68 @@ func (m *LessonMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err err
 }
 
 // ResetUpdatedAt resets all changes to the "updated_at" field.
-func (m *LessonMutation) ResetUpdatedAt() {
+func (m *AssetMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
-// Where appends a list predicates to the LessonMutation builder.
-func (m *LessonMutation) Where(ps ...predicate.Lesson) {
+// SetReadyAt sets the "ready_at" field.
+func (m *AssetMutation) SetReadyAt(t time.Time) {
+	m.ready_at = &t
+}
+
+// ReadyAt returns the value of the "ready_at" field in the mutation.
+func (m *AssetMutation) ReadyAt() (r time.Time, exists bool) {
+	v := m.ready_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReadyAt returns the old "ready_at" field's value of the Asset entity.
+// If the Asset object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AssetMutation) OldReadyAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReadyAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReadyAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReadyAt: %w", err)
+	}
+	return oldValue.ReadyAt, nil
+}
+
+// ClearReadyAt clears the value of the "ready_at" field.
+func (m *AssetMutation) ClearReadyAt() {
+	m.ready_at = nil
+	m.clearedFields[asset.FieldReadyAt] = struct{}{}
+}
+
+// ReadyAtCleared returns if the "ready_at" field was cleared in this mutation.
+func (m *AssetMutation) ReadyAtCleared() bool {
+	_, ok := m.clearedFields[asset.FieldReadyAt]
+	return ok
+}
+
+// ResetReadyAt resets all changes to the "ready_at" field.
+func (m *AssetMutation) ResetReadyAt() {
+	m.ready_at = nil
+	delete(m.clearedFields, asset.FieldReadyAt)
+}
+
+// Where appends a list predicates to the AssetMutation builder.
+func (m *AssetMutation) Where(ps ...predicate.Asset) {
 	m.predicates = append(m.predicates, ps...)
 }
 
-// WhereP appends storage-level predicates to the LessonMutation builder. Using this method,
+// WhereP appends storage-level predicates to the AssetMutation builder. Using this method,
 // users can use type-assertion to append predicates that do not depend on any generated package.
-func (m *LessonMutation) WhereP(ps ...func(*sql.Selector)) {
-	p := make([]predicate.Lesson, len(ps))
+func (m *AssetMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Asset, len(ps))
 	for i := range ps {
 		p[i] = ps[i]
 	}
@@ -429,42 +679,57 @@ func (m *LessonMutation) WhereP(ps ...func(*sql.Selector)) {
 }
 
 // Op returns the operation name.
-func (m *LessonMutation) Op() Op {
+func (m *AssetMutation) Op() Op {
 	return m.op
 }
 
 // SetOp allows setting the mutation operation.
-func (m *LessonMutation) SetOp(op Op) {
+func (m *AssetMutation) SetOp(op Op) {
 	m.op = op
 }
 
-// Type returns the node type of this mutation (Lesson).
-func (m *LessonMutation) Type() string {
+// Type returns the node type of this mutation (Asset).
+func (m *AssetMutation) Type() string {
 	return m.typ
 }
 
 // Fields returns all fields that were changed during this mutation. Note that in
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
-func (m *LessonMutation) Fields() []string {
-	fields := make([]string, 0, 6)
-	if m.title != nil {
-		fields = append(fields, lesson.FieldTitle)
+func (m *AssetMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.asset_key != nil {
+		fields = append(fields, asset.FieldAssetKey)
 	}
-	if m.description != nil {
-		fields = append(fields, lesson.FieldDescription)
+	if m._type != nil {
+		fields = append(fields, asset.FieldType)
 	}
-	if m.teacher != nil {
-		fields = append(fields, lesson.FieldTeacher)
+	if m.status != nil {
+		fields = append(fields, asset.FieldStatus)
 	}
-	if m.duration_minutes != nil {
-		fields = append(fields, lesson.FieldDurationMinutes)
+	if m.original_filename != nil {
+		fields = append(fields, asset.FieldOriginalFilename)
+	}
+	if m.mime_type != nil {
+		fields = append(fields, asset.FieldMimeType)
+	}
+	if m.filesize != nil {
+		fields = append(fields, asset.FieldFilesize)
+	}
+	if m.duration_seconds != nil {
+		fields = append(fields, asset.FieldDurationSeconds)
+	}
+	if m.playback_url != nil {
+		fields = append(fields, asset.FieldPlaybackURL)
 	}
 	if m.created_at != nil {
-		fields = append(fields, lesson.FieldCreatedAt)
+		fields = append(fields, asset.FieldCreatedAt)
 	}
 	if m.updated_at != nil {
-		fields = append(fields, lesson.FieldUpdatedAt)
+		fields = append(fields, asset.FieldUpdatedAt)
+	}
+	if m.ready_at != nil {
+		fields = append(fields, asset.FieldReadyAt)
 	}
 	return fields
 }
@@ -472,19 +737,1203 @@ func (m *LessonMutation) Fields() []string {
 // Field returns the value of a field with the given name. The second boolean
 // return value indicates that this field was not set, or was not defined in the
 // schema.
-func (m *LessonMutation) Field(name string) (ent.Value, bool) {
+func (m *AssetMutation) Field(name string) (ent.Value, bool) {
 	switch name {
-	case lesson.FieldTitle:
-		return m.Title()
-	case lesson.FieldDescription:
-		return m.Description()
-	case lesson.FieldTeacher:
-		return m.Teacher()
-	case lesson.FieldDurationMinutes:
-		return m.DurationMinutes()
-	case lesson.FieldCreatedAt:
+	case asset.FieldAssetKey:
+		return m.AssetKey()
+	case asset.FieldType:
+		return m.GetType()
+	case asset.FieldStatus:
+		return m.Status()
+	case asset.FieldOriginalFilename:
+		return m.OriginalFilename()
+	case asset.FieldMimeType:
+		return m.MimeType()
+	case asset.FieldFilesize:
+		return m.Filesize()
+	case asset.FieldDurationSeconds:
+		return m.DurationSeconds()
+	case asset.FieldPlaybackURL:
+		return m.PlaybackURL()
+	case asset.FieldCreatedAt:
 		return m.CreatedAt()
-	case lesson.FieldUpdatedAt:
+	case asset.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case asset.FieldReadyAt:
+		return m.ReadyAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AssetMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case asset.FieldAssetKey:
+		return m.OldAssetKey(ctx)
+	case asset.FieldType:
+		return m.OldType(ctx)
+	case asset.FieldStatus:
+		return m.OldStatus(ctx)
+	case asset.FieldOriginalFilename:
+		return m.OldOriginalFilename(ctx)
+	case asset.FieldMimeType:
+		return m.OldMimeType(ctx)
+	case asset.FieldFilesize:
+		return m.OldFilesize(ctx)
+	case asset.FieldDurationSeconds:
+		return m.OldDurationSeconds(ctx)
+	case asset.FieldPlaybackURL:
+		return m.OldPlaybackURL(ctx)
+	case asset.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case asset.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case asset.FieldReadyAt:
+		return m.OldReadyAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Asset field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AssetMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case asset.FieldAssetKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAssetKey(v)
+		return nil
+	case asset.FieldType:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	case asset.FieldStatus:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case asset.FieldOriginalFilename:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOriginalFilename(v)
+		return nil
+	case asset.FieldMimeType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMimeType(v)
+		return nil
+	case asset.FieldFilesize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFilesize(v)
+		return nil
+	case asset.FieldDurationSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDurationSeconds(v)
+		return nil
+	case asset.FieldPlaybackURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlaybackURL(v)
+		return nil
+	case asset.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case asset.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case asset.FieldReadyAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReadyAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Asset field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AssetMutation) AddedFields() []string {
+	var fields []string
+	if m.add_type != nil {
+		fields = append(fields, asset.FieldType)
+	}
+	if m.addstatus != nil {
+		fields = append(fields, asset.FieldStatus)
+	}
+	if m.addfilesize != nil {
+		fields = append(fields, asset.FieldFilesize)
+	}
+	if m.addduration_seconds != nil {
+		fields = append(fields, asset.FieldDurationSeconds)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AssetMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case asset.FieldType:
+		return m.AddedType()
+	case asset.FieldStatus:
+		return m.AddedStatus()
+	case asset.FieldFilesize:
+		return m.AddedFilesize()
+	case asset.FieldDurationSeconds:
+		return m.AddedDurationSeconds()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AssetMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case asset.FieldType:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddType(v)
+		return nil
+	case asset.FieldStatus:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddStatus(v)
+		return nil
+	case asset.FieldFilesize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFilesize(v)
+		return nil
+	case asset.FieldDurationSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDurationSeconds(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Asset numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AssetMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(asset.FieldPlaybackURL) {
+		fields = append(fields, asset.FieldPlaybackURL)
+	}
+	if m.FieldCleared(asset.FieldReadyAt) {
+		fields = append(fields, asset.FieldReadyAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AssetMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AssetMutation) ClearField(name string) error {
+	switch name {
+	case asset.FieldPlaybackURL:
+		m.ClearPlaybackURL()
+		return nil
+	case asset.FieldReadyAt:
+		m.ClearReadyAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Asset nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AssetMutation) ResetField(name string) error {
+	switch name {
+	case asset.FieldAssetKey:
+		m.ResetAssetKey()
+		return nil
+	case asset.FieldType:
+		m.ResetType()
+		return nil
+	case asset.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case asset.FieldOriginalFilename:
+		m.ResetOriginalFilename()
+		return nil
+	case asset.FieldMimeType:
+		m.ResetMimeType()
+		return nil
+	case asset.FieldFilesize:
+		m.ResetFilesize()
+		return nil
+	case asset.FieldDurationSeconds:
+		m.ResetDurationSeconds()
+		return nil
+	case asset.FieldPlaybackURL:
+		m.ResetPlaybackURL()
+		return nil
+	case asset.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case asset.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case asset.FieldReadyAt:
+		m.ResetReadyAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Asset field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AssetMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AssetMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AssetMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AssetMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AssetMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AssetMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AssetMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown Asset unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AssetMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown Asset edge %s", name)
+}
+
+// UploadSessionMutation represents an operation that mutates the UploadSession nodes in the graph.
+type UploadSessionMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *uuid.UUID
+	asset_key          *string
+	_type              *int
+	add_type           *int
+	protocol           *int
+	addprotocol        *int
+	status             *int
+	addstatus          *int
+	target_method      *string
+	target_url         *string
+	target_headers     *map[string]string
+	target_form_fields *map[string]string
+	original_filename  *string
+	mime_type          *string
+	content_length     *int64
+	addcontent_length  *int64
+	expires_at         *time.Time
+	created_at         *time.Time
+	updated_at         *time.Time
+	clearedFields      map[string]struct{}
+	done               bool
+	oldValue           func(context.Context) (*UploadSession, error)
+	predicates         []predicate.UploadSession
+}
+
+var _ ent.Mutation = (*UploadSessionMutation)(nil)
+
+// uploadsessionOption allows management of the mutation configuration using functional options.
+type uploadsessionOption func(*UploadSessionMutation)
+
+// newUploadSessionMutation creates new mutation for the UploadSession entity.
+func newUploadSessionMutation(c config, op Op, opts ...uploadsessionOption) *UploadSessionMutation {
+	m := &UploadSessionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeUploadSession,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withUploadSessionID sets the ID field of the mutation.
+func withUploadSessionID(id uuid.UUID) uploadsessionOption {
+	return func(m *UploadSessionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *UploadSession
+		)
+		m.oldValue = func(ctx context.Context) (*UploadSession, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().UploadSession.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withUploadSession sets the old UploadSession of the mutation.
+func withUploadSession(node *UploadSession) uploadsessionOption {
+	return func(m *UploadSessionMutation) {
+		m.oldValue = func(context.Context) (*UploadSession, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m UploadSessionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m UploadSessionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("generated: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of UploadSession entities.
+func (m *UploadSessionMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *UploadSessionMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *UploadSessionMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().UploadSession.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAssetKey sets the "asset_key" field.
+func (m *UploadSessionMutation) SetAssetKey(s string) {
+	m.asset_key = &s
+}
+
+// AssetKey returns the value of the "asset_key" field in the mutation.
+func (m *UploadSessionMutation) AssetKey() (r string, exists bool) {
+	v := m.asset_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAssetKey returns the old "asset_key" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldAssetKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAssetKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAssetKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAssetKey: %w", err)
+	}
+	return oldValue.AssetKey, nil
+}
+
+// ResetAssetKey resets all changes to the "asset_key" field.
+func (m *UploadSessionMutation) ResetAssetKey() {
+	m.asset_key = nil
+}
+
+// SetType sets the "type" field.
+func (m *UploadSessionMutation) SetType(i int) {
+	m._type = &i
+	m.add_type = nil
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *UploadSessionMutation) GetType() (r int, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldType(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// AddType adds i to the "type" field.
+func (m *UploadSessionMutation) AddType(i int) {
+	if m.add_type != nil {
+		*m.add_type += i
+	} else {
+		m.add_type = &i
+	}
+}
+
+// AddedType returns the value that was added to the "type" field in this mutation.
+func (m *UploadSessionMutation) AddedType() (r int, exists bool) {
+	v := m.add_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *UploadSessionMutation) ResetType() {
+	m._type = nil
+	m.add_type = nil
+}
+
+// SetProtocol sets the "protocol" field.
+func (m *UploadSessionMutation) SetProtocol(i int) {
+	m.protocol = &i
+	m.addprotocol = nil
+}
+
+// Protocol returns the value of the "protocol" field in the mutation.
+func (m *UploadSessionMutation) Protocol() (r int, exists bool) {
+	v := m.protocol
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProtocol returns the old "protocol" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldProtocol(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProtocol is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProtocol requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProtocol: %w", err)
+	}
+	return oldValue.Protocol, nil
+}
+
+// AddProtocol adds i to the "protocol" field.
+func (m *UploadSessionMutation) AddProtocol(i int) {
+	if m.addprotocol != nil {
+		*m.addprotocol += i
+	} else {
+		m.addprotocol = &i
+	}
+}
+
+// AddedProtocol returns the value that was added to the "protocol" field in this mutation.
+func (m *UploadSessionMutation) AddedProtocol() (r int, exists bool) {
+	v := m.addprotocol
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProtocol resets all changes to the "protocol" field.
+func (m *UploadSessionMutation) ResetProtocol() {
+	m.protocol = nil
+	m.addprotocol = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *UploadSessionMutation) SetStatus(i int) {
+	m.status = &i
+	m.addstatus = nil
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *UploadSessionMutation) Status() (r int, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldStatus(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// AddStatus adds i to the "status" field.
+func (m *UploadSessionMutation) AddStatus(i int) {
+	if m.addstatus != nil {
+		*m.addstatus += i
+	} else {
+		m.addstatus = &i
+	}
+}
+
+// AddedStatus returns the value that was added to the "status" field in this mutation.
+func (m *UploadSessionMutation) AddedStatus() (r int, exists bool) {
+	v := m.addstatus
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *UploadSessionMutation) ResetStatus() {
+	m.status = nil
+	m.addstatus = nil
+}
+
+// SetTargetMethod sets the "target_method" field.
+func (m *UploadSessionMutation) SetTargetMethod(s string) {
+	m.target_method = &s
+}
+
+// TargetMethod returns the value of the "target_method" field in the mutation.
+func (m *UploadSessionMutation) TargetMethod() (r string, exists bool) {
+	v := m.target_method
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetMethod returns the old "target_method" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldTargetMethod(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetMethod is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetMethod requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetMethod: %w", err)
+	}
+	return oldValue.TargetMethod, nil
+}
+
+// ResetTargetMethod resets all changes to the "target_method" field.
+func (m *UploadSessionMutation) ResetTargetMethod() {
+	m.target_method = nil
+}
+
+// SetTargetURL sets the "target_url" field.
+func (m *UploadSessionMutation) SetTargetURL(s string) {
+	m.target_url = &s
+}
+
+// TargetURL returns the value of the "target_url" field in the mutation.
+func (m *UploadSessionMutation) TargetURL() (r string, exists bool) {
+	v := m.target_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetURL returns the old "target_url" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldTargetURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetURL: %w", err)
+	}
+	return oldValue.TargetURL, nil
+}
+
+// ResetTargetURL resets all changes to the "target_url" field.
+func (m *UploadSessionMutation) ResetTargetURL() {
+	m.target_url = nil
+}
+
+// SetTargetHeaders sets the "target_headers" field.
+func (m *UploadSessionMutation) SetTargetHeaders(value map[string]string) {
+	m.target_headers = &value
+}
+
+// TargetHeaders returns the value of the "target_headers" field in the mutation.
+func (m *UploadSessionMutation) TargetHeaders() (r map[string]string, exists bool) {
+	v := m.target_headers
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetHeaders returns the old "target_headers" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldTargetHeaders(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetHeaders is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetHeaders requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetHeaders: %w", err)
+	}
+	return oldValue.TargetHeaders, nil
+}
+
+// ClearTargetHeaders clears the value of the "target_headers" field.
+func (m *UploadSessionMutation) ClearTargetHeaders() {
+	m.target_headers = nil
+	m.clearedFields[uploadsession.FieldTargetHeaders] = struct{}{}
+}
+
+// TargetHeadersCleared returns if the "target_headers" field was cleared in this mutation.
+func (m *UploadSessionMutation) TargetHeadersCleared() bool {
+	_, ok := m.clearedFields[uploadsession.FieldTargetHeaders]
+	return ok
+}
+
+// ResetTargetHeaders resets all changes to the "target_headers" field.
+func (m *UploadSessionMutation) ResetTargetHeaders() {
+	m.target_headers = nil
+	delete(m.clearedFields, uploadsession.FieldTargetHeaders)
+}
+
+// SetTargetFormFields sets the "target_form_fields" field.
+func (m *UploadSessionMutation) SetTargetFormFields(value map[string]string) {
+	m.target_form_fields = &value
+}
+
+// TargetFormFields returns the value of the "target_form_fields" field in the mutation.
+func (m *UploadSessionMutation) TargetFormFields() (r map[string]string, exists bool) {
+	v := m.target_form_fields
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetFormFields returns the old "target_form_fields" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldTargetFormFields(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetFormFields is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetFormFields requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetFormFields: %w", err)
+	}
+	return oldValue.TargetFormFields, nil
+}
+
+// ClearTargetFormFields clears the value of the "target_form_fields" field.
+func (m *UploadSessionMutation) ClearTargetFormFields() {
+	m.target_form_fields = nil
+	m.clearedFields[uploadsession.FieldTargetFormFields] = struct{}{}
+}
+
+// TargetFormFieldsCleared returns if the "target_form_fields" field was cleared in this mutation.
+func (m *UploadSessionMutation) TargetFormFieldsCleared() bool {
+	_, ok := m.clearedFields[uploadsession.FieldTargetFormFields]
+	return ok
+}
+
+// ResetTargetFormFields resets all changes to the "target_form_fields" field.
+func (m *UploadSessionMutation) ResetTargetFormFields() {
+	m.target_form_fields = nil
+	delete(m.clearedFields, uploadsession.FieldTargetFormFields)
+}
+
+// SetOriginalFilename sets the "original_filename" field.
+func (m *UploadSessionMutation) SetOriginalFilename(s string) {
+	m.original_filename = &s
+}
+
+// OriginalFilename returns the value of the "original_filename" field in the mutation.
+func (m *UploadSessionMutation) OriginalFilename() (r string, exists bool) {
+	v := m.original_filename
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOriginalFilename returns the old "original_filename" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldOriginalFilename(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOriginalFilename is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOriginalFilename requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOriginalFilename: %w", err)
+	}
+	return oldValue.OriginalFilename, nil
+}
+
+// ResetOriginalFilename resets all changes to the "original_filename" field.
+func (m *UploadSessionMutation) ResetOriginalFilename() {
+	m.original_filename = nil
+}
+
+// SetMimeType sets the "mime_type" field.
+func (m *UploadSessionMutation) SetMimeType(s string) {
+	m.mime_type = &s
+}
+
+// MimeType returns the value of the "mime_type" field in the mutation.
+func (m *UploadSessionMutation) MimeType() (r string, exists bool) {
+	v := m.mime_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMimeType returns the old "mime_type" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldMimeType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMimeType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMimeType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMimeType: %w", err)
+	}
+	return oldValue.MimeType, nil
+}
+
+// ResetMimeType resets all changes to the "mime_type" field.
+func (m *UploadSessionMutation) ResetMimeType() {
+	m.mime_type = nil
+}
+
+// SetContentLength sets the "content_length" field.
+func (m *UploadSessionMutation) SetContentLength(i int64) {
+	m.content_length = &i
+	m.addcontent_length = nil
+}
+
+// ContentLength returns the value of the "content_length" field in the mutation.
+func (m *UploadSessionMutation) ContentLength() (r int64, exists bool) {
+	v := m.content_length
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentLength returns the old "content_length" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldContentLength(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentLength is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentLength requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentLength: %w", err)
+	}
+	return oldValue.ContentLength, nil
+}
+
+// AddContentLength adds i to the "content_length" field.
+func (m *UploadSessionMutation) AddContentLength(i int64) {
+	if m.addcontent_length != nil {
+		*m.addcontent_length += i
+	} else {
+		m.addcontent_length = &i
+	}
+}
+
+// AddedContentLength returns the value that was added to the "content_length" field in this mutation.
+func (m *UploadSessionMutation) AddedContentLength() (r int64, exists bool) {
+	v := m.addcontent_length
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetContentLength resets all changes to the "content_length" field.
+func (m *UploadSessionMutation) ResetContentLength() {
+	m.content_length = nil
+	m.addcontent_length = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *UploadSessionMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *UploadSessionMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *UploadSessionMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *UploadSessionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *UploadSessionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *UploadSessionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *UploadSessionMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *UploadSessionMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the UploadSession entity.
+// If the UploadSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadSessionMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *UploadSessionMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the UploadSessionMutation builder.
+func (m *UploadSessionMutation) Where(ps ...predicate.UploadSession) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the UploadSessionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *UploadSessionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.UploadSession, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *UploadSessionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *UploadSessionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (UploadSession).
+func (m *UploadSessionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *UploadSessionMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.asset_key != nil {
+		fields = append(fields, uploadsession.FieldAssetKey)
+	}
+	if m._type != nil {
+		fields = append(fields, uploadsession.FieldType)
+	}
+	if m.protocol != nil {
+		fields = append(fields, uploadsession.FieldProtocol)
+	}
+	if m.status != nil {
+		fields = append(fields, uploadsession.FieldStatus)
+	}
+	if m.target_method != nil {
+		fields = append(fields, uploadsession.FieldTargetMethod)
+	}
+	if m.target_url != nil {
+		fields = append(fields, uploadsession.FieldTargetURL)
+	}
+	if m.target_headers != nil {
+		fields = append(fields, uploadsession.FieldTargetHeaders)
+	}
+	if m.target_form_fields != nil {
+		fields = append(fields, uploadsession.FieldTargetFormFields)
+	}
+	if m.original_filename != nil {
+		fields = append(fields, uploadsession.FieldOriginalFilename)
+	}
+	if m.mime_type != nil {
+		fields = append(fields, uploadsession.FieldMimeType)
+	}
+	if m.content_length != nil {
+		fields = append(fields, uploadsession.FieldContentLength)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, uploadsession.FieldExpiresAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, uploadsession.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, uploadsession.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *UploadSessionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case uploadsession.FieldAssetKey:
+		return m.AssetKey()
+	case uploadsession.FieldType:
+		return m.GetType()
+	case uploadsession.FieldProtocol:
+		return m.Protocol()
+	case uploadsession.FieldStatus:
+		return m.Status()
+	case uploadsession.FieldTargetMethod:
+		return m.TargetMethod()
+	case uploadsession.FieldTargetURL:
+		return m.TargetURL()
+	case uploadsession.FieldTargetHeaders:
+		return m.TargetHeaders()
+	case uploadsession.FieldTargetFormFields:
+		return m.TargetFormFields()
+	case uploadsession.FieldOriginalFilename:
+		return m.OriginalFilename()
+	case uploadsession.FieldMimeType:
+		return m.MimeType()
+	case uploadsession.FieldContentLength:
+		return m.ContentLength()
+	case uploadsession.FieldExpiresAt:
+		return m.ExpiresAt()
+	case uploadsession.FieldCreatedAt:
+		return m.CreatedAt()
+	case uploadsession.FieldUpdatedAt:
 		return m.UpdatedAt()
 	}
 	return nil, false
@@ -493,65 +1942,137 @@ func (m *LessonMutation) Field(name string) (ent.Value, bool) {
 // OldField returns the old value of the field from the database. An error is
 // returned if the mutation operation is not UpdateOne, or the query to the
 // database failed.
-func (m *LessonMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+func (m *UploadSessionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
-	case lesson.FieldTitle:
-		return m.OldTitle(ctx)
-	case lesson.FieldDescription:
-		return m.OldDescription(ctx)
-	case lesson.FieldTeacher:
-		return m.OldTeacher(ctx)
-	case lesson.FieldDurationMinutes:
-		return m.OldDurationMinutes(ctx)
-	case lesson.FieldCreatedAt:
+	case uploadsession.FieldAssetKey:
+		return m.OldAssetKey(ctx)
+	case uploadsession.FieldType:
+		return m.OldType(ctx)
+	case uploadsession.FieldProtocol:
+		return m.OldProtocol(ctx)
+	case uploadsession.FieldStatus:
+		return m.OldStatus(ctx)
+	case uploadsession.FieldTargetMethod:
+		return m.OldTargetMethod(ctx)
+	case uploadsession.FieldTargetURL:
+		return m.OldTargetURL(ctx)
+	case uploadsession.FieldTargetHeaders:
+		return m.OldTargetHeaders(ctx)
+	case uploadsession.FieldTargetFormFields:
+		return m.OldTargetFormFields(ctx)
+	case uploadsession.FieldOriginalFilename:
+		return m.OldOriginalFilename(ctx)
+	case uploadsession.FieldMimeType:
+		return m.OldMimeType(ctx)
+	case uploadsession.FieldContentLength:
+		return m.OldContentLength(ctx)
+	case uploadsession.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case uploadsession.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
-	case lesson.FieldUpdatedAt:
+	case uploadsession.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
 	}
-	return nil, fmt.Errorf("unknown Lesson field %s", name)
+	return nil, fmt.Errorf("unknown UploadSession field %s", name)
 }
 
 // SetField sets the value of a field with the given name. It returns an error if
 // the field is not defined in the schema, or if the type mismatched the field
 // type.
-func (m *LessonMutation) SetField(name string, value ent.Value) error {
+func (m *UploadSessionMutation) SetField(name string, value ent.Value) error {
 	switch name {
-	case lesson.FieldTitle:
+	case uploadsession.FieldAssetKey:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetTitle(v)
+		m.SetAssetKey(v)
 		return nil
-	case lesson.FieldDescription:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetDescription(v)
-		return nil
-	case lesson.FieldTeacher:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetTeacher(v)
-		return nil
-	case lesson.FieldDurationMinutes:
+	case uploadsession.FieldType:
 		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetDurationMinutes(v)
+		m.SetType(v)
 		return nil
-	case lesson.FieldCreatedAt:
+	case uploadsession.FieldProtocol:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProtocol(v)
+		return nil
+	case uploadsession.FieldStatus:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case uploadsession.FieldTargetMethod:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetMethod(v)
+		return nil
+	case uploadsession.FieldTargetURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetURL(v)
+		return nil
+	case uploadsession.FieldTargetHeaders:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetHeaders(v)
+		return nil
+	case uploadsession.FieldTargetFormFields:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetFormFields(v)
+		return nil
+	case uploadsession.FieldOriginalFilename:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOriginalFilename(v)
+		return nil
+	case uploadsession.FieldMimeType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMimeType(v)
+		return nil
+	case uploadsession.FieldContentLength:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentLength(v)
+		return nil
+	case uploadsession.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case uploadsession.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCreatedAt(v)
 		return nil
-	case lesson.FieldUpdatedAt:
+	case uploadsession.FieldUpdatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
@@ -559,15 +2080,24 @@ func (m *LessonMutation) SetField(name string, value ent.Value) error {
 		m.SetUpdatedAt(v)
 		return nil
 	}
-	return fmt.Errorf("unknown Lesson field %s", name)
+	return fmt.Errorf("unknown UploadSession field %s", name)
 }
 
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
-func (m *LessonMutation) AddedFields() []string {
+func (m *UploadSessionMutation) AddedFields() []string {
 	var fields []string
-	if m.addduration_minutes != nil {
-		fields = append(fields, lesson.FieldDurationMinutes)
+	if m.add_type != nil {
+		fields = append(fields, uploadsession.FieldType)
+	}
+	if m.addprotocol != nil {
+		fields = append(fields, uploadsession.FieldProtocol)
+	}
+	if m.addstatus != nil {
+		fields = append(fields, uploadsession.FieldStatus)
+	}
+	if m.addcontent_length != nil {
+		fields = append(fields, uploadsession.FieldContentLength)
 	}
 	return fields
 }
@@ -575,10 +2105,16 @@ func (m *LessonMutation) AddedFields() []string {
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
-func (m *LessonMutation) AddedField(name string) (ent.Value, bool) {
+func (m *UploadSessionMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
-	case lesson.FieldDurationMinutes:
-		return m.AddedDurationMinutes()
+	case uploadsession.FieldType:
+		return m.AddedType()
+	case uploadsession.FieldProtocol:
+		return m.AddedProtocol()
+	case uploadsession.FieldStatus:
+		return m.AddedStatus()
+	case uploadsession.FieldContentLength:
+		return m.AddedContentLength()
 	}
 	return nil, false
 }
@@ -586,123 +2122,168 @@ func (m *LessonMutation) AddedField(name string) (ent.Value, bool) {
 // AddField adds the value to the field with the given name. It returns an error if
 // the field is not defined in the schema, or if the type mismatched the field
 // type.
-func (m *LessonMutation) AddField(name string, value ent.Value) error {
+func (m *UploadSessionMutation) AddField(name string, value ent.Value) error {
 	switch name {
-	case lesson.FieldDurationMinutes:
+	case uploadsession.FieldType:
 		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.AddDurationMinutes(v)
+		m.AddType(v)
+		return nil
+	case uploadsession.FieldProtocol:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProtocol(v)
+		return nil
+	case uploadsession.FieldStatus:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddStatus(v)
+		return nil
+	case uploadsession.FieldContentLength:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddContentLength(v)
 		return nil
 	}
-	return fmt.Errorf("unknown Lesson numeric field %s", name)
+	return fmt.Errorf("unknown UploadSession numeric field %s", name)
 }
 
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
-func (m *LessonMutation) ClearedFields() []string {
+func (m *UploadSessionMutation) ClearedFields() []string {
 	var fields []string
-	if m.FieldCleared(lesson.FieldDescription) {
-		fields = append(fields, lesson.FieldDescription)
+	if m.FieldCleared(uploadsession.FieldTargetHeaders) {
+		fields = append(fields, uploadsession.FieldTargetHeaders)
 	}
-	if m.FieldCleared(lesson.FieldTeacher) {
-		fields = append(fields, lesson.FieldTeacher)
+	if m.FieldCleared(uploadsession.FieldTargetFormFields) {
+		fields = append(fields, uploadsession.FieldTargetFormFields)
 	}
 	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
 // cleared in this mutation.
-func (m *LessonMutation) FieldCleared(name string) bool {
+func (m *UploadSessionMutation) FieldCleared(name string) bool {
 	_, ok := m.clearedFields[name]
 	return ok
 }
 
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
-func (m *LessonMutation) ClearField(name string) error {
+func (m *UploadSessionMutation) ClearField(name string) error {
 	switch name {
-	case lesson.FieldDescription:
-		m.ClearDescription()
+	case uploadsession.FieldTargetHeaders:
+		m.ClearTargetHeaders()
 		return nil
-	case lesson.FieldTeacher:
-		m.ClearTeacher()
+	case uploadsession.FieldTargetFormFields:
+		m.ClearTargetFormFields()
 		return nil
 	}
-	return fmt.Errorf("unknown Lesson nullable field %s", name)
+	return fmt.Errorf("unknown UploadSession nullable field %s", name)
 }
 
 // ResetField resets all changes in the mutation for the field with the given name.
 // It returns an error if the field is not defined in the schema.
-func (m *LessonMutation) ResetField(name string) error {
+func (m *UploadSessionMutation) ResetField(name string) error {
 	switch name {
-	case lesson.FieldTitle:
-		m.ResetTitle()
+	case uploadsession.FieldAssetKey:
+		m.ResetAssetKey()
 		return nil
-	case lesson.FieldDescription:
-		m.ResetDescription()
+	case uploadsession.FieldType:
+		m.ResetType()
 		return nil
-	case lesson.FieldTeacher:
-		m.ResetTeacher()
+	case uploadsession.FieldProtocol:
+		m.ResetProtocol()
 		return nil
-	case lesson.FieldDurationMinutes:
-		m.ResetDurationMinutes()
+	case uploadsession.FieldStatus:
+		m.ResetStatus()
 		return nil
-	case lesson.FieldCreatedAt:
+	case uploadsession.FieldTargetMethod:
+		m.ResetTargetMethod()
+		return nil
+	case uploadsession.FieldTargetURL:
+		m.ResetTargetURL()
+		return nil
+	case uploadsession.FieldTargetHeaders:
+		m.ResetTargetHeaders()
+		return nil
+	case uploadsession.FieldTargetFormFields:
+		m.ResetTargetFormFields()
+		return nil
+	case uploadsession.FieldOriginalFilename:
+		m.ResetOriginalFilename()
+		return nil
+	case uploadsession.FieldMimeType:
+		m.ResetMimeType()
+		return nil
+	case uploadsession.FieldContentLength:
+		m.ResetContentLength()
+		return nil
+	case uploadsession.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case uploadsession.FieldCreatedAt:
 		m.ResetCreatedAt()
 		return nil
-	case lesson.FieldUpdatedAt:
+	case uploadsession.FieldUpdatedAt:
 		m.ResetUpdatedAt()
 		return nil
 	}
-	return fmt.Errorf("unknown Lesson field %s", name)
+	return fmt.Errorf("unknown UploadSession field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
-func (m *LessonMutation) AddedEdges() []string {
+func (m *UploadSessionMutation) AddedEdges() []string {
 	edges := make([]string, 0, 0)
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
-func (m *LessonMutation) AddedIDs(name string) []ent.Value {
+func (m *UploadSessionMutation) AddedIDs(name string) []ent.Value {
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
-func (m *LessonMutation) RemovedEdges() []string {
+func (m *UploadSessionMutation) RemovedEdges() []string {
 	edges := make([]string, 0, 0)
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
-func (m *LessonMutation) RemovedIDs(name string) []ent.Value {
+func (m *UploadSessionMutation) RemovedIDs(name string) []ent.Value {
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
-func (m *LessonMutation) ClearedEdges() []string {
+func (m *UploadSessionMutation) ClearedEdges() []string {
 	edges := make([]string, 0, 0)
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
-func (m *LessonMutation) EdgeCleared(name string) bool {
+func (m *UploadSessionMutation) EdgeCleared(name string) bool {
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
-func (m *LessonMutation) ClearEdge(name string) error {
-	return fmt.Errorf("unknown Lesson unique edge %s", name)
+func (m *UploadSessionMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown UploadSession unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
-func (m *LessonMutation) ResetEdge(name string) error {
-	return fmt.Errorf("unknown Lesson edge %s", name)
+func (m *UploadSessionMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown UploadSession edge %s", name)
 }

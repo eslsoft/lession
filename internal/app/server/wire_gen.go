@@ -28,10 +28,11 @@ func InitializeServer() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	lessonRepository := db.NewLessonRepository(client)
-	lessonService := usecase.NewLessonService(lessonRepository)
-	lessonHandler := transport.NewLessonHandler(lessonService)
-	handler := NewHTTPHandler(lessonHandler)
+	assetRepository := db.NewAssetRepository(client)
+	provider := NewFakeUploadProvider()
+	assetService := usecase.NewAssetService(assetRepository, provider)
+	assetHandler := transport.NewAssetHandler(assetService)
+	handler := NewHTTPHandler(assetHandler)
 	server := NewServer(config, handler, client)
 	return server, nil
 }

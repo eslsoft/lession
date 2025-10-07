@@ -1,0 +1,231 @@
+syntax = "proto3";
+
+package lession.v1;
+
+option go_package = "github.com/eslsoft/lession/pkg/api/lession/v1;lessionv1";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// Series describes a media series with optional embedded episodes.
+message Series {
+  // id is the server-assigned identifier for the series.
+  string id = 1;
+
+  // slug is a human-readable, unique identifier used in URLs.
+  string slug = 2;
+
+  // title is the series headline shown to listeners.
+  string title = 3;
+
+  // summary provides a short synopsis of the series.
+  string summary = 4;
+
+  // language declares the primary locale of the series content (ISO 639-1).
+  string language = 5;
+
+  // level indicates the difficulty level (e.g. beginner, intermediate).
+  string level = 6;
+
+  // tags captures optional classification keywords.
+  repeated string tags = 7;
+
+  // cover_url references artwork that represents the series.
+  string cover_url = 8;
+
+  // status tracks the lifecycle stage of the series.
+  SeriesStatus status = 9;
+
+  // episode_count is a cached number of episodes in the series.
+  uint32 episode_count = 10;
+
+  // created_at records when the series was created.
+  google.protobuf.Timestamp created_at = 11;
+
+  // updated_at records when the series was last modified.
+  google.protobuf.Timestamp updated_at = 12;
+
+  // published_at records when the series was first published, if applicable.
+  google.protobuf.Timestamp published_at = 13;
+
+  // author_ids references the creators responsible for the series.
+  repeated string author_ids = 14;
+
+  // episodes optionally contains the ordered episodes of the series.
+  repeated Episode episodes = 20;
+}
+
+// Episode captures content units within a series.
+message Episode {
+  // id is the server-assigned identifier for the episode.
+  string id = 1;
+
+  // series_id is the identifier of the parent series.
+  string series_id = 2;
+
+  // seq is the display order of the episode inside the series.
+  uint32 seq = 3;
+
+  // title is the episode headline shown to listeners.
+  string title = 4;
+
+  // description provides additional context for the episode.
+  string description = 5;
+
+  // duration tracks the expected consumption time for the episode.
+  google.protobuf.Duration duration = 6;
+
+  // status tracks the lifecycle stage of the episode.
+  EpisodeStatus status = 7;
+
+  // resource describes the associated audio or video asset.
+  MediaResource resource = 8;
+
+  // transcript stores the textual version of the episode content.
+  Transcript transcript = 9;
+
+  // created_at records when the episode was created.
+  google.protobuf.Timestamp created_at = 10;
+
+  // updated_at records when the episode was last modified.
+  google.protobuf.Timestamp updated_at = 11;
+
+  // published_at records when the episode was first published, if applicable.
+  google.protobuf.Timestamp published_at = 12;
+}
+
+// MediaResource binds an uploaded asset to an episode and exposes playback metadata.
+message MediaResource {
+  // asset_id is the server-assigned identifier for the persisted asset.
+  string asset_id = 1;
+
+  // type classifies the media asset.
+  MediaType type = 2;
+
+  // playback_url is populated by the system when the public stream is ready.
+  string playback_url = 3;
+
+  // mime_type conveys the content type for the asset.
+  string mime_type = 4;
+}
+
+// Transcript represents the textual script of an episode.
+message Transcript {
+  // language declares the locale of the transcript (ISO 639-1).
+  string language = 1;
+
+  // format specifies the data shape for the transcript content.
+  TranscriptFormat format = 2;
+
+  // content stores the transcript payload, encoded per format.
+  string content = 3;
+}
+
+// SeriesDraft captures modifiable fields for creating or updating a series.
+message SeriesDraft {
+  // slug is a human-readable, unique identifier used in URLs.
+  string slug = 1;
+
+  // title is the series headline shown to listeners.
+  string title = 2;
+
+  // summary provides a short synopsis of the series.
+  string summary = 3;
+
+  // language declares the primary locale of the series content (ISO 639-1).
+  string language = 4;
+
+  // level indicates the difficulty level (e.g. beginner, intermediate).
+  string level = 5;
+
+  // tags captures optional classification keywords.
+  repeated string tags = 6;
+
+  // cover_url references artwork that represents the series.
+  string cover_url = 7;
+
+  // status tracks the lifecycle stage of the series.
+  SeriesStatus status = 8;
+
+  // author_ids references the creators responsible for the series.
+  repeated string author_ids = 9;
+
+  // episodes provides initial or replacement episodes for the series.
+  repeated EpisodeDraft episodes = 20;
+}
+
+// EpisodeDraft captures modifiable fields for creating or updating an episode.
+message EpisodeDraft {
+  // seq is the display order of the episode inside the series.
+  uint32 seq = 1;
+
+  // title is the episode headline shown to listeners.
+  string title = 2;
+
+  // description provides additional context for the episode.
+  string description = 3;
+
+  // duration tracks the expected consumption time for the episode.
+  google.protobuf.Duration duration = 4;
+
+  // status tracks the lifecycle stage of the episode.
+  EpisodeStatus status = 5;
+
+  // resource describes the associated audio or video asset. When creating, populate
+  // resource.asset_id with an existing asset; server-managed fields (playback_url, mime_type)
+  // are ignored.
+  MediaResource resource = 6;
+
+  // transcript stores the textual version of the episode content.
+  Transcript transcript = 7;
+}
+
+// SeriesStatus enumerates lifecycle stages for series.
+enum SeriesStatus {
+  // SERIES_STATUS_UNSPECIFIED is the default zero value.
+  SERIES_STATUS_UNSPECIFIED = 0;
+  // SERIES_STATUS_DRAFT indicates the series is being prepared.
+  SERIES_STATUS_DRAFT = 1;
+  // SERIES_STATUS_PUBLISHED indicates the series is live to listeners.
+  SERIES_STATUS_PUBLISHED = 2;
+  // SERIES_STATUS_ARCHIVED indicates the series is retired.
+  SERIES_STATUS_ARCHIVED = 3;
+}
+
+// EpisodeStatus enumerates lifecycle stages for episodes.
+enum EpisodeStatus {
+  // EPISODE_STATUS_UNSPECIFIED is the default zero value.
+  EPISODE_STATUS_UNSPECIFIED = 0;
+  // EPISODE_STATUS_DRAFT indicates the episode is being prepared.
+  EPISODE_STATUS_DRAFT = 1;
+  // EPISODE_STATUS_READY indicates the episode is content-complete but pending publish.
+  EPISODE_STATUS_READY = 2;
+  // EPISODE_STATUS_PUBLISHED indicates the episode is live to listeners.
+  EPISODE_STATUS_PUBLISHED = 3;
+  // EPISODE_STATUS_ARCHIVED indicates the episode is retired.
+  EPISODE_STATUS_ARCHIVED = 4;
+}
+
+// MediaType enumerates supported media asset categories.
+enum MediaType {
+  // MEDIA_TYPE_UNSPECIFIED is the default zero value.
+  MEDIA_TYPE_UNSPECIFIED = 0;
+  // MEDIA_TYPE_VIDEO represents a video asset.
+  MEDIA_TYPE_VIDEO = 1;
+  // MEDIA_TYPE_AUDIO represents an audio-only asset.
+  MEDIA_TYPE_AUDIO = 2;
+}
+
+// TranscriptFormat enumerates supported transcript formats.
+enum TranscriptFormat {
+  // TRANSCRIPT_FORMAT_UNSPECIFIED is the default zero value.
+  TRANSCRIPT_FORMAT_UNSPECIFIED = 0;
+  // TRANSCRIPT_FORMAT_PLAIN represents UTF-8 plain text.
+  TRANSCRIPT_FORMAT_PLAIN = 1;
+  // TRANSCRIPT_FORMAT_MARKDOWN represents Markdown content.
+  TRANSCRIPT_FORMAT_MARKDOWN = 2;
+  // TRANSCRIPT_FORMAT_SRT represents SubRip text.
+  TRANSCRIPT_FORMAT_SRT = 3;
+  // TRANSCRIPT_FORMAT_JSON represents JSON formatted content.
+  TRANSCRIPT_FORMAT_JSON = 4;
+}

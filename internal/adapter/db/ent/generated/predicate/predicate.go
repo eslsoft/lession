@@ -6,5 +6,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// Lesson is the predicate function for lesson builders.
-type Lesson func(*sql.Selector)
+// Asset is the predicate function for asset builders.
+type Asset func(*sql.Selector)
+
+// UploadSession is the predicate function for uploadsession builders.
+type UploadSession func(*sql.Selector)

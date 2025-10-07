@@ -5,7 +5,8 @@ package generated
 import (
 	"time"
 
-	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/lesson"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/schema"
 	"github.com/google/uuid"
 )
@@ -14,24 +15,76 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	lessonFields := schema.Lesson{}.Fields()
-	_ = lessonFields
-	// lessonDescDurationMinutes is the schema descriptor for duration_minutes field.
-	lessonDescDurationMinutes := lessonFields[4].Descriptor()
-	// lesson.DefaultDurationMinutes holds the default value on creation for the duration_minutes field.
-	lesson.DefaultDurationMinutes = lessonDescDurationMinutes.Default.(int)
-	// lessonDescCreatedAt is the schema descriptor for created_at field.
-	lessonDescCreatedAt := lessonFields[5].Descriptor()
-	// lesson.DefaultCreatedAt holds the default value on creation for the created_at field.
-	lesson.DefaultCreatedAt = lessonDescCreatedAt.Default.(func() time.Time)
-	// lessonDescUpdatedAt is the schema descriptor for updated_at field.
-	lessonDescUpdatedAt := lessonFields[6].Descriptor()
-	// lesson.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	lesson.DefaultUpdatedAt = lessonDescUpdatedAt.Default.(func() time.Time)
-	// lesson.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	lesson.UpdateDefaultUpdatedAt = lessonDescUpdatedAt.UpdateDefault.(func() time.Time)
-	// lessonDescID is the schema descriptor for id field.
-	lessonDescID := lessonFields[0].Descriptor()
-	// lesson.DefaultID holds the default value on creation for the id field.
-	lesson.DefaultID = lessonDescID.Default.(func() uuid.UUID)
+	assetFields := schema.Asset{}.Fields()
+	_ = assetFields
+	// assetDescType is the schema descriptor for type field.
+	assetDescType := assetFields[2].Descriptor()
+	// asset.DefaultType holds the default value on creation for the type field.
+	asset.DefaultType = assetDescType.Default.(int)
+	// assetDescStatus is the schema descriptor for status field.
+	assetDescStatus := assetFields[3].Descriptor()
+	// asset.DefaultStatus holds the default value on creation for the status field.
+	asset.DefaultStatus = assetDescStatus.Default.(int)
+	// assetDescFilesize is the schema descriptor for filesize field.
+	assetDescFilesize := assetFields[6].Descriptor()
+	// asset.DefaultFilesize holds the default value on creation for the filesize field.
+	asset.DefaultFilesize = assetDescFilesize.Default.(int64)
+	// assetDescDurationSeconds is the schema descriptor for duration_seconds field.
+	assetDescDurationSeconds := assetFields[7].Descriptor()
+	// asset.DefaultDurationSeconds holds the default value on creation for the duration_seconds field.
+	asset.DefaultDurationSeconds = assetDescDurationSeconds.Default.(int)
+	// assetDescCreatedAt is the schema descriptor for created_at field.
+	assetDescCreatedAt := assetFields[9].Descriptor()
+	// asset.DefaultCreatedAt holds the default value on creation for the created_at field.
+	asset.DefaultCreatedAt = assetDescCreatedAt.Default.(func() time.Time)
+	// assetDescUpdatedAt is the schema descriptor for updated_at field.
+	assetDescUpdatedAt := assetFields[10].Descriptor()
+	// asset.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	asset.DefaultUpdatedAt = assetDescUpdatedAt.Default.(func() time.Time)
+	// asset.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	asset.UpdateDefaultUpdatedAt = assetDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// assetDescID is the schema descriptor for id field.
+	assetDescID := assetFields[0].Descriptor()
+	// asset.DefaultID holds the default value on creation for the id field.
+	asset.DefaultID = assetDescID.Default.(func() uuid.UUID)
+	uploadsessionFields := schema.UploadSession{}.Fields()
+	_ = uploadsessionFields
+	// uploadsessionDescType is the schema descriptor for type field.
+	uploadsessionDescType := uploadsessionFields[2].Descriptor()
+	// uploadsession.DefaultType holds the default value on creation for the type field.
+	uploadsession.DefaultType = uploadsessionDescType.Default.(int)
+	// uploadsessionDescProtocol is the schema descriptor for protocol field.
+	uploadsessionDescProtocol := uploadsessionFields[3].Descriptor()
+	// uploadsession.DefaultProtocol holds the default value on creation for the protocol field.
+	uploadsession.DefaultProtocol = uploadsessionDescProtocol.Default.(int)
+	// uploadsessionDescStatus is the schema descriptor for status field.
+	uploadsessionDescStatus := uploadsessionFields[4].Descriptor()
+	// uploadsession.DefaultStatus holds the default value on creation for the status field.
+	uploadsession.DefaultStatus = uploadsessionDescStatus.Default.(int)
+	// uploadsessionDescTargetHeaders is the schema descriptor for target_headers field.
+	uploadsessionDescTargetHeaders := uploadsessionFields[7].Descriptor()
+	// uploadsession.DefaultTargetHeaders holds the default value on creation for the target_headers field.
+	uploadsession.DefaultTargetHeaders = uploadsessionDescTargetHeaders.Default.(func() map[string]string)
+	// uploadsessionDescTargetFormFields is the schema descriptor for target_form_fields field.
+	uploadsessionDescTargetFormFields := uploadsessionFields[8].Descriptor()
+	// uploadsession.DefaultTargetFormFields holds the default value on creation for the target_form_fields field.
+	uploadsession.DefaultTargetFormFields = uploadsessionDescTargetFormFields.Default.(func() map[string]string)
+	// uploadsessionDescContentLength is the schema descriptor for content_length field.
+	uploadsessionDescContentLength := uploadsessionFields[11].Descriptor()
+	// uploadsession.DefaultContentLength holds the default value on creation for the content_length field.
+	uploadsession.DefaultContentLength = uploadsessionDescContentLength.Default.(int64)
+	// uploadsessionDescCreatedAt is the schema descriptor for created_at field.
+	uploadsessionDescCreatedAt := uploadsessionFields[13].Descriptor()
+	// uploadsession.DefaultCreatedAt holds the default value on creation for the created_at field.
+	uploadsession.DefaultCreatedAt = uploadsessionDescCreatedAt.Default.(func() time.Time)
+	// uploadsessionDescUpdatedAt is the schema descriptor for updated_at field.
+	uploadsessionDescUpdatedAt := uploadsessionFields[14].Descriptor()
+	// uploadsession.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	uploadsession.DefaultUpdatedAt = uploadsessionDescUpdatedAt.Default.(func() time.Time)
+	// uploadsession.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	uploadsession.UpdateDefaultUpdatedAt = uploadsessionDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// uploadsessionDescID is the schema descriptor for id field.
+	uploadsessionDescID := uploadsessionFields[0].Descriptor()
+	// uploadsession.DefaultID holds the default value on creation for the id field.
+	uploadsession.DefaultID = uploadsessionDescID.Default.(func() uuid.UUID)
 }

@@ -11,69 +11,69 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/lesson"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/predicate"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 	"github.com/google/uuid"
 )
 
-// LessonQuery is the builder for querying Lesson entities.
-type LessonQuery struct {
+// UploadSessionQuery is the builder for querying UploadSession entities.
+type UploadSessionQuery struct {
 	config
 	ctx        *QueryContext
-	order      []lesson.OrderOption
+	order      []uploadsession.OrderOption
 	inters     []Interceptor
-	predicates []predicate.Lesson
+	predicates []predicate.UploadSession
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the LessonQuery builder.
-func (_q *LessonQuery) Where(ps ...predicate.Lesson) *LessonQuery {
+// Where adds a new predicate for the UploadSessionQuery builder.
+func (_q *UploadSessionQuery) Where(ps ...predicate.UploadSession) *UploadSessionQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *LessonQuery) Limit(limit int) *LessonQuery {
+func (_q *UploadSessionQuery) Limit(limit int) *UploadSessionQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *LessonQuery) Offset(offset int) *LessonQuery {
+func (_q *UploadSessionQuery) Offset(offset int) *UploadSessionQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *LessonQuery) Unique(unique bool) *LessonQuery {
+func (_q *UploadSessionQuery) Unique(unique bool) *UploadSessionQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *LessonQuery) Order(o ...lesson.OrderOption) *LessonQuery {
+func (_q *UploadSessionQuery) Order(o ...uploadsession.OrderOption) *UploadSessionQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
-// First returns the first Lesson entity from the query.
-// Returns a *NotFoundError when no Lesson was found.
-func (_q *LessonQuery) First(ctx context.Context) (*Lesson, error) {
+// First returns the first UploadSession entity from the query.
+// Returns a *NotFoundError when no UploadSession was found.
+func (_q *UploadSessionQuery) First(ctx context.Context) (*UploadSession, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{lesson.Label}
+		return nil, &NotFoundError{uploadsession.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *LessonQuery) FirstX(ctx context.Context) *Lesson {
+func (_q *UploadSessionQuery) FirstX(ctx context.Context) *UploadSession {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -81,22 +81,22 @@ func (_q *LessonQuery) FirstX(ctx context.Context) *Lesson {
 	return node
 }
 
-// FirstID returns the first Lesson ID from the query.
-// Returns a *NotFoundError when no Lesson ID was found.
-func (_q *LessonQuery) FirstID(ctx context.Context) (id uuid.UUID, err error) {
+// FirstID returns the first UploadSession ID from the query.
+// Returns a *NotFoundError when no UploadSession ID was found.
+func (_q *UploadSessionQuery) FirstID(ctx context.Context) (id uuid.UUID, err error) {
 	var ids []uuid.UUID
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{lesson.Label}
+		err = &NotFoundError{uploadsession.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *LessonQuery) FirstIDX(ctx context.Context) uuid.UUID {
+func (_q *UploadSessionQuery) FirstIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -104,10 +104,10 @@ func (_q *LessonQuery) FirstIDX(ctx context.Context) uuid.UUID {
 	return id
 }
 
-// Only returns a single Lesson entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one Lesson entity is found.
-// Returns a *NotFoundError when no Lesson entities are found.
-func (_q *LessonQuery) Only(ctx context.Context) (*Lesson, error) {
+// Only returns a single UploadSession entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one UploadSession entity is found.
+// Returns a *NotFoundError when no UploadSession entities are found.
+func (_q *UploadSessionQuery) Only(ctx context.Context) (*UploadSession, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -116,14 +116,14 @@ func (_q *LessonQuery) Only(ctx context.Context) (*Lesson, error) {
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{lesson.Label}
+		return nil, &NotFoundError{uploadsession.Label}
 	default:
-		return nil, &NotSingularError{lesson.Label}
+		return nil, &NotSingularError{uploadsession.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *LessonQuery) OnlyX(ctx context.Context) *Lesson {
+func (_q *UploadSessionQuery) OnlyX(ctx context.Context) *UploadSession {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -131,10 +131,10 @@ func (_q *LessonQuery) OnlyX(ctx context.Context) *Lesson {
 	return node
 }
 
-// OnlyID is like Only, but returns the only Lesson ID in the query.
-// Returns a *NotSingularError when more than one Lesson ID is found.
+// OnlyID is like Only, but returns the only UploadSession ID in the query.
+// Returns a *NotSingularError when more than one UploadSession ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *LessonQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
+func (_q *UploadSessionQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
 	var ids []uuid.UUID
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -143,15 +143,15 @@ func (_q *LessonQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{lesson.Label}
+		err = &NotFoundError{uploadsession.Label}
 	default:
-		err = &NotSingularError{lesson.Label}
+		err = &NotSingularError{uploadsession.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *LessonQuery) OnlyIDX(ctx context.Context) uuid.UUID {
+func (_q *UploadSessionQuery) OnlyIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -159,18 +159,18 @@ func (_q *LessonQuery) OnlyIDX(ctx context.Context) uuid.UUID {
 	return id
 }
 
-// All executes the query and returns a list of Lessons.
-func (_q *LessonQuery) All(ctx context.Context) ([]*Lesson, error) {
+// All executes the query and returns a list of UploadSessions.
+func (_q *UploadSessionQuery) All(ctx context.Context) ([]*UploadSession, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*Lesson, *LessonQuery]()
-	return withInterceptors[[]*Lesson](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*UploadSession, *UploadSessionQuery]()
+	return withInterceptors[[]*UploadSession](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *LessonQuery) AllX(ctx context.Context) []*Lesson {
+func (_q *UploadSessionQuery) AllX(ctx context.Context) []*UploadSession {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -178,20 +178,20 @@ func (_q *LessonQuery) AllX(ctx context.Context) []*Lesson {
 	return nodes
 }
 
-// IDs executes the query and returns a list of Lesson IDs.
-func (_q *LessonQuery) IDs(ctx context.Context) (ids []uuid.UUID, err error) {
+// IDs executes the query and returns a list of UploadSession IDs.
+func (_q *UploadSessionQuery) IDs(ctx context.Context) (ids []uuid.UUID, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(lesson.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(uploadsession.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *LessonQuery) IDsX(ctx context.Context) []uuid.UUID {
+func (_q *UploadSessionQuery) IDsX(ctx context.Context) []uuid.UUID {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -200,16 +200,16 @@ func (_q *LessonQuery) IDsX(ctx context.Context) []uuid.UUID {
 }
 
 // Count returns the count of the given query.
-func (_q *LessonQuery) Count(ctx context.Context) (int, error) {
+func (_q *UploadSessionQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*LessonQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*UploadSessionQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *LessonQuery) CountX(ctx context.Context) int {
+func (_q *UploadSessionQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -218,7 +218,7 @@ func (_q *LessonQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *LessonQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *UploadSessionQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -231,7 +231,7 @@ func (_q *LessonQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *LessonQuery) ExistX(ctx context.Context) bool {
+func (_q *UploadSessionQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -239,18 +239,18 @@ func (_q *LessonQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the LessonQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the UploadSessionQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *LessonQuery) Clone() *LessonQuery {
+func (_q *UploadSessionQuery) Clone() *UploadSessionQuery {
 	if _q == nil {
 		return nil
 	}
-	return &LessonQuery{
+	return &UploadSessionQuery{
 		config:     _q.config,
 		ctx:        _q.ctx.Clone(),
-		order:      append([]lesson.OrderOption{}, _q.order...),
+		order:      append([]uploadsession.OrderOption{}, _q.order...),
 		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Lesson{}, _q.predicates...),
+		predicates: append([]predicate.UploadSession{}, _q.predicates...),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -263,19 +263,19 @@ func (_q *LessonQuery) Clone() *LessonQuery {
 // Example:
 //
 //	var v []struct {
-//		Title string `json:"title,omitempty"`
+//		AssetKey string `json:"asset_key,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.Lesson.Query().
-//		GroupBy(lesson.FieldTitle).
+//	client.UploadSession.Query().
+//		GroupBy(uploadsession.FieldAssetKey).
 //		Aggregate(generated.Count()).
 //		Scan(ctx, &v)
-func (_q *LessonQuery) GroupBy(field string, fields ...string) *LessonGroupBy {
+func (_q *UploadSessionQuery) GroupBy(field string, fields ...string) *UploadSessionGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &LessonGroupBy{build: _q}
+	grbuild := &UploadSessionGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = lesson.Label
+	grbuild.label = uploadsession.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -286,26 +286,26 @@ func (_q *LessonQuery) GroupBy(field string, fields ...string) *LessonGroupBy {
 // Example:
 //
 //	var v []struct {
-//		Title string `json:"title,omitempty"`
+//		AssetKey string `json:"asset_key,omitempty"`
 //	}
 //
-//	client.Lesson.Query().
-//		Select(lesson.FieldTitle).
+//	client.UploadSession.Query().
+//		Select(uploadsession.FieldAssetKey).
 //		Scan(ctx, &v)
-func (_q *LessonQuery) Select(fields ...string) *LessonSelect {
+func (_q *UploadSessionQuery) Select(fields ...string) *UploadSessionSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &LessonSelect{LessonQuery: _q}
-	sbuild.label = lesson.Label
+	sbuild := &UploadSessionSelect{UploadSessionQuery: _q}
+	sbuild.label = uploadsession.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a LessonSelect configured with the given aggregations.
-func (_q *LessonQuery) Aggregate(fns ...AggregateFunc) *LessonSelect {
+// Aggregate returns a UploadSessionSelect configured with the given aggregations.
+func (_q *UploadSessionQuery) Aggregate(fns ...AggregateFunc) *UploadSessionSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *LessonQuery) prepareQuery(ctx context.Context) error {
+func (_q *UploadSessionQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("generated: uninitialized interceptor (forgotten import generated/runtime?)")
@@ -317,7 +317,7 @@ func (_q *LessonQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !lesson.ValidColumn(f) {
+		if !uploadsession.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("generated: invalid field %q for query", f)}
 		}
 	}
@@ -331,16 +331,16 @@ func (_q *LessonQuery) prepareQuery(ctx context.Context) error {
 	return nil
 }
 
-func (_q *LessonQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Lesson, error) {
+func (_q *UploadSessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*UploadSession, error) {
 	var (
-		nodes = []*Lesson{}
+		nodes = []*UploadSession{}
 		_spec = _q.querySpec()
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*Lesson).scanValues(nil, columns)
+		return (*UploadSession).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &Lesson{config: _q.config}
+		node := &UploadSession{config: _q.config}
 		nodes = append(nodes, node)
 		return node.assignValues(columns, values)
 	}
@@ -356,7 +356,7 @@ func (_q *LessonQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Lesso
 	return nodes, nil
 }
 
-func (_q *LessonQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *UploadSessionQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	_spec.Node.Columns = _q.ctx.Fields
 	if len(_q.ctx.Fields) > 0 {
@@ -365,8 +365,8 @@ func (_q *LessonQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *LessonQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(lesson.Table, lesson.Columns, sqlgraph.NewFieldSpec(lesson.FieldID, field.TypeUUID))
+func (_q *UploadSessionQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(uploadsession.Table, uploadsession.Columns, sqlgraph.NewFieldSpec(uploadsession.FieldID, field.TypeUUID))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -375,9 +375,9 @@ func (_q *LessonQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, lesson.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, uploadsession.FieldID)
 		for i := range fields {
-			if fields[i] != lesson.FieldID {
+			if fields[i] != uploadsession.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
@@ -405,12 +405,12 @@ func (_q *LessonQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *LessonQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *UploadSessionQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(lesson.Table)
+	t1 := builder.Table(uploadsession.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = lesson.Columns
+		columns = uploadsession.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -437,28 +437,28 @@ func (_q *LessonQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	return selector
 }
 
-// LessonGroupBy is the group-by builder for Lesson entities.
-type LessonGroupBy struct {
+// UploadSessionGroupBy is the group-by builder for UploadSession entities.
+type UploadSessionGroupBy struct {
 	selector
-	build *LessonQuery
+	build *UploadSessionQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *LessonGroupBy) Aggregate(fns ...AggregateFunc) *LessonGroupBy {
+func (_g *UploadSessionGroupBy) Aggregate(fns ...AggregateFunc) *UploadSessionGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *LessonGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *UploadSessionGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*LessonQuery, *LessonGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*UploadSessionQuery, *UploadSessionGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *LessonGroupBy) sqlScan(ctx context.Context, root *LessonQuery, v any) error {
+func (_g *UploadSessionGroupBy) sqlScan(ctx context.Context, root *UploadSessionQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -485,28 +485,28 @@ func (_g *LessonGroupBy) sqlScan(ctx context.Context, root *LessonQuery, v any) 
 	return sql.ScanSlice(rows, v)
 }
 
-// LessonSelect is the builder for selecting fields of Lesson entities.
-type LessonSelect struct {
-	*LessonQuery
+// UploadSessionSelect is the builder for selecting fields of UploadSession entities.
+type UploadSessionSelect struct {
+	*UploadSessionQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *LessonSelect) Aggregate(fns ...AggregateFunc) *LessonSelect {
+func (_s *UploadSessionSelect) Aggregate(fns ...AggregateFunc) *UploadSessionSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *LessonSelect) Scan(ctx context.Context, v any) error {
+func (_s *UploadSessionSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*LessonQuery, *LessonSelect](ctx, _s.LessonQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*UploadSessionQuery, *UploadSessionSelect](ctx, _s.UploadSessionQuery, _s, _s.inters, v)
 }
 
-func (_s *LessonSelect) sqlScan(ctx context.Context, root *LessonQuery, v any) error {
+func (_s *UploadSessionSelect) sqlScan(ctx context.Context, root *UploadSessionQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

@@ -1,0 +1,266 @@
+syntax = "proto3";
+
+package lession.v1;
+
+option go_package = "github.com/eslsoft/lession/pkg/api/lession/v1;lessionv1";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "lession/v1/series.proto";
+
+// Asset represents a managed media object stored by the platform.
+message Asset {
+  // id is the server-assigned identifier for the asset.
+  string id = 1;
+
+  // asset_key links the asset to uploaded object storage content.
+  string asset_key = 2;
+
+  // type classifies the asset content.
+  MediaType type = 3;
+
+  // status tracks the lifecycle stage of the asset.
+  AssetStatus status = 4;
+
+  // original_filename captures the client-supplied file name.
+  string original_filename = 5;
+
+  // mime_type conveys the content type for the source asset.
+  string mime_type = 6;
+
+  // filesize stores the size of the source asset in bytes.
+  int64 filesize = 7;
+
+  // duration stores the detected media duration, if applicable.
+  google.protobuf.Duration duration = 8;
+
+  // playback_url provides the public stream, populated when the asset is ready.
+  string playback_url = 9;
+
+  // created_at records when the asset was created.
+  google.protobuf.Timestamp created_at = 10;
+
+  // updated_at records when the asset was last modified.
+  google.protobuf.Timestamp updated_at = 11;
+
+  // ready_at records when the asset became available for playback.
+  google.protobuf.Timestamp ready_at = 12;
+}
+
+// UploadSession orchestrates client-side uploads into managed storage.
+message UploadSession {
+  // id is the server-assigned identifier for the upload session.
+  string id = 1;
+
+  // asset_key links the upload session to the future asset record.
+  string asset_key = 2;
+
+  // type classifies the asset to be uploaded.
+  MediaType type = 3;
+
+  // protocol indicates the upload mechanism to use.
+  UploadProtocol protocol = 4;
+
+  // status tracks the lifecycle stage of the upload.
+  UploadStatus status = 5;
+
+  // target contains details needed for clients to perform the upload.
+  UploadTarget target = 6;
+
+  // original_filename captures the client-supplied file name.
+  string original_filename = 7;
+
+  // mime_type conveys the expected content type for the upload.
+  string mime_type = 8;
+
+  // content_length stores the expected size of the upload in bytes.
+  int64 content_length = 9;
+
+  // expires_at records when the upload session is no longer valid.
+  google.protobuf.Timestamp expires_at = 10;
+
+  // created_at records when the upload session was created.
+  google.protobuf.Timestamp created_at = 11;
+
+  // updated_at records when the upload session was last modified.
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+// UploadTarget provides instructions for executing an upload.
+message UploadTarget {
+  // method is the HTTP method that should be used (e.g. PUT, POST).
+  string method = 1;
+
+  // url locates the upload endpoint.
+  string url = 2;
+
+  // headers lists HTTP headers to include when uploading.
+  map<string, string> headers = 3;
+
+  // form_fields lists form values required for POST-based uploads.
+  map<string, string> form_fields = 4;
+}
+
+// CreateUploadRequest establishes a new upload session.
+message CreateUploadRequest {
+  // type classifies the asset to be uploaded.
+  MediaType type = 1;
+
+  // original_filename captures the client-supplied file name.
+  string original_filename = 2;
+
+  // mime_type conveys the expected content type for the upload.
+  string mime_type = 3;
+
+  // content_length stores the expected size of the upload in bytes.
+  int64 content_length = 4;
+}
+
+// CreateUploadResponse returns an upload session with instructions.
+message CreateUploadResponse {
+  // upload contains details required to perform the upload.
+  UploadSession upload = 1;
+}
+
+// GetUploadRequest retrieves details about an upload session.
+message GetUploadRequest {
+  oneof identifier {
+    // upload_id directly references the upload session.
+    string upload_id = 1;
+    // asset_key references the upload session via its asset key.
+    string asset_key = 2;
+  }
+}
+
+// GetUploadResponse returns an upload session.
+message GetUploadResponse {
+  // upload contains the requested session.
+  UploadSession upload = 1;
+}
+
+// CompleteUploadRequest finalizes an upload session after client upload succeeds.
+message CompleteUploadRequest {
+  oneof identifier {
+    // upload_id directly references the upload session.
+    string upload_id = 1;
+    // asset_key references the upload session via its asset key.
+    string asset_key = 2;
+  }
+
+  // checksum provides the computed hash of the uploaded content for validation.
+  string checksum = 3;
+
+  // content_length stores the actual size of the uploaded content in bytes.
+  int64 content_length = 4;
+}
+
+// CompleteUploadResponse returns the finalized asset and upload session.
+message CompleteUploadResponse {
+  // asset is the managed asset record created from the upload.
+  Asset asset = 1;
+
+  // upload contains the completed upload session.
+  UploadSession upload = 2;
+}
+
+// GetAssetRequest retrieves details about a managed asset.
+message GetAssetRequest {
+  oneof identifier {
+    // asset_id directly references the asset.
+    string asset_id = 1;
+    // asset_key references the asset via its storage key.
+    string asset_key = 2;
+  }
+}
+
+// GetAssetResponse returns a managed asset.
+message GetAssetResponse {
+  // asset contains the requested record.
+  Asset asset = 1;
+}
+
+// ListAssetsRequest requests a filtered page of assets.
+message ListAssetsRequest {
+  // page_size limits the number of returned assets.
+  uint32 page_size = 1;
+
+  // page_token continues a prior ListAssets response.
+  string page_token = 2;
+
+  // statuses filters assets by lifecycle state.
+  repeated AssetStatus statuses = 3;
+
+  // types filters assets by media type.
+  repeated MediaType types = 4;
+
+  // asset_keys filters assets matching any of the supplied storage keys.
+  repeated string asset_keys = 5;
+}
+
+// ListAssetsResponse returns a page of assets.
+message ListAssetsResponse {
+  // assets contains the requested page of asset resources.
+  repeated Asset assets = 1;
+
+  // next_page_token is supplied when more data is available.
+  string next_page_token = 2;
+}
+
+// DeleteAssetRequest archives or deletes an asset.
+message DeleteAssetRequest {
+  // asset_id references the target asset.
+  string asset_id = 1;
+
+  // hard_delete requests permanent deletion instead of archival.
+  bool hard_delete = 2;
+}
+
+// DeleteAssetResponse returns the asset state after deletion.
+message DeleteAssetResponse {
+  // asset is the asset after deletion or archival.
+  Asset asset = 1;
+}
+
+// AssetStatus enumerates lifecycle stages for assets.
+enum AssetStatus {
+  // ASSET_STATUS_UNSPECIFIED is the default zero value.
+  ASSET_STATUS_UNSPECIFIED = 0;
+  // ASSET_STATUS_PENDING indicates the asset is awaiting upload completion.
+  ASSET_STATUS_PENDING = 1;
+  // ASSET_STATUS_PROCESSING indicates the asset is undergoing server-side processing.
+  ASSET_STATUS_PROCESSING = 2;
+  // ASSET_STATUS_READY indicates the asset is ready for playback.
+  ASSET_STATUS_READY = 3;
+  // ASSET_STATUS_FAILED indicates processing failed.
+  ASSET_STATUS_FAILED = 4;
+  // ASSET_STATUS_DELETED indicates the asset has been removed.
+  ASSET_STATUS_DELETED = 5;
+}
+
+// UploadStatus enumerates lifecycle stages for upload sessions.
+enum UploadStatus {
+  // UPLOAD_STATUS_UNSPECIFIED is the default zero value.
+  UPLOAD_STATUS_UNSPECIFIED = 0;
+  // UPLOAD_STATUS_AWAITING_UPLOAD indicates the session is ready for client upload.
+  UPLOAD_STATUS_AWAITING_UPLOAD = 1;
+  // UPLOAD_STATUS_UPLOADING indicates the client upload is currently in progress.
+  UPLOAD_STATUS_UPLOADING = 2;
+  // UPLOAD_STATUS_COMPLETED indicates the upload finished successfully.
+  UPLOAD_STATUS_COMPLETED = 3;
+  // UPLOAD_STATUS_EXPIRED indicates the session expired before completion.
+  UPLOAD_STATUS_EXPIRED = 4;
+  // UPLOAD_STATUS_FAILED indicates the upload failed and cannot be resumed.
+  UPLOAD_STATUS_FAILED = 5;
+}
+
+// UploadProtocol enumerates supported client upload patterns.
+enum UploadProtocol {
+  // UPLOAD_PROTOCOL_UNSPECIFIED is the default zero value.
+  UPLOAD_PROTOCOL_UNSPECIFIED = 0;
+  // UPLOAD_PROTOCOL_PRESIGNED_PUT indicates a single PUT request to a pre-signed URL.
+  UPLOAD_PROTOCOL_PRESIGNED_PUT = 1;
+  // UPLOAD_PROTOCOL_PRESIGNED_POST indicates an HTML form POST to a pre-signed URL.
+  UPLOAD_PROTOCOL_PRESIGNED_POST = 2;
+  // UPLOAD_PROTOCOL_MULTIPART indicates a multipart upload flow.
+  UPLOAD_PROTOCOL_MULTIPART = 3;
+}

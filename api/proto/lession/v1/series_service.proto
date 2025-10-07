@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package lession.v1;
+
+option go_package = "github.com/eslsoft/lession/pkg/api/lession/v1;lessionv1";
+
+import "google/protobuf/field_mask.proto";
+import "lession/v1/series.proto";
+
+// SeriesService provides operations for managing series and their episodes.
+service SeriesService {
+  // ListSeries returns a filtered, paginated collection of series.
+  rpc ListSeries(ListSeriesRequest) returns (ListSeriesResponse);
+
+  // CreateSeries creates a series and optional initial episodes.
+  rpc CreateSeries(CreateSeriesRequest) returns (CreateSeriesResponse);
+
+  // GetSeries returns details for a single series.
+  rpc GetSeries(GetSeriesRequest) returns (GetSeriesResponse);
+
+  // UpdateSeries applies partial updates to a series.
+  rpc UpdateSeries(UpdateSeriesRequest) returns (UpdateSeriesResponse);
+
+  // CreateEpisode adds a new episode to an existing series.
+  rpc CreateEpisode(CreateEpisodeRequest) returns (CreateEpisodeResponse);
+
+  // GetEpisode returns details for a single episode.
+  rpc GetEpisode(GetEpisodeRequest) returns (GetEpisodeResponse);
+
+  // UpdateEpisode applies partial updates to an episode.
+  rpc UpdateEpisode(UpdateEpisodeRequest) returns (UpdateEpisodeResponse);
+
+  // DeleteEpisode performs a soft delete of an episode.
+  rpc DeleteEpisode(DeleteEpisodeRequest) returns (DeleteEpisodeResponse);
+}
+
+// ListSeriesRequest carries filters for listing series.
+message ListSeriesRequest {
+  // page_size limits the number of returned series.
+  uint32 page_size = 1;
+
+  // page_token continues a prior ListSeries response.
+  string page_token = 2;
+
+  // statuses filters series by lifecycle state.
+  repeated SeriesStatus statuses = 3;
+
+  // language filters series by primary locale.
+  string language = 4;
+
+  // level filters series by difficulty level.
+  string level = 5;
+
+  // tags filters series that contain any of the supplied tags.
+  repeated string tags = 6;
+
+  // query performs a fuzzy match against titles and summaries.
+  string query = 7;
+
+  // include_episodes requests that episode details are embedded in the response.
+  bool include_episodes = 8;
+
+  // author_ids filters series that reference any of the supplied authors.
+  repeated string author_ids = 9;
+}
+
+// ListSeriesResponse returns a page of series.
+message ListSeriesResponse {
+  // series contains the requested page of series resources.
+  repeated Series series = 1;
+
+  // next_page_token is supplied when more data is available.
+  string next_page_token = 2;
+}
+
+// CreateSeriesRequest supplies attributes for a new series.
+message CreateSeriesRequest {
+  // series contains the desired attributes for the new series.
+  SeriesDraft series = 1;
+}
+
+// CreateSeriesResponse returns the newly created series.
+message CreateSeriesResponse {
+  // series is the persisted series with server-populated fields.
+  Series series = 1;
+}
+
+// GetSeriesRequest identifies the series to retrieve.
+message GetSeriesRequest {
+  // series_id references the target series.
+  string series_id = 1;
+
+  // include_episodes requests that episode details are embedded in the response.
+  bool include_episodes = 2;
+
+  // include_metadata requests that metadata is included when stored as a large payload.
+  bool include_metadata = 3;
+}
+
+// GetSeriesResponse returns a single series resource.
+message GetSeriesResponse {
+  // series is the requested resource.
+  Series series = 1;
+}
+
+// UpdateSeriesRequest applies a partial update to a series.
+message UpdateSeriesRequest {
+  // series_id references the target series.
+  string series_id = 1;
+
+  // series contains the fields to update.
+  SeriesDraft series = 2;
+
+  // update_mask indicates which fields in series should be applied.
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+// UpdateSeriesResponse returns the updated series resource.
+message UpdateSeriesResponse {
+  // series is the persisted series after the update.
+  Series series = 1;
+}
+
+// CreateEpisodeRequest supplies attributes for a new episode.
+message CreateEpisodeRequest {
+  // series_id references the parent series.
+  string series_id = 1;
+
+  // episode contains the desired attributes for the new episode.
+  EpisodeDraft episode = 2;
+}
+
+// CreateEpisodeResponse returns the newly created episode.
+message CreateEpisodeResponse {
+  // episode is the persisted episode with server-populated fields.
+  Episode episode = 1;
+}
+
+// GetEpisodeRequest identifies the episode to retrieve.
+message GetEpisodeRequest {
+  // episode_id references the target episode.
+  string episode_id = 1;
+}
+
+// GetEpisodeResponse returns a single episode resource.
+message GetEpisodeResponse {
+  // episode is the requested resource.
+  Episode episode = 1;
+}
+
+// UpdateEpisodeRequest applies a partial update to an episode.
+message UpdateEpisodeRequest {
+  // episode_id references the target episode.
+  string episode_id = 1;
+
+  // episode contains the fields to update.
+  EpisodeDraft episode = 2;
+
+  // update_mask indicates which fields in episode should be applied.
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+// UpdateEpisodeResponse returns the updated episode resource.
+message UpdateEpisodeResponse {
+  // episode is the persisted episode after the update.
+  Episode episode = 1;
+}
+
+// DeleteEpisodeRequest performs a soft delete on an episode.
+message DeleteEpisodeRequest {
+  // episode_id references the target episode.
+  string episode_id = 1;
+}
+
+// DeleteEpisodeResponse returns the archived episode.
+message DeleteEpisodeResponse {
+  // episode is the episode after it has been marked as deleted.
+  Episode episode = 1;
+}

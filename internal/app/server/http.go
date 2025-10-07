@@ -1,20 +1,25 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 
+	"connectrpc.com/connect"
+
 	"github.com/eslsoft/lession/internal/adapter/transport"
-	"github.com/eslsoft/lession/pkg/api/lesson/v1/lessonv1connect"
+	lessionv1connect "github.com/eslsoft/lession/pkg/api/lession/v1/lessionv1connect"
 )
 
 // NewHTTPHandler wires the Connect handlers into a ServeMux ready for serving.
-func NewHTTPHandler(handler *transport.LessonHandler) http.Handler {
+func NewHTTPHandler(
+	assetHandler *transport.AssetHandler,
+) http.Handler {
 	mux := http.NewServeMux()
 
-	path, svc := lessonv1connect.NewLessonServiceHandler(handler)
-	fmt.Println(path)
-	mux.Handle(path, svc)
+	assetPath, assetSvc := lessionv1connect.NewAssetServiceHandler(
+		assetHandler,
+		connect.WithInterceptors(transport.NewErrorInterceptor()),
+	)
+	mux.Handle(assetPath, assetSvc)
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -8,25 +8,55 @@ import (
 )
 
 var (
-	// LessonsColumns holds the columns for the "lessons" table.
-	LessonsColumns = []*schema.Column{
+	// AssetsColumns holds the columns for the "assets" table.
+	AssetsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "title", Type: field.TypeString},
-		{Name: "description", Type: field.TypeString, Nullable: true},
-		{Name: "teacher", Type: field.TypeString, Nullable: true},
-		{Name: "duration_minutes", Type: field.TypeInt, Default: 0},
+		{Name: "asset_key", Type: field.TypeString, Unique: true},
+		{Name: "type", Type: field.TypeInt, Default: 0},
+		{Name: "status", Type: field.TypeInt, Default: 0},
+		{Name: "original_filename", Type: field.TypeString},
+		{Name: "mime_type", Type: field.TypeString},
+		{Name: "filesize", Type: field.TypeInt64, Default: 0},
+		{Name: "duration_seconds", Type: field.TypeInt, Default: 0},
+		{Name: "playback_url", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "ready_at", Type: field.TypeTime, Nullable: true},
+	}
+	// AssetsTable holds the schema information for the "assets" table.
+	AssetsTable = &schema.Table{
+		Name:       "assets",
+		Columns:    AssetsColumns,
+		PrimaryKey: []*schema.Column{AssetsColumns[0]},
+	}
+	// UploadSessionsColumns holds the columns for the "upload_sessions" table.
+	UploadSessionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "asset_key", Type: field.TypeString, Unique: true},
+		{Name: "type", Type: field.TypeInt, Default: 0},
+		{Name: "protocol", Type: field.TypeInt, Default: 0},
+		{Name: "status", Type: field.TypeInt, Default: 0},
+		{Name: "target_method", Type: field.TypeString},
+		{Name: "target_url", Type: field.TypeString},
+		{Name: "target_headers", Type: field.TypeJSON, Nullable: true},
+		{Name: "target_form_fields", Type: field.TypeJSON, Nullable: true},
+		{Name: "original_filename", Type: field.TypeString},
+		{Name: "mime_type", Type: field.TypeString},
+		{Name: "content_length", Type: field.TypeInt64, Default: 0},
+		{Name: "expires_at", Type: field.TypeTime},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 	}
-	// LessonsTable holds the schema information for the "lessons" table.
-	LessonsTable = &schema.Table{
-		Name:       "lessons",
-		Columns:    LessonsColumns,
-		PrimaryKey: []*schema.Column{LessonsColumns[0]},
+	// UploadSessionsTable holds the schema information for the "upload_sessions" table.
+	UploadSessionsTable = &schema.Table{
+		Name:       "upload_sessions",
+		Columns:    UploadSessionsColumns,
+		PrimaryKey: []*schema.Column{UploadSessionsColumns[0]},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		LessonsTable,
+		AssetsTable,
+		UploadSessionsTable,
 	}
 )
 

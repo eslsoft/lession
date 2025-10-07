@@ -15,5 +15,11 @@ Place `_test.go` files beside the package under test. Favor table-driven tests a
 ## Commit & Pull Request Guidelines
 Follow Conventional Commits, as seen with `feat: project init`; prefix scope when it clarifies impact (e.g., `feat(adapter): add s3 storage`). Keep commits focused and include any schema or API artifacts. Pull requests should outline motivation, testing performed, and any follow-up tasks; attach screenshots or sample API payloads when UI/API behavior changes. Link issues with `Closes #ID` when applicable.
 
-## API & Schema Updates
-When protobuf or Ent schemas change, run `make generate` and commit the new artifacts. Document breaking API changes in the PR description and coordinate with downstream clients before merging.
+
+## Iteration Notes
+- Keep domain errors in `internal/core/errors.go`; avoid re-declaring duplicates in feature-specific files.
+- After renaming or removing legacy features (like lessons), sweep handlers/repos/migrations to ax generated code you no longer need before pushing.
+- Prefer Connect interceptors for error mapping so handlers can bubble domain errors directly; add any new domain errors to the interceptor.
+- Always regenerate both protobuf and Ent code (`make generate`) after schema edits; stale stubs caused most build breaks this round.
+- Align naming across layers (proto, ent schema, core structs) early—renames like `series/episode` ripple quickly.
+- Decide asset upload provider integration up front; abstract provider interface spared us from reworking usecase/transport when switching from S3-style presign to Stream/Tus.

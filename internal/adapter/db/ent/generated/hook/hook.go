@@ -9,16 +9,28 @@ import (
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated"
 )
 
-// The LessonFunc type is an adapter to allow the use of ordinary
-// function as Lesson mutator.
-type LessonFunc func(context.Context, *generated.LessonMutation) (generated.Value, error)
+// The AssetFunc type is an adapter to allow the use of ordinary
+// function as Asset mutator.
+type AssetFunc func(context.Context, *generated.AssetMutation) (generated.Value, error)
 
 // Mutate calls f(ctx, m).
-func (f LessonFunc) Mutate(ctx context.Context, m generated.Mutation) (generated.Value, error) {
-	if mv, ok := m.(*generated.LessonMutation); ok {
+func (f AssetFunc) Mutate(ctx context.Context, m generated.Mutation) (generated.Value, error) {
+	if mv, ok := m.(*generated.AssetMutation); ok {
 		return f(ctx, mv)
 	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.LessonMutation", m)
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.AssetMutation", m)
+}
+
+// The UploadSessionFunc type is an adapter to allow the use of ordinary
+// function as UploadSession mutator.
+type UploadSessionFunc func(context.Context, *generated.UploadSessionMutation) (generated.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UploadSessionFunc) Mutate(ctx context.Context, m generated.Mutation) (generated.Value, error) {
+	if mv, ok := m.(*generated.UploadSessionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.UploadSessionMutation", m)
 }
 
 // Condition is a hook condition function.

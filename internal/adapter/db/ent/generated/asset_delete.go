@@ -8,30 +8,30 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/lesson"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/predicate"
 )
 
-// LessonDelete is the builder for deleting a Lesson entity.
-type LessonDelete struct {
+// AssetDelete is the builder for deleting a Asset entity.
+type AssetDelete struct {
 	config
 	hooks    []Hook
-	mutation *LessonMutation
+	mutation *AssetMutation
 }
 
-// Where appends a list predicates to the LessonDelete builder.
-func (_d *LessonDelete) Where(ps ...predicate.Lesson) *LessonDelete {
+// Where appends a list predicates to the AssetDelete builder.
+func (_d *AssetDelete) Where(ps ...predicate.Asset) *AssetDelete {
 	_d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query and returns how many vertices were deleted.
-func (_d *LessonDelete) Exec(ctx context.Context) (int, error) {
+func (_d *AssetDelete) Exec(ctx context.Context) (int, error) {
 	return withHooks(ctx, _d.sqlExec, _d.mutation, _d.hooks)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *LessonDelete) ExecX(ctx context.Context) int {
+func (_d *AssetDelete) ExecX(ctx context.Context) int {
 	n, err := _d.Exec(ctx)
 	if err != nil {
 		panic(err)
@@ -39,8 +39,8 @@ func (_d *LessonDelete) ExecX(ctx context.Context) int {
 	return n
 }
 
-func (_d *LessonDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(lesson.Table, sqlgraph.NewFieldSpec(lesson.FieldID, field.TypeUUID))
+func (_d *AssetDelete) sqlExec(ctx context.Context) (int, error) {
+	_spec := sqlgraph.NewDeleteSpec(asset.Table, sqlgraph.NewFieldSpec(asset.FieldID, field.TypeUUID))
 	if ps := _d.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -56,32 +56,32 @@ func (_d *LessonDelete) sqlExec(ctx context.Context) (int, error) {
 	return affected, err
 }
 
-// LessonDeleteOne is the builder for deleting a single Lesson entity.
-type LessonDeleteOne struct {
-	_d *LessonDelete
+// AssetDeleteOne is the builder for deleting a single Asset entity.
+type AssetDeleteOne struct {
+	_d *AssetDelete
 }
 
-// Where appends a list predicates to the LessonDelete builder.
-func (_d *LessonDeleteOne) Where(ps ...predicate.Lesson) *LessonDeleteOne {
+// Where appends a list predicates to the AssetDelete builder.
+func (_d *AssetDeleteOne) Where(ps ...predicate.Asset) *AssetDeleteOne {
 	_d._d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query.
-func (_d *LessonDeleteOne) Exec(ctx context.Context) error {
+func (_d *AssetDeleteOne) Exec(ctx context.Context) error {
 	n, err := _d._d.Exec(ctx)
 	switch {
 	case err != nil:
 		return err
 	case n == 0:
-		return &NotFoundError{lesson.Label}
+		return &NotFoundError{asset.Label}
 	default:
 		return nil
 	}
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *LessonDeleteOne) ExecX(ctx context.Context) {
+func (_d *AssetDeleteOne) ExecX(ctx context.Context) {
 	if err := _d.Exec(ctx); err != nil {
 		panic(err)
 	}

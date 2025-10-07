@@ -15,7 +15,8 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
-	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/lesson"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 )
 
 // Client is the client that holds all ent builders.
@@ -23,8 +24,10 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
-	// Lesson is the client for interacting with the Lesson builders.
-	Lesson *LessonClient
+	// Asset is the client for interacting with the Asset builders.
+	Asset *AssetClient
+	// UploadSession is the client for interacting with the UploadSession builders.
+	UploadSession *UploadSessionClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -36,7 +39,8 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
-	c.Lesson = NewLessonClient(c.config)
+	c.Asset = NewAssetClient(c.config)
+	c.UploadSession = NewUploadSessionClient(c.config)
 }
 
 type (
@@ -127,9 +131,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		Lesson: NewLessonClient(cfg),
+		ctx:           ctx,
+		config:        cfg,
+		Asset:         NewAssetClient(cfg),
+		UploadSession: NewUploadSessionClient(cfg),
 	}, nil
 }
 
@@ -147,16 +152,17 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		Lesson: NewLessonClient(cfg),
+		ctx:           ctx,
+		config:        cfg,
+		Asset:         NewAssetClient(cfg),
+		UploadSession: NewUploadSessionClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Lesson.
+//		Asset.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -178,126 +184,130 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.Lesson.Use(hooks...)
+	c.Asset.Use(hooks...)
+	c.UploadSession.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.Lesson.Intercept(interceptors...)
+	c.Asset.Intercept(interceptors...)
+	c.UploadSession.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
-	case *LessonMutation:
-		return c.Lesson.mutate(ctx, m)
+	case *AssetMutation:
+		return c.Asset.mutate(ctx, m)
+	case *UploadSessionMutation:
+		return c.UploadSession.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("generated: unknown mutation type %T", m)
 	}
 }
 
-// LessonClient is a client for the Lesson schema.
-type LessonClient struct {
+// AssetClient is a client for the Asset schema.
+type AssetClient struct {
 	config
 }
 
-// NewLessonClient returns a client for the Lesson from the given config.
-func NewLessonClient(c config) *LessonClient {
-	return &LessonClient{config: c}
+// NewAssetClient returns a client for the Asset from the given config.
+func NewAssetClient(c config) *AssetClient {
+	return &AssetClient{config: c}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `lesson.Hooks(f(g(h())))`.
-func (c *LessonClient) Use(hooks ...Hook) {
-	c.hooks.Lesson = append(c.hooks.Lesson, hooks...)
+// A call to `Use(f, g, h)` equals to `asset.Hooks(f(g(h())))`.
+func (c *AssetClient) Use(hooks ...Hook) {
+	c.hooks.Asset = append(c.hooks.Asset, hooks...)
 }
 
 // Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `lesson.Intercept(f(g(h())))`.
-func (c *LessonClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Lesson = append(c.inters.Lesson, interceptors...)
+// A call to `Intercept(f, g, h)` equals to `asset.Intercept(f(g(h())))`.
+func (c *AssetClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Asset = append(c.inters.Asset, interceptors...)
 }
 
-// Create returns a builder for creating a Lesson entity.
-func (c *LessonClient) Create() *LessonCreate {
-	mutation := newLessonMutation(c.config, OpCreate)
-	return &LessonCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Create returns a builder for creating a Asset entity.
+func (c *AssetClient) Create() *AssetCreate {
+	mutation := newAssetMutation(c.config, OpCreate)
+	return &AssetCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
-// CreateBulk returns a builder for creating a bulk of Lesson entities.
-func (c *LessonClient) CreateBulk(builders ...*LessonCreate) *LessonCreateBulk {
-	return &LessonCreateBulk{config: c.config, builders: builders}
+// CreateBulk returns a builder for creating a bulk of Asset entities.
+func (c *AssetClient) CreateBulk(builders ...*AssetCreate) *AssetCreateBulk {
+	return &AssetCreateBulk{config: c.config, builders: builders}
 }
 
 // MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
 // a builder and applies setFunc on it.
-func (c *LessonClient) MapCreateBulk(slice any, setFunc func(*LessonCreate, int)) *LessonCreateBulk {
+func (c *AssetClient) MapCreateBulk(slice any, setFunc func(*AssetCreate, int)) *AssetCreateBulk {
 	rv := reflect.ValueOf(slice)
 	if rv.Kind() != reflect.Slice {
-		return &LessonCreateBulk{err: fmt.Errorf("calling to LessonClient.MapCreateBulk with wrong type %T, need slice", slice)}
+		return &AssetCreateBulk{err: fmt.Errorf("calling to AssetClient.MapCreateBulk with wrong type %T, need slice", slice)}
 	}
-	builders := make([]*LessonCreate, rv.Len())
+	builders := make([]*AssetCreate, rv.Len())
 	for i := 0; i < rv.Len(); i++ {
 		builders[i] = c.Create()
 		setFunc(builders[i], i)
 	}
-	return &LessonCreateBulk{config: c.config, builders: builders}
+	return &AssetCreateBulk{config: c.config, builders: builders}
 }
 
-// Update returns an update builder for Lesson.
-func (c *LessonClient) Update() *LessonUpdate {
-	mutation := newLessonMutation(c.config, OpUpdate)
-	return &LessonUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Update returns an update builder for Asset.
+func (c *AssetClient) Update() *AssetUpdate {
+	mutation := newAssetMutation(c.config, OpUpdate)
+	return &AssetUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
-func (c *LessonClient) UpdateOne(_m *Lesson) *LessonUpdateOne {
-	mutation := newLessonMutation(c.config, OpUpdateOne, withLesson(_m))
-	return &LessonUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+func (c *AssetClient) UpdateOne(_m *Asset) *AssetUpdateOne {
+	mutation := newAssetMutation(c.config, OpUpdateOne, withAsset(_m))
+	return &AssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *LessonClient) UpdateOneID(id uuid.UUID) *LessonUpdateOne {
-	mutation := newLessonMutation(c.config, OpUpdateOne, withLessonID(id))
-	return &LessonUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+func (c *AssetClient) UpdateOneID(id uuid.UUID) *AssetUpdateOne {
+	mutation := newAssetMutation(c.config, OpUpdateOne, withAssetID(id))
+	return &AssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
-// Delete returns a delete builder for Lesson.
-func (c *LessonClient) Delete() *LessonDelete {
-	mutation := newLessonMutation(c.config, OpDelete)
-	return &LessonDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Delete returns a delete builder for Asset.
+func (c *AssetClient) Delete() *AssetDelete {
+	mutation := newAssetMutation(c.config, OpDelete)
+	return &AssetDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // DeleteOne returns a builder for deleting the given entity.
-func (c *LessonClient) DeleteOne(_m *Lesson) *LessonDeleteOne {
+func (c *AssetClient) DeleteOne(_m *Asset) *AssetDeleteOne {
 	return c.DeleteOneID(_m.ID)
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *LessonClient) DeleteOneID(id uuid.UUID) *LessonDeleteOne {
-	builder := c.Delete().Where(lesson.ID(id))
+func (c *AssetClient) DeleteOneID(id uuid.UUID) *AssetDeleteOne {
+	builder := c.Delete().Where(asset.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
-	return &LessonDeleteOne{builder}
+	return &AssetDeleteOne{builder}
 }
 
-// Query returns a query builder for Lesson.
-func (c *LessonClient) Query() *LessonQuery {
-	return &LessonQuery{
+// Query returns a query builder for Asset.
+func (c *AssetClient) Query() *AssetQuery {
+	return &AssetQuery{
 		config: c.config,
-		ctx:    &QueryContext{Type: TypeLesson},
+		ctx:    &QueryContext{Type: TypeAsset},
 		inters: c.Interceptors(),
 	}
 }
 
-// Get returns a Lesson entity by its id.
-func (c *LessonClient) Get(ctx context.Context, id uuid.UUID) (*Lesson, error) {
-	return c.Query().Where(lesson.ID(id)).Only(ctx)
+// Get returns a Asset entity by its id.
+func (c *AssetClient) Get(ctx context.Context, id uuid.UUID) (*Asset, error) {
+	return c.Query().Where(asset.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *LessonClient) GetX(ctx context.Context, id uuid.UUID) *Lesson {
+func (c *AssetClient) GetX(ctx context.Context, id uuid.UUID) *Asset {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -306,36 +316,169 @@ func (c *LessonClient) GetX(ctx context.Context, id uuid.UUID) *Lesson {
 }
 
 // Hooks returns the client hooks.
-func (c *LessonClient) Hooks() []Hook {
-	return c.hooks.Lesson
+func (c *AssetClient) Hooks() []Hook {
+	return c.hooks.Asset
 }
 
 // Interceptors returns the client interceptors.
-func (c *LessonClient) Interceptors() []Interceptor {
-	return c.inters.Lesson
+func (c *AssetClient) Interceptors() []Interceptor {
+	return c.inters.Asset
 }
 
-func (c *LessonClient) mutate(ctx context.Context, m *LessonMutation) (Value, error) {
+func (c *AssetClient) mutate(ctx context.Context, m *AssetMutation) (Value, error) {
 	switch m.Op() {
 	case OpCreate:
-		return (&LessonCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&AssetCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpUpdate:
-		return (&LessonUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&AssetUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpUpdateOne:
-		return (&LessonUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&AssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpDelete, OpDeleteOne:
-		return (&LessonDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+		return (&AssetDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("generated: unknown Lesson mutation op: %q", m.Op())
+		return nil, fmt.Errorf("generated: unknown Asset mutation op: %q", m.Op())
+	}
+}
+
+// UploadSessionClient is a client for the UploadSession schema.
+type UploadSessionClient struct {
+	config
+}
+
+// NewUploadSessionClient returns a client for the UploadSession from the given config.
+func NewUploadSessionClient(c config) *UploadSessionClient {
+	return &UploadSessionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `uploadsession.Hooks(f(g(h())))`.
+func (c *UploadSessionClient) Use(hooks ...Hook) {
+	c.hooks.UploadSession = append(c.hooks.UploadSession, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `uploadsession.Intercept(f(g(h())))`.
+func (c *UploadSessionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UploadSession = append(c.inters.UploadSession, interceptors...)
+}
+
+// Create returns a builder for creating a UploadSession entity.
+func (c *UploadSessionClient) Create() *UploadSessionCreate {
+	mutation := newUploadSessionMutation(c.config, OpCreate)
+	return &UploadSessionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UploadSession entities.
+func (c *UploadSessionClient) CreateBulk(builders ...*UploadSessionCreate) *UploadSessionCreateBulk {
+	return &UploadSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UploadSessionClient) MapCreateBulk(slice any, setFunc func(*UploadSessionCreate, int)) *UploadSessionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UploadSessionCreateBulk{err: fmt.Errorf("calling to UploadSessionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UploadSessionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UploadSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UploadSession.
+func (c *UploadSessionClient) Update() *UploadSessionUpdate {
+	mutation := newUploadSessionMutation(c.config, OpUpdate)
+	return &UploadSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UploadSessionClient) UpdateOne(_m *UploadSession) *UploadSessionUpdateOne {
+	mutation := newUploadSessionMutation(c.config, OpUpdateOne, withUploadSession(_m))
+	return &UploadSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UploadSessionClient) UpdateOneID(id uuid.UUID) *UploadSessionUpdateOne {
+	mutation := newUploadSessionMutation(c.config, OpUpdateOne, withUploadSessionID(id))
+	return &UploadSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UploadSession.
+func (c *UploadSessionClient) Delete() *UploadSessionDelete {
+	mutation := newUploadSessionMutation(c.config, OpDelete)
+	return &UploadSessionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UploadSessionClient) DeleteOne(_m *UploadSession) *UploadSessionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UploadSessionClient) DeleteOneID(id uuid.UUID) *UploadSessionDeleteOne {
+	builder := c.Delete().Where(uploadsession.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UploadSessionDeleteOne{builder}
+}
+
+// Query returns a query builder for UploadSession.
+func (c *UploadSessionClient) Query() *UploadSessionQuery {
+	return &UploadSessionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUploadSession},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UploadSession entity by its id.
+func (c *UploadSessionClient) Get(ctx context.Context, id uuid.UUID) (*UploadSession, error) {
+	return c.Query().Where(uploadsession.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UploadSessionClient) GetX(ctx context.Context, id uuid.UUID) *UploadSession {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *UploadSessionClient) Hooks() []Hook {
+	return c.hooks.UploadSession
+}
+
+// Interceptors returns the client interceptors.
+func (c *UploadSessionClient) Interceptors() []Interceptor {
+	return c.inters.UploadSession
+}
+
+func (c *UploadSessionClient) mutate(ctx context.Context, m *UploadSessionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UploadSessionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UploadSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UploadSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UploadSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("generated: unknown UploadSession mutation op: %q", m.Op())
 	}
 }
 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Lesson []ent.Hook
+		Asset, UploadSession []ent.Hook
 	}
 	inters struct {
-		Lesson []ent.Interceptor
+		Asset, UploadSession []ent.Interceptor
 	}
 )

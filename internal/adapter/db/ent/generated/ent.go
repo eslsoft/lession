@@ -12,7 +12,8 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/lesson"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -73,7 +74,8 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			lesson.Table: lesson.ValidColumn,
+			asset.Table:         asset.ValidColumn,
+			uploadsession.Table: uploadsession.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)
