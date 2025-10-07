@@ -15,7 +15,10 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/episode"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/series"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 )
 
@@ -26,6 +29,10 @@ type Client struct {
 	Schema *migrate.Schema
 	// Asset is the client for interacting with the Asset builders.
 	Asset *AssetClient
+	// Episode is the client for interacting with the Episode builders.
+	Episode *EpisodeClient
+	// Series is the client for interacting with the Series builders.
+	Series *SeriesClient
 	// UploadSession is the client for interacting with the UploadSession builders.
 	UploadSession *UploadSessionClient
 }
@@ -40,6 +47,8 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Asset = NewAssetClient(c.config)
+	c.Episode = NewEpisodeClient(c.config)
+	c.Series = NewSeriesClient(c.config)
 	c.UploadSession = NewUploadSessionClient(c.config)
 }
 
@@ -134,6 +143,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:           ctx,
 		config:        cfg,
 		Asset:         NewAssetClient(cfg),
+		Episode:       NewEpisodeClient(cfg),
+		Series:        NewSeriesClient(cfg),
 		UploadSession: NewUploadSessionClient(cfg),
 	}, nil
 }
@@ -155,6 +166,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:           ctx,
 		config:        cfg,
 		Asset:         NewAssetClient(cfg),
+		Episode:       NewEpisodeClient(cfg),
+		Series:        NewSeriesClient(cfg),
 		UploadSession: NewUploadSessionClient(cfg),
 	}, nil
 }
@@ -185,6 +198,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	c.Asset.Use(hooks...)
+	c.Episode.Use(hooks...)
+	c.Series.Use(hooks...)
 	c.UploadSession.Use(hooks...)
 }
 
@@ -192,6 +207,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.Asset.Intercept(interceptors...)
+	c.Episode.Intercept(interceptors...)
+	c.Series.Intercept(interceptors...)
 	c.UploadSession.Intercept(interceptors...)
 }
 
@@ -200,6 +217,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *AssetMutation:
 		return c.Asset.mutate(ctx, m)
+	case *EpisodeMutation:
+		return c.Episode.mutate(ctx, m)
+	case *SeriesMutation:
+		return c.Series.mutate(ctx, m)
 	case *UploadSessionMutation:
 		return c.UploadSession.mutate(ctx, m)
 	default:
@@ -340,6 +361,304 @@ func (c *AssetClient) mutate(ctx context.Context, m *AssetMutation) (Value, erro
 	}
 }
 
+// EpisodeClient is a client for the Episode schema.
+type EpisodeClient struct {
+	config
+}
+
+// NewEpisodeClient returns a client for the Episode from the given config.
+func NewEpisodeClient(c config) *EpisodeClient {
+	return &EpisodeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `episode.Hooks(f(g(h())))`.
+func (c *EpisodeClient) Use(hooks ...Hook) {
+	c.hooks.Episode = append(c.hooks.Episode, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `episode.Intercept(f(g(h())))`.
+func (c *EpisodeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Episode = append(c.inters.Episode, interceptors...)
+}
+
+// Create returns a builder for creating a Episode entity.
+func (c *EpisodeClient) Create() *EpisodeCreate {
+	mutation := newEpisodeMutation(c.config, OpCreate)
+	return &EpisodeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Episode entities.
+func (c *EpisodeClient) CreateBulk(builders ...*EpisodeCreate) *EpisodeCreateBulk {
+	return &EpisodeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EpisodeClient) MapCreateBulk(slice any, setFunc func(*EpisodeCreate, int)) *EpisodeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EpisodeCreateBulk{err: fmt.Errorf("calling to EpisodeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EpisodeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EpisodeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Episode.
+func (c *EpisodeClient) Update() *EpisodeUpdate {
+	mutation := newEpisodeMutation(c.config, OpUpdate)
+	return &EpisodeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EpisodeClient) UpdateOne(_m *Episode) *EpisodeUpdateOne {
+	mutation := newEpisodeMutation(c.config, OpUpdateOne, withEpisode(_m))
+	return &EpisodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EpisodeClient) UpdateOneID(id uuid.UUID) *EpisodeUpdateOne {
+	mutation := newEpisodeMutation(c.config, OpUpdateOne, withEpisodeID(id))
+	return &EpisodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Episode.
+func (c *EpisodeClient) Delete() *EpisodeDelete {
+	mutation := newEpisodeMutation(c.config, OpDelete)
+	return &EpisodeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EpisodeClient) DeleteOne(_m *Episode) *EpisodeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EpisodeClient) DeleteOneID(id uuid.UUID) *EpisodeDeleteOne {
+	builder := c.Delete().Where(episode.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EpisodeDeleteOne{builder}
+}
+
+// Query returns a query builder for Episode.
+func (c *EpisodeClient) Query() *EpisodeQuery {
+	return &EpisodeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEpisode},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Episode entity by its id.
+func (c *EpisodeClient) Get(ctx context.Context, id uuid.UUID) (*Episode, error) {
+	return c.Query().Where(episode.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EpisodeClient) GetX(ctx context.Context, id uuid.UUID) *Episode {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySeries queries the series edge of a Episode.
+func (c *EpisodeClient) QuerySeries(_m *Episode) *SeriesQuery {
+	query := (&SeriesClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(episode.Table, episode.FieldID, id),
+			sqlgraph.To(series.Table, series.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, episode.SeriesTable, episode.SeriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EpisodeClient) Hooks() []Hook {
+	return c.hooks.Episode
+}
+
+// Interceptors returns the client interceptors.
+func (c *EpisodeClient) Interceptors() []Interceptor {
+	return c.inters.Episode
+}
+
+func (c *EpisodeClient) mutate(ctx context.Context, m *EpisodeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EpisodeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EpisodeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EpisodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EpisodeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("generated: unknown Episode mutation op: %q", m.Op())
+	}
+}
+
+// SeriesClient is a client for the Series schema.
+type SeriesClient struct {
+	config
+}
+
+// NewSeriesClient returns a client for the Series from the given config.
+func NewSeriesClient(c config) *SeriesClient {
+	return &SeriesClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `series.Hooks(f(g(h())))`.
+func (c *SeriesClient) Use(hooks ...Hook) {
+	c.hooks.Series = append(c.hooks.Series, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `series.Intercept(f(g(h())))`.
+func (c *SeriesClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Series = append(c.inters.Series, interceptors...)
+}
+
+// Create returns a builder for creating a Series entity.
+func (c *SeriesClient) Create() *SeriesCreate {
+	mutation := newSeriesMutation(c.config, OpCreate)
+	return &SeriesCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Series entities.
+func (c *SeriesClient) CreateBulk(builders ...*SeriesCreate) *SeriesCreateBulk {
+	return &SeriesCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SeriesClient) MapCreateBulk(slice any, setFunc func(*SeriesCreate, int)) *SeriesCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SeriesCreateBulk{err: fmt.Errorf("calling to SeriesClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SeriesCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SeriesCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Series.
+func (c *SeriesClient) Update() *SeriesUpdate {
+	mutation := newSeriesMutation(c.config, OpUpdate)
+	return &SeriesUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SeriesClient) UpdateOne(_m *Series) *SeriesUpdateOne {
+	mutation := newSeriesMutation(c.config, OpUpdateOne, withSeries(_m))
+	return &SeriesUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SeriesClient) UpdateOneID(id uuid.UUID) *SeriesUpdateOne {
+	mutation := newSeriesMutation(c.config, OpUpdateOne, withSeriesID(id))
+	return &SeriesUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Series.
+func (c *SeriesClient) Delete() *SeriesDelete {
+	mutation := newSeriesMutation(c.config, OpDelete)
+	return &SeriesDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SeriesClient) DeleteOne(_m *Series) *SeriesDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SeriesClient) DeleteOneID(id uuid.UUID) *SeriesDeleteOne {
+	builder := c.Delete().Where(series.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SeriesDeleteOne{builder}
+}
+
+// Query returns a query builder for Series.
+func (c *SeriesClient) Query() *SeriesQuery {
+	return &SeriesQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSeries},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Series entity by its id.
+func (c *SeriesClient) Get(ctx context.Context, id uuid.UUID) (*Series, error) {
+	return c.Query().Where(series.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SeriesClient) GetX(ctx context.Context, id uuid.UUID) *Series {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEpisodes queries the episodes edge of a Series.
+func (c *SeriesClient) QueryEpisodes(_m *Series) *EpisodeQuery {
+	query := (&EpisodeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(series.Table, series.FieldID, id),
+			sqlgraph.To(episode.Table, episode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, series.EpisodesTable, series.EpisodesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SeriesClient) Hooks() []Hook {
+	return c.hooks.Series
+}
+
+// Interceptors returns the client interceptors.
+func (c *SeriesClient) Interceptors() []Interceptor {
+	return c.inters.Series
+}
+
+func (c *SeriesClient) mutate(ctx context.Context, m *SeriesMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SeriesCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SeriesUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SeriesUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SeriesDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("generated: unknown Series mutation op: %q", m.Op())
+	}
+}
+
 // UploadSessionClient is a client for the UploadSession schema.
 type UploadSessionClient struct {
 	config
@@ -476,9 +795,9 @@ func (c *UploadSessionClient) mutate(ctx context.Context, m *UploadSessionMutati
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Asset, UploadSession []ent.Hook
+		Asset, Episode, Series, UploadSession []ent.Hook
 	}
 	inters struct {
-		Asset, UploadSession []ent.Interceptor
+		Asset, Episode, Series, UploadSession []ent.Interceptor
 	}
 )

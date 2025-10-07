@@ -7,6 +7,7 @@
 package lessionv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -1355,7 +1356,7 @@ var File_lession_v1_asset_proto protoreflect.FileDescriptor
 const file_lession_v1_asset_proto_rawDesc = "" +
 	"\n" +
 	"\x16lession/v1/asset.proto\x12\n" +
-	"lession.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17lession/v1/series.proto\"\xfd\x03\n" +
+	"lession.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17lession/v1/series.proto\"\xfd\x03\n" +
 	"\x05Asset\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tasset_key\x18\x02 \x01(\tR\bassetKey\x12)\n" +
@@ -1400,51 +1401,56 @@ const file_lession_v1_asset_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a=\n" +
 	"\x0fFormFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb1\x01\n" +
-	"\x13CreateUploadRequest\x12)\n" +
-	"\x04type\x18\x01 \x01(\x0e2\x15.lession.v1.MediaTypeR\x04type\x12+\n" +
-	"\x11original_filename\x18\x02 \x01(\tR\x10originalFilename\x12\x1b\n" +
-	"\tmime_type\x18\x03 \x01(\tR\bmimeType\x12%\n" +
-	"\x0econtent_length\x18\x04 \x01(\x03R\rcontentLength\"I\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x01\n" +
+	"\x13CreateUploadRequest\x125\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x15.lession.v1.MediaTypeB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04type\x127\n" +
+	"\x11original_filename\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x04R\x10originalFilename\x12'\n" +
+	"\tmime_type\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\bmimeType\x12.\n" +
+	"\x0econtent_length\x18\x04 \x01(\x03B\a\xbaH\x04\"\x02(\x00R\rcontentLength\"I\n" +
 	"\x14CreateUploadResponse\x121\n" +
-	"\x06upload\x18\x01 \x01(\v2\x19.lession.v1.UploadSessionR\x06upload\"^\n" +
-	"\x10GetUploadRequest\x12\x1d\n" +
-	"\tupload_id\x18\x01 \x01(\tH\x00R\buploadId\x12\x1d\n" +
-	"\tasset_key\x18\x02 \x01(\tH\x00R\bassetKeyB\f\n" +
+	"\x06upload\x18\x01 \x01(\v2\x19.lession.v1.UploadSessionR\x06upload\"x\n" +
+	"\x10GetUploadRequest\x12'\n" +
+	"\tupload_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\buploadId\x12&\n" +
+	"\tasset_key\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\bassetKeyB\x13\n" +
 	"\n" +
-	"identifier\"F\n" +
+	"identifier\x12\x05\xbaH\x02\b\x01\"F\n" +
 	"\x11GetUploadResponse\x121\n" +
-	"\x06upload\x18\x01 \x01(\v2\x19.lession.v1.UploadSessionR\x06upload\"\xa6\x01\n" +
-	"\x15CompleteUploadRequest\x12\x1d\n" +
-	"\tupload_id\x18\x01 \x01(\tH\x00R\buploadId\x12\x1d\n" +
-	"\tasset_key\x18\x02 \x01(\tH\x00R\bassetKey\x12\x1a\n" +
-	"\bchecksum\x18\x03 \x01(\tR\bchecksum\x12%\n" +
-	"\x0econtent_length\x18\x04 \x01(\x03R\rcontentLengthB\f\n" +
+	"\x06upload\x18\x01 \x01(\v2\x19.lession.v1.UploadSessionR\x06upload\"\xd3\x01\n" +
+	"\x15CompleteUploadRequest\x12'\n" +
+	"\tupload_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\buploadId\x12&\n" +
+	"\tasset_key\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\bassetKey\x12$\n" +
+	"\bchecksum\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\bchecksum\x12.\n" +
+	"\x0econtent_length\x18\x04 \x01(\x03B\a\xbaH\x04\"\x02(\x00R\rcontentLengthB\x13\n" +
 	"\n" +
-	"identifier\"t\n" +
+	"identifier\x12\x05\xbaH\x02\b\x01\"t\n" +
 	"\x16CompleteUploadResponse\x12'\n" +
 	"\x05asset\x18\x01 \x01(\v2\x11.lession.v1.AssetR\x05asset\x121\n" +
-	"\x06upload\x18\x02 \x01(\v2\x19.lession.v1.UploadSessionR\x06upload\"[\n" +
-	"\x0fGetAssetRequest\x12\x1b\n" +
-	"\basset_id\x18\x01 \x01(\tH\x00R\aassetId\x12\x1d\n" +
-	"\tasset_key\x18\x02 \x01(\tH\x00R\bassetKeyB\f\n" +
+	"\x06upload\x18\x02 \x01(\v2\x19.lession.v1.UploadSessionR\x06upload\"u\n" +
+	"\x0fGetAssetRequest\x12%\n" +
+	"\basset_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\aassetId\x12&\n" +
+	"\tasset_key\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\bassetKeyB\x13\n" +
 	"\n" +
-	"identifier\";\n" +
+	"identifier\x12\x05\xbaH\x02\b\x01\";\n" +
 	"\x10GetAssetResponse\x12'\n" +
-	"\x05asset\x18\x01 \x01(\v2\x11.lession.v1.AssetR\x05asset\"\xd0\x01\n" +
+	"\x05asset\x18\x01 \x01(\v2\x11.lession.v1.AssetR\x05asset\"\xfc\x01\n" +
 	"\x11ListAssetsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\rR\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\x123\n" +
-	"\bstatuses\x18\x03 \x03(\x0e2\x17.lession.v1.AssetStatusR\bstatuses\x12+\n" +
-	"\x05types\x18\x04 \x03(\x0e2\x15.lession.v1.MediaTypeR\x05types\x12\x1d\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12B\n" +
+	"\bstatuses\x18\x03 \x03(\x0e2\x17.lession.v1.AssetStatusB\r\xbaH\n" +
+	"\x92\x01\a\"\x05\x82\x01\x02\x10\x01R\bstatuses\x12:\n" +
+	"\x05types\x18\x04 \x03(\x0e2\x15.lession.v1.MediaTypeB\r\xbaH\n" +
+	"\x92\x01\a\"\x05\x82\x01\x02\x10\x01R\x05types\x12+\n" +
 	"\n" +
-	"asset_keys\x18\x05 \x03(\tR\tassetKeys\"g\n" +
+	"asset_keys\x18\x05 \x03(\tB\f\xbaH\t\x92\x01\x06\"\x04r\x02\x10\x01R\tassetKeys\"g\n" +
 	"\x12ListAssetsResponse\x12)\n" +
 	"\x06assets\x18\x01 \x03(\v2\x11.lession.v1.AssetR\x06assets\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"P\n" +
-	"\x12DeleteAssetRequest\x12\x19\n" +
-	"\basset_id\x18\x01 \x01(\tR\aassetId\x12\x1f\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"Z\n" +
+	"\x12DeleteAssetRequest\x12#\n" +
+	"\basset_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aassetId\x12\x1f\n" +
 	"\vhard_delete\x18\x02 \x01(\bR\n" +
 	"hardDelete\">\n" +
 	"\x13DeleteAssetResponse\x12'\n" +

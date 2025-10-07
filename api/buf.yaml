@@ -3,6 +3,8 @@ version: v2
 modules:
   - name: buf.build/eslsoft/lession
     path: proto
+deps:
+  - buf.build/bufbuild/protovalidate
 lint:
   use:
     - STANDARD

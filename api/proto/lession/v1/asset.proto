@@ -4,6 +4,7 @@ package lession.v1;
 
 option go_package = "github.com/eslsoft/lession/pkg/api/lession/v1;lessionv1";
 
+import "buf/validate/validate.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "lession/v1/series.proto";
@@ -104,16 +105,16 @@ message UploadTarget {
 // CreateUploadRequest establishes a new upload session.
 message CreateUploadRequest {
   // type classifies the asset to be uploaded.
-  MediaType type = 1;
+  MediaType type = 1 [(buf.validate.field).enum = {defined_only: true, not_in: [0]}];
 
   // original_filename captures the client-supplied file name.
-  string original_filename = 2;
+  string original_filename = 2 [(buf.validate.field).string = {min_len: 1, max_len: 512}];
 
   // mime_type conveys the expected content type for the upload.
-  string mime_type = 3;
+  string mime_type = 3 [(buf.validate.field).string = {min_len: 1, max_len: 256}];
 
   // content_length stores the expected size of the upload in bytes.
-  int64 content_length = 4;
+  int64 content_length = 4 [(buf.validate.field).int64.gte = 0];
 }
 
 // CreateUploadResponse returns an upload session with instructions.
@@ -125,10 +126,11 @@ message CreateUploadResponse {
 // GetUploadRequest retrieves details about an upload session.
 message GetUploadRequest {
   oneof identifier {
+    option (buf.validate.oneof).required = true;
     // upload_id directly references the upload session.
-    string upload_id = 1;
+    string upload_id = 1 [(buf.validate.field).string.uuid = true];
     // asset_key references the upload session via its asset key.
-    string asset_key = 2;
+    string asset_key = 2 [(buf.validate.field).string = {min_len: 1}];
   }
 }
 
@@ -141,17 +143,18 @@ message GetUploadResponse {
 // CompleteUploadRequest finalizes an upload session after client upload succeeds.
 message CompleteUploadRequest {
   oneof identifier {
+    option (buf.validate.oneof).required = true;
     // upload_id directly references the upload session.
-    string upload_id = 1;
+    string upload_id = 1 [(buf.validate.field).string.uuid = true];
     // asset_key references the upload session via its asset key.
-    string asset_key = 2;
+    string asset_key = 2 [(buf.validate.field).string = {min_len: 1}];
   }
 
   // checksum provides the computed hash of the uploaded content for validation.
-  string checksum = 3;
+  string checksum = 3 [(buf.validate.field).string = {max_len: 256}];
 
   // content_length stores the actual size of the uploaded content in bytes.
-  int64 content_length = 4;
+  int64 content_length = 4 [(buf.validate.field).int64.gte = 0];
 }
 
 // CompleteUploadResponse returns the finalized asset and upload session.
@@ -166,10 +169,11 @@ message CompleteUploadResponse {
 // GetAssetRequest retrieves details about a managed asset.
 message GetAssetRequest {
   oneof identifier {
+    option (buf.validate.oneof).required = true;
     // asset_id directly references the asset.
-    string asset_id = 1;
+    string asset_id = 1 [(buf.validate.field).string.uuid = true];
     // asset_key references the asset via its storage key.
-    string asset_key = 2;
+    string asset_key = 2 [(buf.validate.field).string = {min_len: 1}];
   }
 }
 
@@ -188,13 +192,13 @@ message ListAssetsRequest {
   string page_token = 2;
 
   // statuses filters assets by lifecycle state.
-  repeated AssetStatus statuses = 3;
+  repeated AssetStatus statuses = 3 [(buf.validate.field).repeated.items.enum.defined_only = true];
 
   // types filters assets by media type.
-  repeated MediaType types = 4;
+  repeated MediaType types = 4 [(buf.validate.field).repeated.items.enum.defined_only = true];
 
   // asset_keys filters assets matching any of the supplied storage keys.
-  repeated string asset_keys = 5;
+  repeated string asset_keys = 5 [(buf.validate.field).repeated.items.string = {min_len: 1}];
 }
 
 // ListAssetsResponse returns a page of assets.
@@ -209,7 +213,7 @@ message ListAssetsResponse {
 // DeleteAssetRequest archives or deletes an asset.
 message DeleteAssetRequest {
   // asset_id references the target asset.
-  string asset_id = 1;
+  string asset_id = 1 [(buf.validate.field).string.uuid = true];
 
   // hard_delete requests permanent deletion instead of archival.
   bool hard_delete = 2;

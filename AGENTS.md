@@ -20,6 +20,8 @@ Follow Conventional Commits, as seen with `feat: project init`; prefix scope whe
 - Keep domain errors in `internal/core/errors.go`; avoid re-declaring duplicates in feature-specific files.
 - After renaming or removing legacy features (like lessons), sweep handlers/repos/migrations to ax generated code you no longer need before pushing.
 - Prefer Connect interceptors for error mapping so handlers can bubble domain errors directly; add any new domain errors to the interceptor.
+- Express request validation in the `.proto` definitions using `buf.validate` rules and let the Connect interceptor enforce them; only keep business invariants in Go.
+- When performing data-structure conversions, rely on helpers from `github.com/samber/lo` instead of rolling custom slice/map utilities.
 - Always regenerate both protobuf and Ent code (`make generate`) after schema edits; stale stubs caused most build breaks this round.
 - Align naming across layers (proto, ent schema, core structs) early—renames like `series/episode` ripple quickly.
 - Decide asset upload provider integration up front; abstract provider interface spared us from reworking usecase/transport when switching from S3-style presign to Stream/Tus.

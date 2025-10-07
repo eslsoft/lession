@@ -7,6 +7,7 @@
 package lessionv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -128,9 +129,9 @@ var File_lession_v1_asset_service_proto protoreflect.FileDescriptor
 const file_lession_v1_asset_service_proto_rawDesc = "" +
 	"\n" +
 	"\x1elession/v1/asset_service.proto\x12\n" +
-	"lession.v1\x1a google/protobuf/field_mask.proto\x1a\x16lession/v1/asset.proto\"z\n" +
-	"\x12UpdateAssetRequest\x12'\n" +
-	"\x05asset\x18\x01 \x01(\v2\x11.lession.v1.AssetR\x05asset\x12;\n" +
+	"lession.v1\x1a\x1bbuf/validate/validate.proto\x1a google/protobuf/field_mask.proto\x1a\x16lession/v1/asset.proto\"\x82\x01\n" +
+	"\x12UpdateAssetRequest\x12/\n" +
+	"\x05asset\x18\x01 \x01(\v2\x11.lession.v1.AssetB\x06\xbaH\x03\xc8\x01\x01R\x05asset\x12;\n" +
 	"\vupdate_mask\x18\x02 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\">\n" +
 	"\x13UpdateAssetResponse\x12'\n" +

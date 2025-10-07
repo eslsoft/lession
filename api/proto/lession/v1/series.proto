@@ -4,6 +4,7 @@ package lession.v1;
 
 option go_package = "github.com/eslsoft/lession/pkg/api/lession/v1;lessionv1";
 
+import "buf/validate/validate.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -97,10 +98,15 @@ message Episode {
 // MediaResource binds an uploaded asset to an episode and exposes playback metadata.
 message MediaResource {
   // asset_id is the server-assigned identifier for the persisted asset.
-  string asset_id = 1;
+  string asset_id = 1 [
+    (buf.validate.field) = {
+      string: {uuid: true},
+      ignore: IGNORE_IF_ZERO_VALUE
+    }
+  ];
 
   // type classifies the media asset.
-  MediaType type = 2;
+  MediaType type = 2 [(buf.validate.field).enum.defined_only = true];
 
   // playback_url is populated by the system when the public stream is ready.
   string playback_url = 3;
@@ -112,10 +118,15 @@ message MediaResource {
 // Transcript represents the textual script of an episode.
 message Transcript {
   // language declares the locale of the transcript (ISO 639-1).
-  string language = 1;
+  string language = 1 [
+    (buf.validate.field) = {
+      string: {pattern: "^[a-zA-Z]{2}$"},
+      ignore: IGNORE_IF_ZERO_VALUE
+    }
+  ];
 
   // format specifies the data shape for the transcript content.
-  TranscriptFormat format = 2;
+  TranscriptFormat format = 2 [(buf.validate.field).enum.defined_only = true];
 
   // content stores the transcript payload, encoded per format.
   string content = 3;
@@ -124,31 +135,41 @@ message Transcript {
 // SeriesDraft captures modifiable fields for creating or updating a series.
 message SeriesDraft {
   // slug is a human-readable, unique identifier used in URLs.
-  string slug = 1;
+  string slug = 1 [(buf.validate.field).string = {min_len: 1, max_len: 128}];
 
   // title is the series headline shown to listeners.
-  string title = 2;
+  string title = 2 [(buf.validate.field).string = {min_len: 1, max_len: 256}];
 
   // summary provides a short synopsis of the series.
-  string summary = 3;
+  string summary = 3 [(buf.validate.field).string = {max_len: 1024}];
 
   // language declares the primary locale of the series content (ISO 639-1).
-  string language = 4;
+  string language = 4 [
+    (buf.validate.field) = {
+      string: {pattern: "^[a-zA-Z]{2}$"},
+      ignore: IGNORE_IF_ZERO_VALUE
+    }
+  ];
 
   // level indicates the difficulty level (e.g. beginner, intermediate).
-  string level = 5;
+  string level = 5 [(buf.validate.field).string = {max_len: 64}];
 
   // tags captures optional classification keywords.
-  repeated string tags = 6;
+  repeated string tags = 6 [(buf.validate.field).repeated.items.string = {min_len: 1, max_len: 64}];
 
   // cover_url references artwork that represents the series.
-  string cover_url = 7;
+  string cover_url = 7 [
+    (buf.validate.field) = {
+      string: {uri: true},
+      ignore: IGNORE_IF_ZERO_VALUE
+    }
+  ];
 
   // status tracks the lifecycle stage of the series.
-  SeriesStatus status = 8;
+  SeriesStatus status = 8 [(buf.validate.field).enum.defined_only = true];
 
   // author_ids references the creators responsible for the series.
-  repeated string author_ids = 9;
+  repeated string author_ids = 9 [(buf.validate.field).repeated.items.string = {min_len: 1}];
 
   // episodes provides initial or replacement episodes for the series.
   repeated EpisodeDraft episodes = 20;
@@ -157,19 +178,19 @@ message SeriesDraft {
 // EpisodeDraft captures modifiable fields for creating or updating an episode.
 message EpisodeDraft {
   // seq is the display order of the episode inside the series.
-  uint32 seq = 1;
+  uint32 seq = 1 [(buf.validate.field).uint32.gt = 0];
 
   // title is the episode headline shown to listeners.
-  string title = 2;
+  string title = 2 [(buf.validate.field).string = {min_len: 1, max_len: 256}];
 
   // description provides additional context for the episode.
-  string description = 3;
+  string description = 3 [(buf.validate.field).string = {max_len: 2048}];
 
   // duration tracks the expected consumption time for the episode.
   google.protobuf.Duration duration = 4;
 
   // status tracks the lifecycle stage of the episode.
-  EpisodeStatus status = 5;
+  EpisodeStatus status = 5 [(buf.validate.field).enum.defined_only = true];
 
   // resource describes the associated audio or video asset. When creating, populate
   // resource.asset_id with an existing asset; server-managed fields (playback_url, mime_type)

@@ -7,6 +7,7 @@
 package lessionv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -943,7 +944,7 @@ var File_lession_v1_series_proto protoreflect.FileDescriptor
 const file_lession_v1_series_proto_rawDesc = "" +
 	"\n" +
 	"\x17lession/v1/series.proto\x12\n" +
-	"lession.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9b\x04\n" +
+	"lession.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9b\x04\n" +
 	"\x06Series\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12\x14\n" +
@@ -981,35 +982,38 @@ const file_lession_v1_series_proto_rawDesc = "" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12=\n" +
-	"\fpublished_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\vpublishedAt\"\x95\x01\n" +
-	"\rMediaResource\x12\x19\n" +
-	"\basset_id\x18\x01 \x01(\tR\aassetId\x12)\n" +
-	"\x04type\x18\x02 \x01(\x0e2\x15.lession.v1.MediaTypeR\x04type\x12!\n" +
+	"\fpublished_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\vpublishedAt\"\xac\x01\n" +
+	"\rMediaResource\x12&\n" +
+	"\basset_id\x18\x01 \x01(\tB\v\xbaH\b\xd8\x01\x01r\x03\xb0\x01\x01R\aassetId\x123\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x15.lession.v1.MediaTypeB\b\xbaH\x05\x82\x01\x02\x10\x01R\x04type\x12!\n" +
 	"\fplayback_url\x18\x03 \x01(\tR\vplaybackUrl\x12\x1b\n" +
-	"\tmime_type\x18\x04 \x01(\tR\bmimeType\"x\n" +
+	"\tmime_type\x18\x04 \x01(\tR\bmimeType\"\x9b\x01\n" +
 	"\n" +
-	"Transcript\x12\x1a\n" +
-	"\blanguage\x18\x01 \x01(\tR\blanguage\x124\n" +
-	"\x06format\x18\x02 \x01(\x0e2\x1c.lession.v1.TranscriptFormatR\x06format\x12\x18\n" +
-	"\acontent\x18\x03 \x01(\tR\acontent\"\xbb\x02\n" +
-	"\vSeriesDraft\x12\x12\n" +
-	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
-	"\asummary\x18\x03 \x01(\tR\asummary\x12\x1a\n" +
-	"\blanguage\x18\x04 \x01(\tR\blanguage\x12\x14\n" +
-	"\x05level\x18\x05 \x01(\tR\x05level\x12\x12\n" +
-	"\x04tags\x18\x06 \x03(\tR\x04tags\x12\x1b\n" +
-	"\tcover_url\x18\a \x01(\tR\bcoverUrl\x120\n" +
-	"\x06status\x18\b \x01(\x0e2\x18.lession.v1.SeriesStatusR\x06status\x12\x1d\n" +
+	"Transcript\x123\n" +
+	"\blanguage\x18\x01 \x01(\tB\x17\xbaH\x14\xd8\x01\x01r\x0f2\r^[a-zA-Z]{2}$R\blanguage\x12>\n" +
+	"\x06format\x18\x02 \x01(\x0e2\x1c.lession.v1.TranscriptFormatB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06format\x12\x18\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\"\xb4\x03\n" +
+	"\vSeriesDraft\x12\x1e\n" +
+	"\x04slug\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04slug\x12 \n" +
+	"\x05title\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x05title\x12\"\n" +
+	"\asummary\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bR\asummary\x123\n" +
+	"\blanguage\x18\x04 \x01(\tB\x17\xbaH\x14\xd8\x01\x01r\x0f2\r^[a-zA-Z]{2}$R\blanguage\x12\x1d\n" +
+	"\x05level\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x18@R\x05level\x12\"\n" +
+	"\x04tags\x18\x06 \x03(\tB\x0e\xbaH\v\x92\x01\b\"\x06r\x04\x10\x01\x18@R\x04tags\x12(\n" +
+	"\tcover_url\x18\a \x01(\tB\v\xbaH\b\xd8\x01\x01r\x03\x88\x01\x01R\bcoverUrl\x12:\n" +
+	"\x06status\x18\b \x01(\x0e2\x18.lession.v1.SeriesStatusB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06status\x12+\n" +
 	"\n" +
-	"author_ids\x18\t \x03(\tR\tauthorIds\x124\n" +
-	"\bepisodes\x18\x14 \x03(\v2\x18.lession.v1.EpisodeDraftR\bepisodes\"\xb1\x02\n" +
-	"\fEpisodeDraft\x12\x10\n" +
-	"\x03seq\x18\x01 \x01(\rR\x03seq\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x125\n" +
-	"\bduration\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\bduration\x121\n" +
-	"\x06status\x18\x05 \x01(\x0e2\x19.lession.v1.EpisodeStatusR\x06status\x125\n" +
+	"author_ids\x18\t \x03(\tB\f\xbaH\t\x92\x01\x06\"\x04r\x02\x10\x01R\tauthorIds\x124\n" +
+	"\bepisodes\x18\x14 \x03(\v2\x18.lession.v1.EpisodeDraftR\bepisodes\"\xda\x02\n" +
+	"\fEpisodeDraft\x12\x19\n" +
+	"\x03seq\x18\x01 \x01(\rB\a\xbaH\x04*\x02 \x00R\x03seq\x12 \n" +
+	"\x05title\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x05title\x12*\n" +
+	"\vdescription\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10R\vdescription\x125\n" +
+	"\bduration\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\bduration\x12;\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x19.lession.v1.EpisodeStatusB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06status\x125\n" +
 	"\bresource\x18\x06 \x01(\v2\x19.lession.v1.MediaResourceR\bresource\x126\n" +
 	"\n" +
 	"transcript\x18\a \x01(\v2\x16.lession.v1.TranscriptR\n" +

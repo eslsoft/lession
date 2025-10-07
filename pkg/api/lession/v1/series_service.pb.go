@@ -7,6 +7,7 @@
 package lessionv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -907,60 +908,61 @@ var File_lession_v1_series_service_proto protoreflect.FileDescriptor
 const file_lession_v1_series_service_proto_rawDesc = "" +
 	"\n" +
 	"\x1flession/v1/series_service.proto\x12\n" +
-	"lession.v1\x1a google/protobuf/field_mask.proto\x1a\x17lession/v1/series.proto\"\xab\x02\n" +
+	"lession.v1\x1a\x1bbuf/validate/validate.proto\x1a google/protobuf/field_mask.proto\x1a\x17lession/v1/series.proto\"\xfa\x02\n" +
 	"\x11ListSeriesRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\rR\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\x124\n" +
-	"\bstatuses\x18\x03 \x03(\x0e2\x18.lession.v1.SeriesStatusR\bstatuses\x12\x1a\n" +
-	"\blanguage\x18\x04 \x01(\tR\blanguage\x12\x14\n" +
-	"\x05level\x18\x05 \x01(\tR\x05level\x12\x12\n" +
-	"\x04tags\x18\x06 \x03(\tR\x04tags\x12\x14\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12C\n" +
+	"\bstatuses\x18\x03 \x03(\x0e2\x18.lession.v1.SeriesStatusB\r\xbaH\n" +
+	"\x92\x01\a\"\x05\x82\x01\x02\x10\x01R\bstatuses\x123\n" +
+	"\blanguage\x18\x04 \x01(\tB\x17\xbaH\x14\xd8\x01\x01r\x0f2\r^[a-zA-Z]{2}$R\blanguage\x12\x1d\n" +
+	"\x05level\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x18@R\x05level\x12\"\n" +
+	"\x04tags\x18\x06 \x03(\tB\x0e\xbaH\v\x92\x01\b\"\x06r\x04\x10\x01\x18@R\x04tags\x12\x14\n" +
 	"\x05query\x18\a \x01(\tR\x05query\x12)\n" +
-	"\x10include_episodes\x18\b \x01(\bR\x0fincludeEpisodes\x12\x1d\n" +
+	"\x10include_episodes\x18\b \x01(\bR\x0fincludeEpisodes\x12+\n" +
 	"\n" +
-	"author_ids\x18\t \x03(\tR\tauthorIds\"h\n" +
+	"author_ids\x18\t \x03(\tB\f\xbaH\t\x92\x01\x06\"\x04r\x02\x10\x01R\tauthorIds\"h\n" +
 	"\x12ListSeriesResponse\x12*\n" +
 	"\x06series\x18\x01 \x03(\v2\x12.lession.v1.SeriesR\x06series\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"F\n" +
-	"\x13CreateSeriesRequest\x12/\n" +
-	"\x06series\x18\x01 \x01(\v2\x17.lession.v1.SeriesDraftR\x06series\"B\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"N\n" +
+	"\x13CreateSeriesRequest\x127\n" +
+	"\x06series\x18\x01 \x01(\v2\x17.lession.v1.SeriesDraftB\x06\xbaH\x03\xc8\x01\x01R\x06series\"B\n" +
 	"\x14CreateSeriesResponse\x12*\n" +
-	"\x06series\x18\x01 \x01(\v2\x12.lession.v1.SeriesR\x06series\"\x85\x01\n" +
-	"\x10GetSeriesRequest\x12\x1b\n" +
-	"\tseries_id\x18\x01 \x01(\tR\bseriesId\x12)\n" +
+	"\x06series\x18\x01 \x01(\v2\x12.lession.v1.SeriesR\x06series\"\x8f\x01\n" +
+	"\x10GetSeriesRequest\x12%\n" +
+	"\tseries_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\bseriesId\x12)\n" +
 	"\x10include_episodes\x18\x02 \x01(\bR\x0fincludeEpisodes\x12)\n" +
 	"\x10include_metadata\x18\x03 \x01(\bR\x0fincludeMetadata\"?\n" +
 	"\x11GetSeriesResponse\x12*\n" +
-	"\x06series\x18\x01 \x01(\v2\x12.lession.v1.SeriesR\x06series\"\xa0\x01\n" +
-	"\x13UpdateSeriesRequest\x12\x1b\n" +
-	"\tseries_id\x18\x01 \x01(\tR\bseriesId\x12/\n" +
-	"\x06series\x18\x02 \x01(\v2\x17.lession.v1.SeriesDraftR\x06series\x12;\n" +
+	"\x06series\x18\x01 \x01(\v2\x12.lession.v1.SeriesR\x06series\"\xb2\x01\n" +
+	"\x13UpdateSeriesRequest\x12%\n" +
+	"\tseries_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\bseriesId\x127\n" +
+	"\x06series\x18\x02 \x01(\v2\x17.lession.v1.SeriesDraftB\x06\xbaH\x03\xc8\x01\x01R\x06series\x12;\n" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"B\n" +
 	"\x14UpdateSeriesResponse\x12*\n" +
-	"\x06series\x18\x01 \x01(\v2\x12.lession.v1.SeriesR\x06series\"g\n" +
-	"\x14CreateEpisodeRequest\x12\x1b\n" +
-	"\tseries_id\x18\x01 \x01(\tR\bseriesId\x122\n" +
-	"\aepisode\x18\x02 \x01(\v2\x18.lession.v1.EpisodeDraftR\aepisode\"F\n" +
+	"\x06series\x18\x01 \x01(\v2\x12.lession.v1.SeriesR\x06series\"y\n" +
+	"\x14CreateEpisodeRequest\x12%\n" +
+	"\tseries_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\bseriesId\x12:\n" +
+	"\aepisode\x18\x02 \x01(\v2\x18.lession.v1.EpisodeDraftB\x06\xbaH\x03\xc8\x01\x01R\aepisode\"F\n" +
 	"\x15CreateEpisodeResponse\x12-\n" +
-	"\aepisode\x18\x01 \x01(\v2\x13.lession.v1.EpisodeR\aepisode\"2\n" +
-	"\x11GetEpisodeRequest\x12\x1d\n" +
+	"\aepisode\x18\x01 \x01(\v2\x13.lession.v1.EpisodeR\aepisode\"<\n" +
+	"\x11GetEpisodeRequest\x12'\n" +
 	"\n" +
-	"episode_id\x18\x01 \x01(\tR\tepisodeId\"C\n" +
+	"episode_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\tepisodeId\"C\n" +
 	"\x12GetEpisodeResponse\x12-\n" +
-	"\aepisode\x18\x01 \x01(\v2\x13.lession.v1.EpisodeR\aepisode\"\xa6\x01\n" +
-	"\x14UpdateEpisodeRequest\x12\x1d\n" +
+	"\aepisode\x18\x01 \x01(\v2\x13.lession.v1.EpisodeR\aepisode\"\xb8\x01\n" +
+	"\x14UpdateEpisodeRequest\x12'\n" +
 	"\n" +
-	"episode_id\x18\x01 \x01(\tR\tepisodeId\x122\n" +
-	"\aepisode\x18\x02 \x01(\v2\x18.lession.v1.EpisodeDraftR\aepisode\x12;\n" +
+	"episode_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\tepisodeId\x12:\n" +
+	"\aepisode\x18\x02 \x01(\v2\x18.lession.v1.EpisodeDraftB\x06\xbaH\x03\xc8\x01\x01R\aepisode\x12;\n" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"F\n" +
 	"\x15UpdateEpisodeResponse\x12-\n" +
-	"\aepisode\x18\x01 \x01(\v2\x13.lession.v1.EpisodeR\aepisode\"5\n" +
-	"\x14DeleteEpisodeRequest\x12\x1d\n" +
+	"\aepisode\x18\x01 \x01(\v2\x13.lession.v1.EpisodeR\aepisode\"?\n" +
+	"\x14DeleteEpisodeRequest\x12'\n" +
 	"\n" +
-	"episode_id\x18\x01 \x01(\tR\tepisodeId\"F\n" +
+	"episode_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\tepisodeId\"F\n" +
 	"\x15DeleteEpisodeResponse\x12-\n" +
 	"\aepisode\x18\x01 \x01(\v2\x13.lession.v1.EpisodeR\aepisode2\x9b\x05\n" +
 	"\rSeriesService\x12K\n" +

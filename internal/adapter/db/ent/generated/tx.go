@@ -14,6 +14,10 @@ type Tx struct {
 	config
 	// Asset is the client for interacting with the Asset builders.
 	Asset *AssetClient
+	// Episode is the client for interacting with the Episode builders.
+	Episode *EpisodeClient
+	// Series is the client for interacting with the Series builders.
+	Series *SeriesClient
 	// UploadSession is the client for interacting with the UploadSession builders.
 	UploadSession *UploadSessionClient
 
@@ -148,6 +152,8 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Asset = NewAssetClient(tx.config)
+	tx.Episode = NewEpisodeClient(tx.config)
+	tx.Series = NewSeriesClient(tx.config)
 	tx.UploadSession = NewUploadSessionClient(tx.config)
 }
 

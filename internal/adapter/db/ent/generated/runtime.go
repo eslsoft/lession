@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/episode"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/series"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/schema"
 	"github.com/google/uuid"
@@ -47,6 +49,98 @@ func init() {
 	assetDescID := assetFields[0].Descriptor()
 	// asset.DefaultID holds the default value on creation for the id field.
 	asset.DefaultID = assetDescID.Default.(func() uuid.UUID)
+	episodeFields := schema.Episode{}.Fields()
+	_ = episodeFields
+	// episodeDescDescription is the schema descriptor for description field.
+	episodeDescDescription := episodeFields[4].Descriptor()
+	// episode.DefaultDescription holds the default value on creation for the description field.
+	episode.DefaultDescription = episodeDescDescription.Default.(string)
+	// episodeDescDurationSeconds is the schema descriptor for duration_seconds field.
+	episodeDescDurationSeconds := episodeFields[5].Descriptor()
+	// episode.DefaultDurationSeconds holds the default value on creation for the duration_seconds field.
+	episode.DefaultDurationSeconds = episodeDescDurationSeconds.Default.(int)
+	// episodeDescStatus is the schema descriptor for status field.
+	episodeDescStatus := episodeFields[6].Descriptor()
+	// episode.DefaultStatus holds the default value on creation for the status field.
+	episode.DefaultStatus = episodeDescStatus.Default.(int)
+	// episodeDescResourceType is the schema descriptor for resource_type field.
+	episodeDescResourceType := episodeFields[8].Descriptor()
+	// episode.DefaultResourceType holds the default value on creation for the resource_type field.
+	episode.DefaultResourceType = episodeDescResourceType.Default.(int)
+	// episodeDescResourcePlaybackURL is the schema descriptor for resource_playback_url field.
+	episodeDescResourcePlaybackURL := episodeFields[9].Descriptor()
+	// episode.DefaultResourcePlaybackURL holds the default value on creation for the resource_playback_url field.
+	episode.DefaultResourcePlaybackURL = episodeDescResourcePlaybackURL.Default.(string)
+	// episodeDescResourceMimeType is the schema descriptor for resource_mime_type field.
+	episodeDescResourceMimeType := episodeFields[10].Descriptor()
+	// episode.DefaultResourceMimeType holds the default value on creation for the resource_mime_type field.
+	episode.DefaultResourceMimeType = episodeDescResourceMimeType.Default.(string)
+	// episodeDescTranscriptLanguage is the schema descriptor for transcript_language field.
+	episodeDescTranscriptLanguage := episodeFields[11].Descriptor()
+	// episode.DefaultTranscriptLanguage holds the default value on creation for the transcript_language field.
+	episode.DefaultTranscriptLanguage = episodeDescTranscriptLanguage.Default.(string)
+	// episodeDescTranscriptFormat is the schema descriptor for transcript_format field.
+	episodeDescTranscriptFormat := episodeFields[12].Descriptor()
+	// episode.DefaultTranscriptFormat holds the default value on creation for the transcript_format field.
+	episode.DefaultTranscriptFormat = episodeDescTranscriptFormat.Default.(int)
+	// episodeDescTranscriptContent is the schema descriptor for transcript_content field.
+	episodeDescTranscriptContent := episodeFields[13].Descriptor()
+	// episode.DefaultTranscriptContent holds the default value on creation for the transcript_content field.
+	episode.DefaultTranscriptContent = episodeDescTranscriptContent.Default.(string)
+	// episodeDescCreatedAt is the schema descriptor for created_at field.
+	episodeDescCreatedAt := episodeFields[14].Descriptor()
+	// episode.DefaultCreatedAt holds the default value on creation for the created_at field.
+	episode.DefaultCreatedAt = episodeDescCreatedAt.Default.(func() time.Time)
+	// episodeDescUpdatedAt is the schema descriptor for updated_at field.
+	episodeDescUpdatedAt := episodeFields[15].Descriptor()
+	// episode.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	episode.DefaultUpdatedAt = episodeDescUpdatedAt.Default.(func() time.Time)
+	// episode.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	episode.UpdateDefaultUpdatedAt = episodeDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// episodeDescID is the schema descriptor for id field.
+	episodeDescID := episodeFields[0].Descriptor()
+	// episode.DefaultID holds the default value on creation for the id field.
+	episode.DefaultID = episodeDescID.Default.(func() uuid.UUID)
+	seriesFields := schema.Series{}.Fields()
+	_ = seriesFields
+	// seriesDescSummary is the schema descriptor for summary field.
+	seriesDescSummary := seriesFields[3].Descriptor()
+	// series.DefaultSummary holds the default value on creation for the summary field.
+	series.DefaultSummary = seriesDescSummary.Default.(string)
+	// seriesDescLanguage is the schema descriptor for language field.
+	seriesDescLanguage := seriesFields[4].Descriptor()
+	// series.DefaultLanguage holds the default value on creation for the language field.
+	series.DefaultLanguage = seriesDescLanguage.Default.(string)
+	// seriesDescLevel is the schema descriptor for level field.
+	seriesDescLevel := seriesFields[5].Descriptor()
+	// series.DefaultLevel holds the default value on creation for the level field.
+	series.DefaultLevel = seriesDescLevel.Default.(string)
+	// seriesDescCoverURL is the schema descriptor for cover_url field.
+	seriesDescCoverURL := seriesFields[7].Descriptor()
+	// series.DefaultCoverURL holds the default value on creation for the cover_url field.
+	series.DefaultCoverURL = seriesDescCoverURL.Default.(string)
+	// seriesDescStatus is the schema descriptor for status field.
+	seriesDescStatus := seriesFields[8].Descriptor()
+	// series.DefaultStatus holds the default value on creation for the status field.
+	series.DefaultStatus = seriesDescStatus.Default.(int)
+	// seriesDescEpisodeCount is the schema descriptor for episode_count field.
+	seriesDescEpisodeCount := seriesFields[9].Descriptor()
+	// series.DefaultEpisodeCount holds the default value on creation for the episode_count field.
+	series.DefaultEpisodeCount = seriesDescEpisodeCount.Default.(int)
+	// seriesDescCreatedAt is the schema descriptor for created_at field.
+	seriesDescCreatedAt := seriesFields[10].Descriptor()
+	// series.DefaultCreatedAt holds the default value on creation for the created_at field.
+	series.DefaultCreatedAt = seriesDescCreatedAt.Default.(func() time.Time)
+	// seriesDescUpdatedAt is the schema descriptor for updated_at field.
+	seriesDescUpdatedAt := seriesFields[11].Descriptor()
+	// series.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	series.DefaultUpdatedAt = seriesDescUpdatedAt.Default.(func() time.Time)
+	// series.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	series.UpdateDefaultUpdatedAt = seriesDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// seriesDescID is the schema descriptor for id field.
+	seriesDescID := seriesFields[0].Descriptor()
+	// series.DefaultID holds the default value on creation for the id field.
+	series.DefaultID = seriesDescID.Default.(func() uuid.UUID)
 	uploadsessionFields := schema.UploadSession{}.Fields()
 	_ = uploadsessionFields
 	// uploadsessionDescType is the schema descriptor for type field.

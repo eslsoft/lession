@@ -4,6 +4,7 @@ package lession.v1;
 
 option go_package = "github.com/eslsoft/lession/pkg/api/lession/v1;lessionv1";
 
+import "buf/validate/validate.proto";
 import "google/protobuf/field_mask.proto";
 import "lession/v1/asset.proto";
 
@@ -34,7 +35,7 @@ service AssetService {
 // UpdateAssetRequest applies partial updates to an asset.
 message UpdateAssetRequest {
   // asset contains the desired fields to update.
-  Asset asset = 1;
+  Asset asset = 1 [(buf.validate.field).required = true];
 
   // update_mask indicates which fields in asset should be applied.
   google.protobuf.FieldMask update_mask = 2;

@@ -21,6 +21,30 @@ func (f AssetFunc) Mutate(ctx context.Context, m generated.Mutation) (generated.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.AssetMutation", m)
 }
 
+// The EpisodeFunc type is an adapter to allow the use of ordinary
+// function as Episode mutator.
+type EpisodeFunc func(context.Context, *generated.EpisodeMutation) (generated.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EpisodeFunc) Mutate(ctx context.Context, m generated.Mutation) (generated.Value, error) {
+	if mv, ok := m.(*generated.EpisodeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.EpisodeMutation", m)
+}
+
+// The SeriesFunc type is an adapter to allow the use of ordinary
+// function as Series mutator.
+type SeriesFunc func(context.Context, *generated.SeriesMutation) (generated.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SeriesFunc) Mutate(ctx context.Context, m generated.Mutation) (generated.Value, error) {
+	if mv, ok := m.(*generated.SeriesMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.SeriesMutation", m)
+}
+
 // The UploadSessionFunc type is an adapter to allow the use of ordinary
 // function as UploadSession mutator.
 type UploadSessionFunc func(context.Context, *generated.UploadSessionMutation) (generated.Value, error)

@@ -13,6 +13,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/asset"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/episode"
+	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/series"
 	"github.com/eslsoft/lession/internal/adapter/db/ent/generated/uploadsession"
 )
 
@@ -75,6 +77,8 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			asset.Table:         asset.ValidColumn,
+			episode.Table:       episode.ValidColumn,
+			series.Table:        series.ValidColumn,
 			uploadsession.Table: uploadsession.ValidColumn,
 		})
 	})

@@ -32,7 +32,14 @@ func InitializeServer() (*Server, error) {
 	provider := NewFakeUploadProvider()
 	assetService := usecase.NewAssetService(assetRepository, provider)
 	assetHandler := transport.NewAssetHandler(assetService)
-	handler := NewHTTPHandler(assetHandler)
+	seriesRepository := db.NewSeriesRepository(client)
+	seriesService := usecase.NewSeriesService(seriesRepository)
+	seriesHandler := transport.NewSeriesHandler(seriesService)
+	validator, err := NewProtoValidator()
+	if err != nil {
+		return nil, err
+	}
+	handler := NewHTTPHandler(assetHandler, seriesHandler, validator)
 	server := NewServer(config, handler, client)
 	return server, nil
 }

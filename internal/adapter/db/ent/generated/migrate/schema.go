@@ -29,6 +29,76 @@ var (
 		Columns:    AssetsColumns,
 		PrimaryKey: []*schema.Column{AssetsColumns[0]},
 	}
+	// EpisodesColumns holds the columns for the "episodes" table.
+	EpisodesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "seq", Type: field.TypeUint32},
+		{Name: "title", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Default: ""},
+		{Name: "duration_seconds", Type: field.TypeInt, Default: 0},
+		{Name: "status", Type: field.TypeInt, Default: 0},
+		{Name: "resource_asset_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "resource_type", Type: field.TypeInt, Default: 0},
+		{Name: "resource_playback_url", Type: field.TypeString, Default: ""},
+		{Name: "resource_mime_type", Type: field.TypeString, Default: ""},
+		{Name: "transcript_language", Type: field.TypeString, Default: ""},
+		{Name: "transcript_format", Type: field.TypeInt, Default: 0},
+		{Name: "transcript_content", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "published_at", Type: field.TypeTime, Nullable: true},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "series_id", Type: field.TypeUUID},
+	}
+	// EpisodesTable holds the schema information for the "episodes" table.
+	EpisodesTable = &schema.Table{
+		Name:       "episodes",
+		Columns:    EpisodesColumns,
+		PrimaryKey: []*schema.Column{EpisodesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "episodes_series_episodes",
+				Columns:    []*schema.Column{EpisodesColumns[17]},
+				RefColumns: []*schema.Column{SeriesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "episode_series_id_seq",
+				Unique:  true,
+				Columns: []*schema.Column{EpisodesColumns[17], EpisodesColumns[1]},
+			},
+			{
+				Name:    "episode_series_id",
+				Unique:  false,
+				Columns: []*schema.Column{EpisodesColumns[17]},
+			},
+		},
+	}
+	// SeriesColumns holds the columns for the "series" table.
+	SeriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "slug", Type: field.TypeString, Unique: true},
+		{Name: "title", Type: field.TypeString},
+		{Name: "summary", Type: field.TypeString, Default: ""},
+		{Name: "language", Type: field.TypeString, Default: ""},
+		{Name: "level", Type: field.TypeString, Default: ""},
+		{Name: "tags", Type: field.TypeJSON, Nullable: true},
+		{Name: "cover_url", Type: field.TypeString, Default: ""},
+		{Name: "status", Type: field.TypeInt, Default: 0},
+		{Name: "episode_count", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "published_at", Type: field.TypeTime, Nullable: true},
+		{Name: "author_ids", Type: field.TypeJSON, Nullable: true},
+	}
+	// SeriesTable holds the schema information for the "series" table.
+	SeriesTable = &schema.Table{
+		Name:       "series",
+		Columns:    SeriesColumns,
+		PrimaryKey: []*schema.Column{SeriesColumns[0]},
+	}
 	// UploadSessionsColumns holds the columns for the "upload_sessions" table.
 	UploadSessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -56,9 +126,12 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AssetsTable,
+		EpisodesTable,
+		SeriesTable,
 		UploadSessionsTable,
 	}
 )
 
 func init() {
+	EpisodesTable.ForeignKeys[0].RefTable = SeriesTable
 }

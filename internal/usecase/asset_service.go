@@ -39,10 +39,6 @@ var _ core.AssetService = (*AssetService)(nil)
 
 // CreateUpload starts a new upload session by coordinating with the provider and persisting state.
 func (s *AssetService) CreateUpload(ctx context.Context, params core.CreateUploadParams) (*core.CreateUploadResult, error) {
-	if err := validateCreateUploadParams(params); err != nil {
-		return nil, err
-	}
-
 	providerRes, err := s.provider.CreateUpload(ctx, core.ProviderCreateUploadParams{
 		Type:             params.Type,
 		OriginalFilename: params.OriginalFilename,
@@ -111,10 +107,6 @@ func (s *AssetService) GetUploadSession(ctx context.Context, id core.UploadIdent
 
 // CompleteUpload finalises an upload, requesting the provider to produce playback details.
 func (s *AssetService) CompleteUpload(ctx context.Context, params core.CompleteUploadParams) (*core.CompleteUploadResult, error) {
-	if params.ContentLength < 0 {
-		return nil, fmt.Errorf("%w: content length must be non-negative", core.ErrValidation)
-	}
-
 	session, err := s.lookupUploadSession(ctx, params.Identifier)
 	if err != nil {
 		return nil, err
@@ -183,9 +175,6 @@ func (s *AssetService) GetAssetByKey(ctx context.Context, assetKey string) (*cor
 
 // ListAssets returns a paginated collection of assets from the repository.
 func (s *AssetService) ListAssets(ctx context.Context, filter core.AssetListFilter) ([]core.Asset, string, error) {
-	if filter.PageSize < 0 {
-		return nil, "", fmt.Errorf("%w: page size must be non-negative", core.ErrValidation)
-	}
 	return s.repo.ListAssets(ctx, filter)
 }
 
@@ -227,22 +216,6 @@ func (s *AssetService) lookupUploadSession(ctx context.Context, id core.UploadId
 	}
 
 	return nil, core.ErrNotFound
-}
-
-func validateCreateUploadParams(params core.CreateUploadParams) error {
-	if params.Type == core.AssetTypeUnspecified {
-		return fmt.Errorf("%w: asset type required", core.ErrValidation)
-	}
-	if params.OriginalFilename == "" {
-		return fmt.Errorf("%w: original filename required", core.ErrValidation)
-	}
-	if params.MimeType == "" {
-		return fmt.Errorf("%w: mime type required", core.ErrValidation)
-	}
-	if params.ContentLength < 0 {
-		return fmt.Errorf("%w: content length must be non-negative", core.ErrValidation)
-	}
-	return nil
 }
 
 func isNotFound(err error) bool {

@@ -9,5 +9,11 @@ import (
 // Asset is the predicate function for asset builders.
 type Asset func(*sql.Selector)
 
+// Episode is the predicate function for episode builders.
+type Episode func(*sql.Selector)
+
+// Series is the predicate function for series builders.
+type Series func(*sql.Selector)
+
 // UploadSession is the predicate function for uploadsession builders.
 type UploadSession func(*sql.Selector)
