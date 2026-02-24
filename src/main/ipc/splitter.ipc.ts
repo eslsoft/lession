@@ -28,7 +28,7 @@ export function registerSplitterIpc(): void {
         localPath: outputPaths[i],
         duration: markers[i].end - markers[i].start,
         source: { type: 'local', origin: filePath },
-        status: 'ready_to_process',
+        status: 'ready',
         publishStatus: 'draft',
       })
       episodes.push(episode)

@@ -11,21 +11,17 @@ export function formatDuration(seconds?: number): string {
 
 export function getStatusVariant(status: EpisodeStatus) {
   switch (status) {
-    case 'pending': return 'secondary' as const
-    case 'ready_to_process': return 'outline' as const
+    case 'ready': return 'outline' as const
     case 'transcribing': return 'default' as const
     case 'transcribed': return 'secondary' as const
-    case 'done': return 'secondary' as const
   }
 }
 
 export function getStatusLabel(status: EpisodeStatus): string {
   switch (status) {
-    case 'pending': return 'Pending'
-    case 'ready_to_process': return 'Ready'
+    case 'ready': return 'Ready'
     case 'transcribing': return 'Transcribing'
     case 'transcribed': return 'Transcribed'
-    case 'done': return 'Done'
   }
 }
 

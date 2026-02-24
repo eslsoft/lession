@@ -7,6 +7,7 @@ export const IPC = {
   SERIES_CREATE: 'series:create',
   SERIES_UPDATE: 'series:update',
   SERIES_DELETE: 'series:delete',
+  SERIES_UPLOAD_COVER: 'series:upload-cover',
 
   // Episode
   EPISODE_LIST: 'episode:list',

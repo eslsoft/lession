@@ -1,4 +1,6 @@
 // ── Series ──
+export type SeriesLevel = 'beginner' | 'intermediate' | 'advanced'
+
 export interface Series {
   id: string
   title: string
@@ -6,17 +8,19 @@ export interface Series {
   coverPath?: string
   type: 'course' | 'podcast' | 'audiobook' | 'video_series'
   language: string
+  authors?: string[]
+  category?: string
+  tags?: string[]
+  level?: SeriesLevel
   createdAt: string
   updatedAt: string
 }
 
 // ── Episode ──
 export type EpisodeStatus =
-  | 'pending'
-  | 'ready_to_process'
+  | 'ready'
   | 'transcribing'
   | 'transcribed'
-  | 'done'
 
 export type PublishStatus = 'draft' | 'preview' | 'published'
 
@@ -109,7 +113,6 @@ export interface Transcript {
   id: string
   episodeId: string
   language: string
-  status: 'transcribing' | 'transcribed' | 'nlp_processing' | 'ready'
   segments: Segment[]
   createdAt: string
   updatedAt: string
@@ -147,6 +150,7 @@ export interface ElectronAPI {
     create: (data: Omit<Series, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Series>
     update: (id: string, data: Partial<Series>) => Promise<Series>
     delete: (id: string) => Promise<void>
+    uploadCover: (seriesId: string, sourcePath: string) => Promise<Series>
   }
   // Episode
   episode: {

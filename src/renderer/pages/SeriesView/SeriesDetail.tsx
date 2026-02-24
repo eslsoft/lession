@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Scissors, Trash2, Pencil, Play, MoreVertical } from 'lucide-react'
+import { ArrowLeft, Plus, Scissors, Trash2, Pencil, Play, MoreVertical, ImagePlus, Library } from 'lucide-react'
+import { TagInput, type Tag } from '../../components/TagInput'
 import { useSeriesStore } from '../../stores/seriesStore'
 import { useEpisodeStore } from '../../stores/episodeStore'
+import { useTranscriptionStore } from '../../stores/transcriptionStore'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
+import { Progress } from '../../components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -12,13 +15,43 @@ import { Select } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
 import { Separator } from '../../components/ui/separator'
-import type { Series, Episode } from '../../../shared/types'
+import { CoverImage } from '../../components/CoverImage'
+import type { Series, SeriesLevel, Episode } from '../../../shared/types'
 
 const typeOptions = [
   { value: 'course', label: 'Course' },
   { value: 'podcast', label: 'Podcast' },
   { value: 'audiobook', label: 'Audiobook' },
   { value: 'video_series', label: 'Video Series' },
+]
+
+const levelOptions = [
+  { value: '', label: 'None' },
+  { value: 'beginner', label: 'Beginner' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'advanced', label: 'Advanced' },
+]
+
+const categoryOptions = [
+  { value: '', label: 'None' },
+  { value: 'technology', label: 'Technology' },
+  { value: 'business', label: 'Business' },
+  { value: 'science', label: 'Science' },
+  { value: 'health', label: 'Health & Fitness' },
+  { value: 'education', label: 'Education' },
+  { value: 'news', label: 'News & Politics' },
+  { value: 'arts', label: 'Arts & Culture' },
+  { value: 'history', label: 'History' },
+  { value: 'entertainment', label: 'Entertainment' },
+  { value: 'sports', label: 'Sports' },
+  { value: 'music', label: 'Music' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'food', label: 'Food & Cooking' },
+  { value: 'self-improvement', label: 'Self-Improvement' },
+  { value: 'fiction', label: 'Fiction & Stories' },
+  { value: 'comedy', label: 'Comedy' },
+  { value: 'kids', label: 'Kids & Family' },
+  { value: 'other', label: 'Other' },
 ]
 
 const languageOptions = [
@@ -32,11 +65,9 @@ const languageOptions = [
 ]
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-muted text-muted-foreground',
-  ready_to_process: 'bg-blue-500/20 text-blue-400',
+  ready: 'bg-blue-500/20 text-blue-400',
   transcribing: 'bg-yellow-500/20 text-yellow-400',
   transcribed: 'bg-green-500/20 text-green-400',
-  done: 'bg-green-500/20 text-green-400',
 }
 
 const publishColors: Record<string, string> = {
@@ -55,8 +86,11 @@ function formatDuration(seconds?: number): string {
 export default function SeriesDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { series, fetchSeries, updateSeries, deleteSeries } = useSeriesStore()
+  const { series, fetchSeries, updateSeries, deleteSeries, uploadCover } = useSeriesStore()
   const { episodes, loading: episodesLoading, fetchEpisodes, createEpisode, deleteEpisode } = useEpisodeStore()
+  const progresses = useTranscriptionStore((s) => s.progresses)
+  const completedIds = useTranscriptionStore((s) => s.completedIds)
+  const ackCompleted = useTranscriptionStore((s) => s.ackCompleted)
 
   const currentSeries = series.find((s) => s.id === id)
 
@@ -66,6 +100,10 @@ export default function SeriesDetailPage() {
     description: '',
     type: 'course' as Series['type'],
     language: 'en',
+    authors: [] as Tag[],
+    category: '',
+    tags: [] as Tag[],
+    level: '' as SeriesLevel | '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -82,6 +120,18 @@ export default function SeriesDetailPage() {
     if (id) fetchEpisodes(id)
   }, [id, fetchEpisodes])
 
+  // When any episode in this series finishes transcription, ack + refetch
+  // so the status badge updates from "transcribing" → "transcribed".
+  useEffect(() => {
+    if (!id || completedIds.length === 0) return
+    // Find episode ids that belong to this series
+    const seriesEpIds = new Set(episodes.map((ep) => ep.id))
+    const matched = completedIds.filter((cid) => seriesEpIds.has(cid))
+    if (matched.length === 0) return
+    matched.forEach(ackCompleted)
+    fetchEpisodes(id)
+  }, [completedIds, id, episodes, ackCompleted, fetchEpisodes])
+
   useEffect(() => {
     if (currentSeries) {
       setEditForm({
@@ -89,6 +139,10 @@ export default function SeriesDetailPage() {
         description: currentSeries.description ?? '',
         type: currentSeries.type,
         language: currentSeries.language,
+        authors: (currentSeries.authors ?? []).map((a) => ({ id: a, text: a })),
+        category: currentSeries.category ?? '',
+        tags: (currentSeries.tags ?? []).map((t) => ({ id: t, text: t })),
+        level: currentSeries.level ?? '',
       })
     }
   }, [currentSeries])
@@ -101,11 +155,17 @@ export default function SeriesDetailPage() {
     if (!id || !editForm.title.trim()) return
     setSaving(true)
     try {
+      const authors = editForm.authors.map((t) => t.text).filter(Boolean)
+      const tags = editForm.tags.map((t) => t.text).filter(Boolean)
       await updateSeries(id, {
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
         type: editForm.type,
         language: editForm.language,
+        authors: authors.length ? authors : undefined,
+        category: editForm.category.trim() || undefined,
+        tags: tags.length ? tags : undefined,
+        level: editForm.level || undefined,
       })
       setShowEdit(false)
     } finally {
@@ -137,14 +197,16 @@ export default function SeriesDetailPage() {
     setCreatingEp(true)
     try {
       const isVideo = /\.(mp4|webm|mkv|avi|mov)$/i.test(filePath)
+      const metadata = await window.electronAPI.splitter.getMetadata(filePath)
       const episode = await createEpisode({
         seriesId: id,
         title: newEpTitle.trim(),
         order: episodes.length,
         mimeType: isVideo ? 'video' : 'audio',
         localPath: filePath,
+        duration: metadata.duration,
         source: { type: 'direct', origin: filePath },
-        status: 'ready_to_process',
+        status: 'ready',
         publishStatus: 'draft',
       })
       setShowNewEpisode(false)
@@ -166,6 +228,17 @@ export default function SeriesDetailPage() {
 
   const handleDeleteEpisode = async (episodeId: string) => {
     await deleteEpisode(episodeId)
+  }
+
+  const handleUploadCover = async () => {
+    if (!id) return
+    const filePath = await window.electronAPI.dialog.openFile({
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] },
+      ],
+    })
+    if (!filePath) return
+    await uploadCover(id, filePath)
   }
 
   // For the New Episode flow we need to track the selected file path
@@ -190,15 +263,39 @@ export default function SeriesDetailPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate('/series')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
+        <div
+          className="h-16 w-16 rounded-lg overflow-hidden bg-muted flex items-center justify-center shrink-0 cursor-pointer"
+          onClick={handleUploadCover}
+          title="Click to change cover"
+        >
+          {currentSeries.coverPath ? (
+            <CoverImage filePath={currentSeries.coverPath} alt={currentSeries.title} className="h-full w-full object-cover" />
+          ) : (
+            <ImagePlus className="h-6 w-6 text-muted-foreground" />
+          )}
+        </div>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{currentSeries.title}</h1>
           {currentSeries.description && (
             <p className="text-sm text-muted-foreground mt-1">{currentSeries.description}</p>
           )}
+          {(currentSeries.authors?.length || currentSeries.category) && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+              {currentSeries.authors?.length && <span>By {currentSeries.authors.join(', ')}</span>}
+              {currentSeries.authors?.length && currentSeries.category && <span>·</span>}
+              {currentSeries.category && <span>{currentSeries.category}</span>}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{typeOptions.find((t) => t.value === currentSeries.type)?.label ?? currentSeries.type}</Badge>
           <Badge variant="outline">{currentSeries.language.toUpperCase()}</Badge>
+          {currentSeries.level && (
+            <Badge variant="outline">{levelOptions.find((l) => l.value === currentSeries.level)?.label ?? currentSeries.level}</Badge>
+          )}
+          {currentSeries.tags?.map((tag) => (
+            <Badge key={tag} variant="secondary">{tag}</Badge>
+          ))}
           <Button variant="ghost" size="icon" onClick={() => setShowEdit(true)}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -261,9 +358,20 @@ export default function SeriesDetailPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDuration(ep.duration)}</TableCell>
                 <TableCell>
-                  <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${statusColors[ep.status] ?? ''}`}>
-                    {ep.status.replace(/_/g, ' ')}
-                  </span>
+                  {progresses[ep.id] ? (
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">
+                        {progresses[ep.id].stage === 'transcribing' && 'Transcribing...'}
+                        {progresses[ep.id].stage === 'nlp' && 'NLP processing...'}
+                        {!progresses[ep.id].stage && 'Starting...'}
+                      </span>
+                      <Progress value={progresses[ep.id].percent} className="h-1.5" />
+                    </div>
+                  ) : (
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${statusColors[ep.status] ?? ''}`}>
+                      {ep.status.replace(/_/g, ' ')}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${publishColors[ep.publishStatus] ?? ''}`}>
@@ -295,6 +403,22 @@ export default function SeriesDetailPage() {
             <DialogTitle>Edit Series</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Cover Image</Label>
+              <div
+                className="flex items-center justify-center w-full h-32 rounded-lg border border-dashed border-input bg-muted/50 cursor-pointer hover:bg-muted transition-colors overflow-hidden"
+                onClick={handleUploadCover}
+              >
+                {currentSeries.coverPath ? (
+                  <CoverImage filePath={currentSeries.coverPath} alt="Cover" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <ImagePlus className="h-8 w-8" />
+                    <span className="text-xs">Click to upload cover</span>
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="edit-title">Title</Label>
               <Input
@@ -330,6 +454,42 @@ export default function SeriesDetailPage() {
                   onChange={(e) => setEditForm((f) => ({ ...f, language: e.target.value }))}
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-level">Level</Label>
+                <Select
+                  id="edit-level"
+                  options={levelOptions}
+                  value={editForm.level}
+                  onChange={(e) => setEditForm((f) => ({ ...f, level: e.target.value as SeriesLevel | '' }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category</Label>
+                <Select
+                  id="edit-category"
+                  options={categoryOptions}
+                  value={editForm.category}
+                  onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Authors</Label>
+              <TagInput
+                placeholder="Type and press Enter"
+                tags={editForm.authors}
+                setTags={(newTags) => setEditForm((f) => ({ ...f, authors: newTags }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <TagInput
+                placeholder="Type and press Enter"
+                tags={editForm.tags}
+                setTags={(newTags) => setEditForm((f) => ({ ...f, tags: newTags }))}
+              />
             </div>
           </div>
           <DialogFooter>

@@ -6,7 +6,6 @@ interface TranscriptRow {
   id: string
   episodeId: string
   language: string
-  status: Transcript['status']
   segments: string
   createdAt: string
   updatedAt: string
@@ -17,7 +16,6 @@ function rowToTranscript(row: TranscriptRow): Transcript {
     id: row.id,
     episodeId: row.episodeId,
     language: row.language,
-    status: row.status,
     segments: JSON.parse(row.segments) as Segment[],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -37,10 +35,10 @@ export function createTranscript(data: Omit<Transcript, 'id' | 'createdAt' | 'up
   const id = crypto.randomUUID()
 
   const stmt = db.prepare(`
-    INSERT INTO transcripts (id, episodeId, language, status, segments, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO transcripts (id, episodeId, language, segments, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
   `)
-  stmt.run(id, data.episodeId, data.language, data.status, JSON.stringify(data.segments), now, now)
+  stmt.run(id, data.episodeId, data.language, JSON.stringify(data.segments), now, now)
 
   return getTranscriptById(id)!
 }
@@ -62,11 +60,6 @@ export function updateTranscript(id: string, data: Partial<Transcript>): Transcr
   if ('language' in data) {
     sets.push('language = ?')
     values.push(data.language)
-  }
-
-  if ('status' in data) {
-    sets.push('status = ?')
-    values.push(data.status)
   }
 
   if ('segments' in data) {

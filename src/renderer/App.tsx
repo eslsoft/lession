@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useConfigStore } from './stores/configStore'
+import './stores/transcriptionStore' // side-effect: subscribes to IPC progress events
 import { MainLayout } from './layouts/MainLayout'
 import DownloadsPage from './pages/Downloads'
 import SeriesListPage from './pages/SeriesView'

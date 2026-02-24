@@ -9,6 +9,7 @@ interface SeriesState {
   createSeries: (data: Omit<Series, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Series>
   updateSeries: (id: string, data: Partial<Series>) => Promise<void>
   deleteSeries: (id: string) => Promise<void>
+  uploadCover: (seriesId: string, sourcePath: string) => Promise<void>
 }
 
 export const useSeriesStore = create<SeriesState>((set) => ({
@@ -43,6 +44,13 @@ export const useSeriesStore = create<SeriesState>((set) => ({
     await window.electronAPI.series.delete(id)
     set((state) => ({
       series: state.series.filter((s) => s.id !== id),
+    }))
+  },
+
+  uploadCover: async (seriesId, sourcePath) => {
+    const updated = await window.electronAPI.series.uploadCover(seriesId, sourcePath)
+    set((state) => ({
+      series: state.series.map((s) => (s.id === seriesId ? updated : s)),
     }))
   },
 }))

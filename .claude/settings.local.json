@@ -18,7 +18,9 @@
       "WebFetch(domain:winkjs.org)",
       "Bash(chmod +x:*)",
       "Bash(python3:*)",
-      "WebFetch(domain:spacy.io)"
+      "WebFetch(domain:spacy.io)",
+      "Bash(git add:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

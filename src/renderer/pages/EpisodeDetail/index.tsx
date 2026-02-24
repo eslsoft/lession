@@ -4,6 +4,7 @@ import { ChevronRight, AlertCircle, Loader2, Upload, Pencil, CheckCircle2, Refre
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useSeriesStore } from '../../stores/seriesStore'
 import { useConfigStore } from '../../stores/configStore'
+import { useTranscriptionStore } from '../../stores/transcriptionStore'
 import MediaPlayer, { type MediaPlayerRef } from '../../components/MediaPlayer'
 import TranscriptEditor from '../../components/TranscriptEditor'
 import SegmentAnalysisPanel from '../../components/SegmentAnalysisPanel'
@@ -20,12 +21,16 @@ export default function EpisodeDetailPage() {
   const { currentEpisode, loading, fetchEpisode, updateEpisode } = useEpisodeStore()
   const { series, fetchSeries } = useSeriesStore()
   const { config, fetchConfig, initialized } = useConfigStore()
+
+  // ── Global transcription state ──
+  const progress = useTranscriptionStore((s) => s.progresses[episodeId!])
+  const completedIds = useTranscriptionStore((s) => s.completedIds)
+  const clearProgress = useTranscriptionStore((s) => s.clear)
+  const ackCompleted = useTranscriptionStore((s) => s.ackCompleted)
+
   const playerRef = useRef<MediaPlayerRef>(null)
 
-  const [transcribing, setTranscribing] = useState(false)
   const [publishing, setPublishing] = useState(false)
-  const [progressPercent, setProgressPercent] = useState(0)
-  const [progressStage, setProgressStage] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -38,6 +43,10 @@ export default function EpisodeDetailPage() {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null)
 
   const currentSeries = series.find((s) => s.id === seriesId)
+
+  // "is transcribing" is derived purely from the global store —
+  // no local state needed, survives navigation.
+  const isTranscribing = !!progress
 
   useEffect(() => {
     if (episodeId) fetchEpisode(episodeId)
@@ -78,16 +87,14 @@ export default function EpisodeDetailPage() {
     window.electronAPI.transcript.get(episodeId).then(setTranscript)
   }, [episodeId, currentEpisode?.status])
 
-  // Transcription progress events
+  // When THIS episode's transcription finishes, refetch episode + transcript
+  // and acknowledge the completion so the id is cleaned up.
   useEffect(() => {
-    if (!episodeId) return
-    return window.electronAPI.transcription.onProgress((data) => {
-      if (data.episodeId === episodeId) {
-        setProgressPercent(data.percent)
-        setProgressStage(data.stage)
-      }
-    })
-  }, [episodeId])
+    if (!episodeId || !completedIds.includes(episodeId)) return
+    ackCompleted(episodeId)
+    fetchEpisode(episodeId)
+    window.electronAPI.transcript.get(episodeId).then(setTranscript)
+  }, [completedIds, episodeId, ackCompleted, fetchEpisode])
 
   const handleTimeUpdate = useCallback((time: number) => setCurrentTime(time), [])
 
@@ -128,22 +135,24 @@ export default function EpisodeDetailPage() {
   }
 
   const handleTranscribe = useCallback(async () => {
-    if (!episodeId || transcribing) return
-    setTranscribing(true)
-    setProgressPercent(0)
-    setProgressStage('')
+    if (!episodeId || isTranscribing) return
     setActionError(null)
     try {
       const result = await window.electronAPI.transcript.generate(episodeId)
+      // If the user stayed on this page, the completedIds effect above will
+      // already refetch. But the IPC resolve also gives us the transcript
+      // directly, so we can update immediately.
       setTranscript(result)
       await fetchEpisode(episodeId)
     } catch (err) {
       setActionError((err as Error).message)
       await fetchEpisode(episodeId)
     } finally {
-      setTranscribing(false)
+      // Safety net: if the store still has this episode (e.g. the nlp:100
+      // event was somehow missed), clean it up.
+      clearProgress(episodeId)
     }
-  }, [episodeId, transcribing, fetchEpisode])
+  }, [episodeId, isTranscribing, fetchEpisode, clearProgress])
 
   const handlePublish = useCallback(
     async (targetStatus: PublishStatus) => {
@@ -191,7 +200,7 @@ export default function EpisodeDetailPage() {
   // ── Derived state ──
   const mediaSrc = blobUrl ?? currentEpisode.remoteUrl
   const hasError = !!currentEpisode.lastError || !!actionError
-  const isTranscribed = currentEpisode.status === 'transcribed' || currentEpisode.status === 'done'
+  const isTranscribed = currentEpisode.status === 'transcribed'
   const showTranscribe = !isTranscribed || hasError
   const showRetranscribe = isTranscribed && !hasError
   const showPublishBtn = !!transcript
@@ -249,8 +258,8 @@ export default function EpisodeDetailPage() {
         {/* Action buttons */}
         <div className="flex items-center gap-2 shrink-0">
           {showRetranscribe && (
-            <Button variant="outline" size="sm" onClick={handleTranscribe} disabled={transcribing}>
-              {transcribing
+            <Button variant="outline" size="sm" onClick={handleTranscribe} disabled={isTranscribing}>
+              {isTranscribing
                 ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
                 : <RefreshCw className="mr-1.5 h-3 w-3" />}
               Retranscribe
@@ -261,9 +270,9 @@ export default function EpisodeDetailPage() {
               variant={hasError ? 'destructive' : 'default'}
               size="sm"
               onClick={handleTranscribe}
-              disabled={transcribing}
+              disabled={isTranscribing}
             >
-              {transcribing && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+              {isTranscribing && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
               {hasError ? 'Retry Transcribe' : 'Transcribe'}
             </Button>
           )}
@@ -287,15 +296,15 @@ export default function EpisodeDetailPage() {
       </div>
 
       {/* Transcription progress */}
-      {transcribing && (
+      {isTranscribing && (
         <div className="space-y-1.5 shrink-0">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
-            {progressStage === 'transcribing' && 'Transcribing...'}
-            {progressStage === 'nlp' && 'NLP processing...'}
-            {!progressStage && 'Starting...'}
+            {progress?.stage === 'transcribing' && 'Transcribing...'}
+            {progress?.stage === 'nlp' && 'NLP processing...'}
+            {!progress?.stage && 'Starting...'}
           </div>
-          <Progress value={progressPercent} />
+          <Progress value={progress?.percent ?? 0} />
         </div>
       )}
 

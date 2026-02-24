@@ -13,7 +13,7 @@ export async function publishEpisode(
 ): Promise<void> {
   const episode = getEpisode(episodeId)
   if (!episode) throw new Error(`Episode not found: ${episodeId}`)
-  if (episode.status !== 'done' && episode.status !== 'transcribed') throw new Error('Episode must be transcribed or done to publish')
+  if (episode.status !== 'transcribed') throw new Error('Episode must be transcribed before publishing')
 
   const s3 = createS3Client(config.storage)
   const bucket = config.storage.bucket
@@ -121,8 +121,12 @@ export function generateFeedJson(series: Series, episodes: Episode[], config: Ap
     description: series.description ?? '',
     icon: coverUrl,
     language: series.language,
+    authors: series.authors?.map((name) => ({ name })),
     _type: series.type,
     _id: series.id,
+    _category: series.category,
+    _tags: series.tags,
+    _level: series.level,
     items: publishedEpisodes.map((ep) => buildFeedItem(baseUrl, series, ep)),
   }
 }

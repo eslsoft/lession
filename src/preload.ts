@@ -9,6 +9,7 @@ const api: ElectronAPI = {
     create: (data) => ipcRenderer.invoke(IPC.SERIES_CREATE, data),
     update: (id, data) => ipcRenderer.invoke(IPC.SERIES_UPDATE, id, data),
     delete: (id) => ipcRenderer.invoke(IPC.SERIES_DELETE, id),
+    uploadCover: (seriesId, sourcePath) => ipcRenderer.invoke(IPC.SERIES_UPLOAD_COVER, seriesId, sourcePath),
   },
   episode: {
     list: (seriesId) => ipcRenderer.invoke(IPC.EPISODE_LIST, seriesId),

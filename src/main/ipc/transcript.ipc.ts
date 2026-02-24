@@ -54,13 +54,11 @@ export function registerTranscriptIpc(): void {
         updateTranscript(transcript.id, {
           segments,
           language: series.language,
-          status: 'transcribed',
         })
       } else {
         transcript = createTranscript({
           episodeId,
           language: series.language,
-          status: 'transcribed',
           segments,
         })
       }
@@ -71,7 +69,6 @@ export function registerTranscriptIpc(): void {
       emitProgress('nlp', 0)
       const nlpSegments = await processTranscript(segments)
       updateTranscriptSegments(transcript.id, nlpSegments)
-      updateTranscript(transcript.id, { status: 'ready' })
       emitProgress('nlp', 100)
 
       // Mark episode as transcribed
