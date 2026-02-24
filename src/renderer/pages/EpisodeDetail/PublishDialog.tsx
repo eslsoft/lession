@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Loader2, Upload, FileText, FileVideo, FileJson, File } from 'lucide-react'
 import { JsonView, allExpanded, defaultStyles } from 'react-json-view-lite'
 import 'react-json-view-lite/dist/index.css'
 import { Button } from '../../components/ui/button'
+import { Switch } from '../../components/ui/switch'
+import { Label } from '../../components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
-import type { PublishStatus, Episode, PublishPreviewFile } from '../../../shared/types'
+import type { PublishStatus, Episode, PublishFileInfo, PublishPreviewFile } from '../../../shared/types'
 import { cn } from '../../lib/utils'
 
 interface Props {
@@ -17,11 +19,12 @@ interface Props {
   onUnpublish: () => void
 }
 
-function FileIcon({ name }: { name: string }) {
-  if (name.endsWith('.json')) return <FileJson className="h-3.5 w-3.5 shrink-0" />
-  if (name.endsWith('.srt') || name.endsWith('.vtt')) return <FileText className="h-3.5 w-3.5 shrink-0" />
-  if (/\.(mp4|mp3|m4a|webm|mkv|wav|ogg|flac)$/.test(name)) return <FileVideo className="h-3.5 w-3.5 shrink-0" />
-  return <File className="h-3.5 w-3.5 shrink-0" />
+function FileIcon({ name, className }: { name: string; className?: string }) {
+  const cls = cn('h-3.5 w-3.5 shrink-0', className)
+  if (name.endsWith('.json')) return <FileJson className={cls} />
+  if (name.endsWith('.srt') || name.endsWith('.vtt')) return <FileText className={cls} />
+  if (/\.(mp4|mp3|m4a|webm|mkv|wav|ogg|flac)$/.test(name)) return <FileVideo className={cls} />
+  return <File className={cls} />
 }
 
 function FileContent({ file }: { file: PublishPreviewFile }) {
@@ -42,8 +45,7 @@ function FileContent({ file }: { file: PublishPreviewFile }) {
       />
     )
   }
-  // text (srt / vtt)
-  return <pre className="whitespace-pre-wrap font-mono text-xs">{file.content as string}</pre>
+  return <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed">{file.content as string}</pre>
 }
 
 export default function PublishDialog({
@@ -52,20 +54,58 @@ export default function PublishDialog({
   const [mode, setMode] = useState<'published' | 'preview'>(
     episode.publishStatus === 'preview' ? 'preview' : 'published',
   )
-  const [files, setFiles] = useState<PublishPreviewFile[] | null>(null)
-  const [activeIdx, setActiveIdx] = useState(0)
-
-  useEffect(() => {
-    if (!open) return
-    setFiles(null)
-    setActiveIdx(0)
-    window.electronAPI.publisher.previewPublish(episode.id, mode).then(setFiles)
-  }, [open, episode.id, mode])
+  const [files, setFiles] = useState<PublishFileInfo[] | null>(null)
+  const [activeKey, setActiveKey] = useState<string | null>(null)
+  // content cache: key → loaded file (or 'loading')
+  const [contentCache, setContentCache] = useState<Record<string, PublishPreviewFile | 'loading'>>({})
 
   const isAlreadyPublished = episode.publishStatus !== 'draft'
+  const fileName = (key: string) => key.split('/').pop() ?? key
 
-  // Extract just the filename from the full S3 key for tab display
-  const tabLabel = (key: string) => key.split('/').pop() ?? key
+  const loadFile = useCallback((key: string, currentMode: PublishStatus) => {
+    setActiveKey(key)
+    setContentCache((prev) => {
+      if (prev[key] && prev[key] !== 'loading') return prev
+      return { ...prev, [key]: 'loading' }
+    })
+    window.electronAPI.publisher.previewFile(episode.id, key, currentMode).then((result) => {
+      if (result) setContentCache((prev) => ({ ...prev, [key]: result }))
+    })
+  }, [episode.id])
+
+  // Load file list on open; reset on close
+  useEffect(() => {
+    if (!open) {
+      setFiles(null)
+      setActiveKey(null)
+      setContentCache({})
+      return
+    }
+    window.electronAPI.publisher.previewFiles(episode.id, mode).then((result) => {
+      if (!result) return
+      setFiles(result)
+      // Auto-load feed.json by default
+      const feedKey = result.find((f) => f.key.endsWith('feed.json'))?.key ?? result[0]?.key
+      if (feedKey) loadFile(feedKey, mode)
+    })
+  }, [open, episode.id])
+
+  // On mode change: clear cache for json files (feed/index content changes), reload active if affected
+  const handleModeChange = (newMode: PublishStatus) => {
+    setMode(newMode)
+    setContentCache((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(next)) {
+        if (key.endsWith('.json')) delete next[key]
+      }
+      return next
+    })
+    if (activeKey?.endsWith('.json')) {
+      loadFile(activeKey, newMode)
+    }
+  }
+
+  const activeContent = activeKey ? contentCache[activeKey] : null
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -74,78 +114,78 @@ export default function PublishDialog({
           <DialogTitle>Publish Episode</DialogTitle>
         </DialogHeader>
 
-        {/* Mode selector */}
-        <div className="flex gap-3 mb-2">
-          {(['published', 'preview'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={cn(
-                'flex-1 flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',
-                mode === m ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
-              )}
-            >
-              <div
-                className={cn(
-                  'mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center',
-                  mode === m ? 'border-primary bg-primary' : 'border-muted-foreground',
-                )}
-              >
-                {mode === m && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
-              </div>
-              <div>
-                <div className="font-medium text-sm">
-                  {m === 'published' ? 'Published' : 'Preview'}
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {m === 'published'
-                    ? 'Publicly visible in the feed'
-                    : 'Draft/preview — included in feed but marked as preview'}
-                </div>
-              </div>
-            </button>
-          ))}
+        {/* Preview toggle */}
+        <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3 mt-1">
+          <div>
+            <Label htmlFor="preview-switch" className="text-sm font-medium cursor-pointer">
+              Publish as Preview
+            </Label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {mode === 'preview'
+                ? 'Included in feed but marked as preview'
+                : 'Publicly visible in the feed'}
+            </p>
+          </div>
+          <Switch
+            id="preview-switch"
+            checked={mode === 'preview'}
+            onCheckedChange={(v) => handleModeChange(v ? 'preview' : 'published')}
+          />
         </div>
 
-        {/* File preview */}
-        <div className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">
-          Files to upload ({files?.length ?? '…'})
-        </div>
-
+        {/* Two-panel file viewer */}
         {!files ? (
-          <div className="rounded-md border bg-white p-6 text-center text-muted-foreground text-sm">
+          <div className="rounded-lg bg-muted/30 h-64 flex items-center justify-center text-muted-foreground text-sm gap-2 mt-3">
+            <Loader2 className="h-4 w-4 animate-spin" />
             Loading…
           </div>
         ) : (
-          <div className="rounded-md border bg-white overflow-hidden">
-            {/* File tabs */}
-            <div className="flex gap-0 border-b overflow-x-auto bg-muted/30">
-              {files.map((file, idx) => (
+          <div className="rounded-lg bg-muted/20 overflow-hidden flex mt-3" style={{ height: '280px' }}>
+            {/* File list */}
+            <div className="w-44 shrink-0 border-r border-border/50 overflow-y-auto bg-muted/40">
+              {files.map((file) => (
                 <button
                   key={file.key}
-                  onClick={() => setActiveIdx(idx)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap border-b-2 transition-colors',
-                    activeIdx === idx
-                      ? 'border-primary text-foreground bg-white'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                  )}
+                  onClick={() => loadFile(file.key, mode)}
                   title={file.key}
+                  className={cn(
+                    'w-full flex flex-col items-start px-3 py-2.5 text-left transition-colors border-b border-border/50 last:border-0',
+                    activeKey === file.key
+                      ? 'bg-primary/8 text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                  )}
                 >
-                  <FileIcon name={file.key} />
-                  {tabLabel(file.key)}
+                  <span className="flex items-center gap-1.5 w-full">
+                    <FileIcon
+                      name={file.key}
+                      className={activeKey === file.key ? 'text-primary' : ''}
+                    />
+                    <span className="text-xs font-medium truncate">{fileName(file.key)}</span>
+                  </span>
+                  {file.size && (
+                    <span className="text-[10px] text-muted-foreground mt-0.5 ml-5">{file.size}</span>
+                  )}
                 </button>
               ))}
             </div>
 
-            {/* S3 key path */}
-            <div className="px-3 py-1.5 border-b bg-muted/20 text-xs text-muted-foreground font-mono">
-              {files[activeIdx].key}
-            </div>
-
-            {/* File content */}
-            <div className="overflow-auto max-h-64 p-3 text-xs">
-              <FileContent file={files[activeIdx]} />
+            {/* Content panel */}
+            <div className="flex-1 overflow-hidden flex flex-col min-w-0 bg-white">
+              {activeKey && (
+                <div className="px-3 py-1.5 border-b border-border/40 bg-muted/10 text-[10px] text-muted-foreground font-mono truncate shrink-0">
+                  {activeKey}
+                </div>
+              )}
+              <div className="flex-1 overflow-auto p-3 text-xs">
+                {!activeContent || activeContent === 'loading' ? (
+                  <div className="flex items-center justify-center h-full gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </div>
+                ) : (
+                  <FileContent file={activeContent} />
+                )}
+              </div>
             </div>
           </div>
         )}

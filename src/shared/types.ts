@@ -142,11 +142,14 @@ export interface AppConfig {
 }
 
 // ── Publish Preview ──
-export interface PublishPreviewFile {
+export interface PublishFileInfo {
   key: string
   type: 'json' | 'text' | 'binary'
-  content?: string | object
   size?: string
+}
+
+export interface PublishPreviewFile extends PublishFileInfo {
+  content: string | object
 }
 
 // ── IPC API Types ──
@@ -200,7 +203,8 @@ export interface ElectronAPI {
     publishEpisode: (episodeId: string, targetStatus?: PublishStatus) => Promise<void>
     unpublishEpisode: (episodeId: string) => Promise<void>
     publishSeries: (seriesId: string) => Promise<void>
-    previewPublish: (episodeId: string, mode: PublishStatus) => Promise<PublishPreviewFile[] | null>
+    previewFiles: (episodeId: string, mode: PublishStatus) => Promise<PublishFileInfo[] | null>
+    previewFile: (episodeId: string, fileKey: string, mode: PublishStatus) => Promise<PublishPreviewFile | null>
   }
   // Dialog
   dialog: {

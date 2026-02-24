@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
-import { publishEpisode, unpublishEpisode, publishSeries, previewPublish } from '../services/publisher'
+import { publishEpisode, unpublishEpisode, publishSeries, previewPublishFiles, previewPublishFile } from '../services/publisher'
 import type { AppConfig, PublishStatus } from '../../shared/types'
 
 const store = new Store()
@@ -25,7 +25,11 @@ export function registerPublisherIpc(): void {
     return publishSeries(seriesId, getConfig())
   })
 
-  ipcMain.handle(IPC.PUBLISHER_PREVIEW_FEED_ITEM, (_event, episodeId: string, mode: PublishStatus) => {
-    return previewPublish(episodeId, mode)
+  ipcMain.handle(IPC.PUBLISHER_PREVIEW_FILES, (_event, episodeId: string, mode: PublishStatus) => {
+    return previewPublishFiles(episodeId, mode)
+  })
+
+  ipcMain.handle(IPC.PUBLISHER_PREVIEW_FILE, (_event, episodeId: string, fileKey: string, mode: PublishStatus) => {
+    return previewPublishFile(episodeId, fileKey, mode)
   })
 }

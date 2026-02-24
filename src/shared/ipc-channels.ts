@@ -43,7 +43,8 @@ export const IPC = {
   PUBLISHER_PUBLISH_EPISODE: 'publisher:publishEpisode',
   PUBLISHER_UNPUBLISH_EPISODE: 'publisher:unpublishEpisode',
   PUBLISHER_PUBLISH_SERIES: 'publisher:publishSeries',
-  PUBLISHER_PREVIEW_FEED_ITEM: 'publisher:previewFeedItem',
+  PUBLISHER_PREVIEW_FILES: 'publisher:previewFiles',
+  PUBLISHER_PREVIEW_FILE: 'publisher:previewFile',
 
   // Dialog
   DIALOG_OPEN_FILE: 'dialog:openFile',

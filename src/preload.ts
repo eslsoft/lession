@@ -51,7 +51,8 @@ const api: ElectronAPI = {
     publishEpisode: (episodeId, targetStatus) => ipcRenderer.invoke(IPC.PUBLISHER_PUBLISH_EPISODE, episodeId, targetStatus),
     unpublishEpisode: (episodeId) => ipcRenderer.invoke(IPC.PUBLISHER_UNPUBLISH_EPISODE, episodeId),
     publishSeries: (seriesId) => ipcRenderer.invoke(IPC.PUBLISHER_PUBLISH_SERIES, seriesId),
-    previewPublish: (episodeId, mode) => ipcRenderer.invoke(IPC.PUBLISHER_PREVIEW_FEED_ITEM, episodeId, mode),
+    previewFiles: (episodeId, mode) => ipcRenderer.invoke(IPC.PUBLISHER_PREVIEW_FILES, episodeId, mode),
+    previewFile: (episodeId, fileKey, mode) => ipcRenderer.invoke(IPC.PUBLISHER_PREVIEW_FILE, episodeId, fileKey, mode),
   },
   dialog: {
     openFile: (options) => ipcRenderer.invoke(IPC.DIALOG_OPEN_FILE, options),

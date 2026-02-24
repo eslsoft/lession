@@ -22,7 +22,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
 
 const DialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { onClose?: () => void }>(
   ({ className, children, onClose, ...props }, ref) => (
-    <div ref={ref} className={cn("relative z-50 w-full max-w-lg rounded-lg border border-border bg-white p-6 shadow-lg", className)} {...props}>
+    <div ref={ref} className={cn("relative z-50 w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl", className)} {...props}>
       {children}
       {onClose && (
         <button onClick={onClose} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">
