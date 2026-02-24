@@ -127,7 +127,7 @@ export default function DownloadsPage() {
       localPath: createDialogDownload.localPath,
       duration: createDialogDownload.duration,
       source: { type: 'url', origin: createDialogDownload.url },
-      status: 'pending',
+      status: 'ready',
       publishStatus: 'draft',
     })
     setCreateDialogOpen(false)

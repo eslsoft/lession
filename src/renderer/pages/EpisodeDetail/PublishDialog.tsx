@@ -51,7 +51,7 @@ function FileContent({ file }: { file: PublishPreviewFile }) {
 export default function PublishDialog({
   open, onClose, episode, s3Ready, publishing, onPublish, onUnpublish,
 }: Props) {
-  const [mode, setMode] = useState<'published' | 'preview'>(
+  const [mode, setMode] = useState<PublishStatus>(
     episode.publishStatus === 'preview' ? 'preview' : 'published',
   )
   const [files, setFiles] = useState<PublishFileInfo[] | null>(null)

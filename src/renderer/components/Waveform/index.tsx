@@ -122,6 +122,7 @@ export const Waveform = forwardRef<WaveformHandle, WaveformProps>(function Wavef
       cursorWidth: 2,
       height,
       minPxPerSec: 20,
+      // @ts-expect-error scrollParent is supported at runtime but missing from types
       scrollParent: true,
       autoScroll: true,
       autoCenter: false,

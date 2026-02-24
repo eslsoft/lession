@@ -112,7 +112,7 @@ export function updateEpisode(id: string, data: Partial<Episode>): Episode {
   const simpleFields = ['seriesId', 'title', 'description', 'mimeType', 'localPath', 'remoteUrl', 'duration', 'status', 'publishStatus'] as const
   for (const field of simpleFields) {
     if (field in data) {
-      sets.push(`${field === 'order' ? '"order"' : field} = ?`)
+      sets.push(`${field} = ?`)
       values.push(data[field] ?? null)
     }
   }
