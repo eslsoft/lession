@@ -1,0 +1,119 @@
+import React, { useState, useMemo } from 'react'
+import { Loader2, Upload } from 'lucide-react'
+import { JsonView, allExpanded, defaultStyles } from 'react-json-view-lite'
+import 'react-json-view-lite/dist/index.css'
+import { Button } from '../../components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
+import type { PublishStatus, Episode, Series, AppConfig } from '../../../shared/types'
+import { cn } from '../../lib/utils'
+import { buildFeedItemPreview } from './utils'
+
+interface Props {
+  open: boolean
+  onClose: () => void
+  episode: Episode
+  series: Series | undefined
+  config: AppConfig | null
+  s3Ready: boolean
+  publishing: boolean
+  onPublish: (mode: PublishStatus) => void
+  onUnpublish: () => void
+}
+
+export default function PublishDialog({
+  open, onClose, episode, series, config, s3Ready, publishing, onPublish, onUnpublish,
+}: Props) {
+  const [mode, setMode] = useState<'published' | 'preview'>(
+    episode.publishStatus === 'preview' ? 'preview' : 'published',
+  )
+
+  const previewData = useMemo(
+    () => buildFeedItemPreview(episode, series, config, mode),
+    [episode, series, config, mode],
+  )
+
+  const isAlreadyPublished = episode.publishStatus !== 'draft'
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-2xl w-full" onClose={onClose}>
+        <DialogHeader>
+          <DialogTitle>Publish Episode</DialogTitle>
+        </DialogHeader>
+
+        {/* Mode selector */}
+        <div className="flex gap-3 mb-2">
+          {(['published', 'preview'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={cn(
+                'flex-1 flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',
+                mode === m ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
+              )}
+            >
+              <div
+                className={cn(
+                  'mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center',
+                  mode === m ? 'border-primary bg-primary' : 'border-muted-foreground',
+                )}
+              >
+                {mode === m && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+              </div>
+              <div>
+                <div className="font-medium text-sm">
+                  {m === 'published' ? 'Published' : 'Preview'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {m === 'published'
+                    ? 'Publicly visible in the feed'
+                    : 'Draft/preview — included in feed but marked as preview'}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* JSON preview */}
+        <div className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">
+          Feed Item Preview
+        </div>
+        <div className="rounded-md border bg-white overflow-auto max-h-56 p-3 text-xs">
+          <JsonView
+            data={previewData}
+            shouldExpandNode={allExpanded}
+            style={defaultStyles}
+            clickToExpandNode
+          />
+        </div>
+
+        <DialogFooter>
+          {isAlreadyPublished && (
+            <Button
+              variant="outline"
+              className="sm:mr-auto text-destructive hover:text-destructive border-destructive/30 hover:border-destructive"
+              onClick={onUnpublish}
+              disabled={publishing}
+            >
+              {publishing && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+              Unpublish
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose} disabled={publishing}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => onPublish(mode)}
+            disabled={publishing || !s3Ready}
+            title={!s3Ready ? 'S3 storage not configured — go to Settings' : undefined}
+          >
+            {publishing
+              ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+              : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+            {mode === 'published' ? 'Publish' : 'Publish as Preview'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
