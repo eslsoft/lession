@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
 import { listSeries, getSeries, createSeries, updateSeries, deleteSeries } from '../db/repositories/series'
-import { createS3Client, uploadFile } from '../services/storage'
+import { createS3Client, uploadFile, s3Keys } from '../services/storage'
 import type { Series, AppConfig } from '../../shared/types'
 
 const store = new Store()
@@ -45,7 +45,7 @@ export function registerSeriesIpc(): void {
     // Upload to S3
     const config = getConfig()
     const s3 = createS3Client(config.storage)
-    const s3Key = `${seriesId}/cover${ext}`
+    const s3Key = s3Keys.seriesCover(seriesId, ext)
     await uploadFile(s3, config.storage.bucket, s3Key, destPath)
     // Update DB
     return updateSeries(seriesId, { coverPath: destPath })

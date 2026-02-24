@@ -198,7 +198,7 @@ export default function EpisodeDetailPage() {
   }
 
   // ── Derived state ──
-  const mediaSrc = blobUrl ?? currentEpisode.remoteUrl
+  const mediaSrc = blobUrl
   const hasError = !!currentEpisode.lastError || !!actionError
   const isTranscribed = currentEpisode.status === 'transcribed'
   const showTranscribe = !isTranscribed || hasError
@@ -366,8 +366,6 @@ export default function EpisodeDetailPage() {
           open={showPublishDialog}
           onClose={() => setShowPublishDialog(false)}
           episode={currentEpisode}
-          series={currentSeries}
-          config={config}
           s3Ready={s3Ready}
           publishing={publishing}
           onPublish={handlePublishConfirm}

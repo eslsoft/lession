@@ -1,4 +1,4 @@
-import type { EpisodeStatus, PublishStatus, Episode, Series, AppConfig } from '../../../shared/types'
+import type { EpisodeStatus } from '../../../shared/types'
 
 export function formatDuration(seconds?: number): string {
   if (!seconds) return '--'
@@ -22,41 +22,5 @@ export function getStatusLabel(status: EpisodeStatus): string {
     case 'ready': return 'Ready'
     case 'transcribing': return 'Transcribing'
     case 'transcribed': return 'Transcribed'
-  }
-}
-
-export function buildFeedItemPreview(
-  episode: Episode,
-  series: Series | undefined,
-  config: AppConfig | null,
-  mode: PublishStatus,
-): object {
-  const baseUrl = config?.storage?.publicBaseUrl?.replace(/\/$/, '') ?? ''
-  const baseKey = `${episode.seriesId}/${episode.id}`
-  const ext = episode.localPath
-    ? episode.localPath.substring(episode.localPath.lastIndexOf('.') + 1).toLowerCase() || 'mp3'
-    : episode.mimeType === 'video' ? 'mp4' : 'mp3'
-  const mimeType = episode.mimeType === 'video' ? `video/${ext}` : `audio/${ext}`
-  const url = (key: string) => baseUrl ? `${baseUrl}/${key}` : `/${key}`
-
-  return {
-    id: episode.id,
-    title: episode.title,
-    summary: episode.description ?? '',
-    date_published: episode.updatedAt,
-    attachments: [
-      {
-        url: episode.remoteUrl ?? url(`${baseKey}/media.${ext}`),
-        mime_type: mimeType,
-        duration_in_seconds: episode.duration ?? 0,
-      },
-    ],
-    _order: episode.order,
-    _status: mode,
-    _transcript_url: url(`${baseKey}/transcript.json`),
-    _subtitles: {
-      srt: url(`${baseKey}/subtitle.srt`),
-      vtt: url(`${baseKey}/subtitle.vtt`),
-    },
   }
 }

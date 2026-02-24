@@ -80,11 +80,6 @@ export async function deleteFile(
   }))
 }
 
-export function getPublicUrl(publicBaseUrl: string, key: string): string {
-  const base = publicBaseUrl.replace(/\/+$/, '')
-  return `${base}/${key}`
-}
-
 export async function testConnection(config: AppConfig['storage']): Promise<boolean> {
   try {
     const client = createS3Client(config)
@@ -94,6 +89,8 @@ export async function testConnection(config: AppConfig['storage']): Promise<bool
     return false
   }
 }
+
+export { s3Keys } from '../../shared/s3-keys'
 
 function guessMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase()

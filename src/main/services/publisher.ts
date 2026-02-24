@@ -2,9 +2,9 @@ import path from 'node:path'
 import { listEpisodes, getEpisode, updateEpisode } from '../db/repositories/episode'
 import { getSeries, listSeries } from '../db/repositories/series'
 import { getTranscript } from '../db/repositories/transcript'
-import { createS3Client, uploadFile, uploadJson, uploadBuffer, getPublicUrl } from './storage'
+import { createS3Client, uploadFile, uploadJson, uploadBuffer, s3Keys } from './storage'
 import { generateSRT, generateVTT } from './subtitle'
-import type { AppConfig, Episode, PublishStatus, Series } from '../../shared/types'
+import type { AppConfig, Episode, PublishPreviewFile, PublishStatus, Series } from '../../shared/types'
 
 export async function publishEpisode(
   episodeId: string,
@@ -17,25 +17,26 @@ export async function publishEpisode(
 
   const s3 = createS3Client(config.storage)
   const bucket = config.storage.bucket
-  const baseUrl = config.storage.publicBaseUrl
-  const baseKey = `${episode.seriesId}/${episodeId}`
 
   // Upload media if not already uploaded
   if (episode.localPath && !episode.remoteUrl) {
     const mediaExt = path.extname(episode.localPath).slice(1) || 'mp4'
-    const mediaKey = `${baseKey}/media.${mediaExt}`
+    const mediaKey = s3Keys.episodeMedia(episode.seriesId, episodeId, mediaExt)
     await uploadFile(s3, bucket, mediaKey, episode.localPath)
-    updateEpisode(episodeId, { remoteUrl: getPublicUrl(baseUrl, mediaKey) })
+    updateEpisode(episodeId, { remoteUrl: mediaKey })
+  } else if (episode.remoteUrl && isAbsoluteUrl(episode.remoteUrl)) {
+    // Migrate legacy full URL to relative S3 key
+    updateEpisode(episodeId, { remoteUrl: normalizeRemoteUrl(episode) })
   }
 
   // Upload transcript + subtitles
   const transcript = getTranscript(episodeId)
   if (transcript) {
-    await uploadJson(s3, bucket, `${baseKey}/transcript.json`, transcript)
+    await uploadJson(s3, bucket, s3Keys.episodeTranscript(episode.seriesId, episodeId), transcript)
     const srt = generateSRT(transcript.segments)
     const vtt = generateVTT(transcript.segments)
-    await uploadBuffer(s3, bucket, `${baseKey}/subtitle.srt`, srt, 'text/plain')
-    await uploadBuffer(s3, bucket, `${baseKey}/subtitle.vtt`, vtt, 'text/vtt')
+    await uploadBuffer(s3, bucket, s3Keys.episodeSubtitleSrt(episode.seriesId, episodeId), srt, 'text/plain')
+    await uploadBuffer(s3, bucket, s3Keys.episodeSubtitleVtt(episode.seriesId, episodeId), vtt, 'text/vtt')
   }
 
   // Update publish status
@@ -45,8 +46,8 @@ export async function publishEpisode(
   const series = getSeries(episode.seriesId)
   if (!series) throw new Error(`Series not found: ${episode.seriesId}`)
   const episodes = listEpisodes(episode.seriesId)
-  const feed = generateFeedJson(series, episodes, config)
-  await uploadJson(s3, bucket, `${episode.seriesId}/feed.json`, feed)
+  const feed = generateFeedJson(series, episodes)
+  await uploadJson(s3, bucket, s3Keys.seriesFeed(episode.seriesId), feed)
 
   // Regenerate index.json
   const allSeries = listSeries()
@@ -54,8 +55,8 @@ export async function publishEpisode(
   for (const s of allSeries) {
     episodesMap.set(s.id, listEpisodes(s.id))
   }
-  const index = generateIndexJson(allSeries, episodesMap, config)
-  await uploadJson(s3, bucket, 'index.json', index)
+  const index = generateIndexJson(allSeries, episodesMap)
+  await uploadJson(s3, bucket, s3Keys.index(), index)
 }
 
 export async function unpublishEpisode(episodeId: string, config: AppConfig): Promise<void> {
@@ -71,8 +72,8 @@ export async function unpublishEpisode(episodeId: string, config: AppConfig): Pr
   const series = getSeries(episode.seriesId)
   if (!series) throw new Error(`Series not found: ${episode.seriesId}`)
   const episodes = listEpisodes(episode.seriesId)
-  const feed = generateFeedJson(series, episodes, config)
-  await uploadJson(s3, bucket, `${episode.seriesId}/feed.json`, feed)
+  const feed = generateFeedJson(series, episodes)
+  await uploadJson(s3, bucket, s3Keys.seriesFeed(episode.seriesId), feed)
 
   // Regenerate index.json
   const allSeries = listSeries()
@@ -80,8 +81,8 @@ export async function unpublishEpisode(episodeId: string, config: AppConfig): Pr
   for (const s of allSeries) {
     episodesMap.set(s.id, listEpisodes(s.id))
   }
-  const index = generateIndexJson(allSeries, episodesMap, config)
-  await uploadJson(s3, bucket, 'index.json', index)
+  const index = generateIndexJson(allSeries, episodesMap)
+  await uploadJson(s3, bucket, s3Keys.index(), index)
 }
 
 export async function publishSeries(seriesId: string, config: AppConfig): Promise<void> {
@@ -92,8 +93,8 @@ export async function publishSeries(seriesId: string, config: AppConfig): Promis
   const series = getSeries(seriesId)
   if (!series) throw new Error(`Series not found: ${seriesId}`)
   const episodes = listEpisodes(seriesId)
-  const feed = generateFeedJson(series, episodes, config)
-  await uploadJson(s3, bucket, `${seriesId}/feed.json`, feed)
+  const feed = generateFeedJson(series, episodes)
+  await uploadJson(s3, bucket, s3Keys.seriesFeed(seriesId), feed)
 
   // Regenerate index.json
   const allSeries = listSeries()
@@ -101,43 +102,35 @@ export async function publishSeries(seriesId: string, config: AppConfig): Promis
   for (const s of allSeries) {
     episodesMap.set(s.id, listEpisodes(s.id))
   }
-  const index = generateIndexJson(allSeries, episodesMap, config)
-  await uploadJson(s3, bucket, 'index.json', index)
+  const index = generateIndexJson(allSeries, episodesMap)
+  await uploadJson(s3, bucket, s3Keys.index(), index)
 }
 
-export function generateFeedJson(series: Series, episodes: Episode[], config: AppConfig): object {
-  const baseUrl = config.storage.publicBaseUrl
+export function generateFeedJson(series: Series, episodes: Episode[]): object {
   const publishedEpisodes = episodes.filter(
     (ep) => ep.publishStatus === 'published' || ep.publishStatus === 'preview',
   )
-
-  const coverUrl = series.coverPath
-    ? getPublicUrl(baseUrl, `${series.id}/cover${getExt(series.coverPath)}`)
-    : undefined
 
   return {
     version: 'https://jsonfeed.org/version/1.1',
     title: series.title,
     description: series.description ?? '',
-    icon: coverUrl,
+    icon: series.coverPath ? s3Keys.seriesCover(series.id, getExt(series.coverPath)) : '',
     language: series.language,
-    authors: series.authors?.map((name) => ({ name })),
+    authors: series.authors?.map((name) => ({ name })) ?? [],
     _type: series.type,
     _id: series.id,
-    _category: series.category,
-    _tags: series.tags,
-    _level: series.level,
-    items: publishedEpisodes.map((ep) => buildFeedItem(baseUrl, series, ep)),
+    _category: series.category ?? '',
+    _tags: series.tags ?? [],
+    _level: series.level ?? '',
+    items: publishedEpisodes.map((ep) => buildFeedItem(series, ep)),
   }
 }
 
 export function generateIndexJson(
   allSeries: Series[],
   episodes: Map<string, Episode[]>,
-  config: AppConfig,
 ): object {
-  const baseUrl = config.storage.publicBaseUrl
-
   const publishedSeries = allSeries.filter((s) => {
     const eps = episodes.get(s.id) || []
     return eps.some((ep) => ep.publishStatus === 'published')
@@ -151,17 +144,99 @@ export function generateIndexJson(
       title: s.title,
       type: s.type,
       language: s.language,
-      cover: s.coverPath
-        ? getPublicUrl(baseUrl, `${s.id}/cover${getExt(s.coverPath)}`)
-        : undefined,
-      feedUrl: getPublicUrl(baseUrl, `${s.id}/feed.json`),
+      cover: s.coverPath ? s3Keys.seriesCover(s.id, getExt(s.coverPath)) : '',
+      feedUrl: s3Keys.seriesFeed(s.id),
       publishedAt: s.updatedAt,
     })),
   }
 }
 
-function buildFeedItem(baseUrl: string, series: Series, episode: Episode) {
-  const baseKey = `${series.id}/${episode.id}`
+export function previewPublish(episodeId: string, mode: PublishStatus): PublishPreviewFile[] | null {
+  const episode = getEpisode(episodeId)
+  if (!episode) return null
+  const series = getSeries(episode.seriesId)
+  if (!series) return null
+
+  const files: PublishPreviewFile[] = []
+
+  // 1. Media file
+  if (episode.localPath && !episode.remoteUrl) {
+    const mediaExt = path.extname(episode.localPath).slice(1) || 'mp4'
+    const stat = getFileSize(episode.localPath)
+    files.push({
+      key: s3Keys.episodeMedia(episode.seriesId, episodeId, mediaExt),
+      type: 'binary',
+      size: stat,
+    })
+  }
+
+  // 2. Transcript + subtitles
+  const transcript = getTranscript(episodeId)
+  if (transcript) {
+    files.push({
+      key: s3Keys.episodeTranscript(episode.seriesId, episodeId),
+      type: 'json',
+      content: transcript,
+    })
+    files.push({
+      key: s3Keys.episodeSubtitleSrt(episode.seriesId, episodeId),
+      type: 'text',
+      content: generateSRT(transcript.segments),
+    })
+    files.push({
+      key: s3Keys.episodeSubtitleVtt(episode.seriesId, episodeId),
+      type: 'text',
+      content: generateVTT(transcript.segments),
+    })
+  }
+
+  // 3. feed.json (simulate with this episode's status overridden)
+  const episodes = listEpisodes(episode.seriesId)
+  const simulatedEpisodes = episodes.map((ep) =>
+    ep.id === episodeId ? { ...ep, publishStatus: mode, remoteUrl: normalizeRemoteUrl(ep) } : { ...ep, remoteUrl: normalizeRemoteUrl(ep) },
+  )
+  const feed = generateFeedJson(series, simulatedEpisodes)
+  files.push({
+    key: s3Keys.seriesFeed(episode.seriesId),
+    type: 'json',
+    content: feed,
+  })
+
+  // 4. index.json
+  const allSeries = listSeries()
+  const episodesMap = new Map<string, Episode[]>()
+  for (const s of allSeries) {
+    const eps = listEpisodes(s.id)
+    episodesMap.set(s.id, s.id === episode.seriesId
+      ? eps.map((ep) => ep.id === episodeId ? { ...ep, publishStatus: mode } : ep)
+      : eps,
+    )
+  }
+  const index = generateIndexJson(allSeries, episodesMap)
+  files.push({
+    key: s3Keys.index(),
+    type: 'json',
+    content: index,
+  })
+
+  return files
+}
+
+function getFileSize(filePath: string): string {
+  try {
+    const { statSync } = require('node:fs')
+    const stats = statSync(filePath)
+    const bytes = stats.size
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+  } catch {
+    return 'unknown'
+  }
+}
+
+function buildFeedItem(series: Series, episode: Episode) {
   const mediaExt = episode.localPath
     ? path.extname(episode.localPath).slice(1)
     : (episode.mimeType === 'video' ? 'mp4' : 'mp3')
@@ -174,17 +249,17 @@ function buildFeedItem(baseUrl: string, series: Series, episode: Episode) {
     date_published: episode.updatedAt,
     attachments: [
       {
-        url: episode.remoteUrl ?? getPublicUrl(baseUrl, `${baseKey}/media.${mediaExt}`),
+        url: s3Keys.episodeMedia(series.id, episode.id, mediaExt),
         mime_type: mimeType,
         duration_in_seconds: episode.duration ?? 0,
       },
     ],
     _order: episode.order,
     _status: episode.publishStatus,
-    _transcript_url: getPublicUrl(baseUrl, `${baseKey}/transcript.json`),
+    _transcript_url: s3Keys.episodeTranscript(series.id, episode.id),
     _subtitles: {
-      srt: getPublicUrl(baseUrl, `${baseKey}/subtitle.srt`),
-      vtt: getPublicUrl(baseUrl, `${baseKey}/subtitle.vtt`),
+      srt: s3Keys.episodeSubtitleSrt(series.id, episode.id),
+      vtt: s3Keys.episodeSubtitleVtt(series.id, episode.id),
     },
   }
 }
@@ -192,4 +267,17 @@ function buildFeedItem(baseUrl: string, series: Series, episode: Episode) {
 function getExt(filePath: string): string {
   const dot = filePath.lastIndexOf('.')
   return dot >= 0 ? filePath.substring(dot) : ''
+}
+
+function isAbsoluteUrl(str: string): boolean {
+  return /^https?:\/\//.test(str)
+}
+
+/** Convert legacy full-URL remoteUrl to S3 key; return undefined if not set */
+function normalizeRemoteUrl(episode: Episode): string | undefined {
+  if (!episode.remoteUrl) return undefined
+  if (!isAbsoluteUrl(episode.remoteUrl)) return episode.remoteUrl
+  // Legacy: derive key from episode metadata
+  const mediaExt = path.extname(episode.localPath ?? '').slice(1) || 'mp4'
+  return s3Keys.episodeMedia(episode.seriesId, episode.id, mediaExt)
 }
