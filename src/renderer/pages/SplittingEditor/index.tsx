@@ -1,30 +1,22 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react'
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Play, ZoomIn, ZoomOut, Scissors, ArrowLeft, GripVertical } from 'lucide-react'
-import { Waveform, useWaveformControls } from '../../components/Waveform'
-import type { WaveformRegion } from '../../components/Waveform'
+import { Play, ZoomIn, ZoomOut, Scissors, ArrowLeft, X } from 'lucide-react'
+import { Waveform } from '../../components/Waveform'
+import type { SplitMarker, SegmentRegion, WaveformHandle } from '../../components/Waveform'
 import { useSeriesStore } from '../../stores/seriesStore'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Select } from '../../components/ui/select'
-import { Card, CardContent } from '../../components/ui/card'
-import { Separator } from '../../components/ui/separator'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
 
-interface Marker {
-  id: string
-  start: number
-  end: number
-  title: string
-}
-
-const COLORS = [
-  'rgba(99, 102, 241, 0.2)',
-  'rgba(236, 72, 153, 0.2)',
-  'rgba(16, 185, 129, 0.2)',
-  'rgba(245, 158, 11, 0.2)',
-  'rgba(139, 92, 246, 0.2)',
-  'rgba(6, 182, 212, 0.2)',
+const SEGMENT_COLORS = [
+  'rgba(99, 102, 241, 0.15)',
+  'rgba(236, 72, 153, 0.15)',
+  'rgba(16, 185, 129, 0.15)',
+  'rgba(245, 158, 11, 0.15)',
+  'rgba(139, 92, 246, 0.15)',
+  'rgba(6, 182, 212, 0.15)',
 ]
 
 function formatTime(seconds: number): string {
@@ -34,7 +26,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}.${ms}`
 }
 
-function formatDurationShort(seconds: number): string {
+function formatTimeShort(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
@@ -42,7 +34,20 @@ function formatDurationShort(seconds: number): string {
 
 let nextId = 1
 function genId(): string {
-  return `marker-${nextId++}`
+  return `split-${nextId++}`
+}
+
+interface SplitPoint {
+  id: string
+  time: number
+}
+
+interface DerivedSegment {
+  index: number
+  start: number
+  end: number
+  splitPointId: string | null  // null for first segment (starts at 0)
+  title: string
 }
 
 export default function SplittingEditorPage() {
@@ -53,106 +58,143 @@ export default function SplittingEditorPage() {
 
   const { series, fetchSeries } = useSeriesStore()
   const [selectedSeriesId, setSelectedSeriesId] = useState(presetSeriesId ?? '')
-  const [markers, setMarkers] = useState<Marker[]>([])
+  const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([])
+  const [segmentTitles, setSegmentTitles] = useState<Map<string | null, string>>(new Map())
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [splitting, setSplitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null)
 
-  const waveformContainerRef = useRef<HTMLDivElement>(null)
-  const controls = useWaveformControls(waveformContainerRef)
+  const [peaks, setPeaks] = useState<Float32Array | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const waveformRef = useRef<WaveformHandle>(null)
+
+  // Audio URL via custom protocol (streamed by main process, no IPC transfer)
+  const mediaUrl = filePath ? 'local-media://localhost' + encodeURI(filePath) : undefined
 
   useEffect(() => {
     fetchSeries()
   }, [fetchSeries])
 
-  // Load chapters from download if available (via URL params)
+  // Extract waveform peaks via ffmpeg (streaming, constant memory)
+  useEffect(() => {
+    if (!filePath) return
+    let cancelled = false
+    setLoading(true)
+    window.electronAPI.media.extractPeaks(filePath).then((result) => {
+      if (cancelled) return
+      setPeaks(new Float32Array(result.peaks))
+      setDuration(result.duration)
+    }).catch((err) => {
+      if (!cancelled) setError(`Failed to load audio: ${(err as Error).message}`)
+    }).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [filePath])
+
+  // Load chapters from URL params → convert to split points
   useEffect(() => {
     const chaptersParam = searchParams.get('chapters')
-    if (chaptersParam) {
-      try {
-        const chapters = JSON.parse(decodeURIComponent(chaptersParam)) as { title: string; startTime: number; endTime: number }[]
-        setMarkers(chapters.map((ch) => ({
-          id: genId(),
-          start: ch.startTime,
-          end: ch.endTime,
-          title: ch.title,
-        })))
-      } catch {
-        // ignore invalid chapters
+    if (!chaptersParam) return
+    try {
+      const chapters = JSON.parse(decodeURIComponent(chaptersParam)) as { title: string; startTime: number; endTime: number }[]
+      if (chapters.length === 0) return
+
+      const sorted = [...chapters].sort((a, b) => a.startTime - b.startTime)
+      const points: SplitPoint[] = []
+      const titles = new Map<string | null, string>()
+
+      // First segment title (key = null)
+      titles.set(null, sorted[0].title)
+
+      // Each chapter boundary after the first becomes a split point
+      for (let i = 1; i < sorted.length; i++) {
+        const id = genId()
+        points.push({ id, time: sorted[i].startTime })
+        titles.set(id, sorted[i].title)
       }
+
+      setSplitPoints(points)
+      setSegmentTitles(titles)
+    } catch {
+      // ignore invalid chapters
     }
   }, [searchParams])
 
-  const handleReady = useCallback((dur: number) => {
-    setDuration(dur)
-    // If no markers exist and no chapters, add a single marker covering the full file
-    setMarkers((prev) => {
-      if (prev.length === 0) {
-        return [{ id: genId(), start: 0, end: dur, title: 'Segment 1' }]
-      }
-      return prev
-    })
-  }, [])
+  // Derive segments from split points
+  const segments: DerivedSegment[] = useMemo(() => {
+    if (duration === 0) return []
+    const sorted = [...splitPoints].sort((a, b) => a.time - b.time)
+    const times = [0, ...sorted.map((s) => s.time), duration]
+    return times.slice(0, -1).map((start, i) => ({
+      index: i,
+      start,
+      end: times[i + 1],
+      splitPointId: i > 0 ? sorted[i - 1].id : null,
+      title: segmentTitles.get(i > 0 ? sorted[i - 1].id : null) ?? `Segment ${i + 1}`,
+    }))
+  }, [splitPoints, duration, segmentTitles])
 
-  const handleRegionUpdate = useCallback((id: string, start: number, end: number) => {
-    setMarkers((prev) => prev.map((m) => m.id === id ? { ...m, start, end } : m))
+  // Build waveform props
+  const waveformSplitMarkers: SplitMarker[] = useMemo(
+    () => splitPoints.map((sp) => ({ id: sp.id, time: sp.time })),
+    [splitPoints],
+  )
+
+  const waveformSegmentRegions: SegmentRegion[] = useMemo(
+    () => segments.map((seg, i) => ({ start: seg.start, end: seg.end, color: SEGMENT_COLORS[i % SEGMENT_COLORS.length] })),
+    [segments],
+  )
+
+  const handleReady = useCallback((dur: number) => {
+    // Duration may be more accurate from WaveSurfer than ffmpeg
+    if (dur > 0) setDuration(dur)
   }, [])
 
   const handleTimeUpdate = useCallback((time: number) => {
     setCurrentTime(time)
   }, [])
 
-  const handleRegionClick = useCallback((id: string) => {
-    setSelectedMarkerId(id)
+  // Double-click waveform → add split point
+  const handleWaveformDblClick = useCallback((time: number) => {
+    // Snap to avoid placing at exact 0 or duration
+    const snapped = Math.max(0.1, Math.min(time, duration - 0.1))
+    const id = genId()
+    setSplitPoints((prev) => [...prev, { id, time: snapped }])
+  }, [duration])
+
+  // Drag split marker → update time
+  const handleSplitMarkerDrag = useCallback((id: string, newTime: number) => {
+    setSplitPoints((prev) => prev.map((sp) => sp.id === id ? { ...sp, time: newTime } : sp))
   }, [])
 
-  const addMarkerAtCurrent = () => {
-    const start = currentTime
-    const end = Math.min(start + 30, duration)
-    if (end <= start) return
-    const newMarker: Marker = {
-      id: genId(),
-      start,
-      end,
-      title: `Segment ${markers.length + 1}`,
-    }
-    setMarkers((prev) => [...prev, newMarker])
-    setSelectedMarkerId(newMarker.id)
-  }
-
-  const splitAtCurrent = () => {
-    // Find the marker that contains currentTime and split it
-    const idx = markers.findIndex((m) => currentTime > m.start && currentTime < m.end)
-    if (idx === -1) return
-
-    const m = markers[idx]
-    const left: Marker = { id: m.id, start: m.start, end: currentTime, title: m.title }
-    const right: Marker = { id: genId(), start: currentTime, end: m.end, title: `Segment ${markers.length + 1}` }
-
-    setMarkers((prev) => {
-      const next = [...prev]
-      next.splice(idx, 1, left, right)
+  // Remove a split point → merge segments
+  const removeSplitPoint = useCallback((id: string) => {
+    setSplitPoints((prev) => prev.filter((sp) => sp.id !== id))
+    setSegmentTitles((prev) => {
+      const next = new Map(prev)
+      next.delete(id)
       return next
     })
-  }
+  }, [])
 
-  const removeMarker = (id: string) => {
-    setMarkers((prev) => prev.filter((m) => m.id !== id))
-    if (selectedMarkerId === id) setSelectedMarkerId(null)
-  }
-
-  const updateMarkerTitle = (id: string, title: string) => {
-    setMarkers((prev) => prev.map((m) => m.id === id ? { ...m, title } : m))
-  }
+  // Update segment title
+  const updateTitle = useCallback((key: string | null, title: string) => {
+    setSegmentTitles((prev) => {
+      const next = new Map(prev)
+      next.set(key, title)
+      return next
+    })
+  }, [])
 
   const handleSplit = async () => {
-    if (!filePath || !selectedSeriesId || markers.length === 0) return
+    if (!filePath || !selectedSeriesId || segments.length === 0) return
 
-    const validMarkers = markers.filter((m) => m.end > m.start && m.title.trim())
-    if (validMarkers.length === 0) {
-      setError('All markers need a title and valid time range.')
+    const validSegments = segments.filter((s) => s.end > s.start && s.title.trim())
+    if (validSegments.length === 0) {
+      setError('All segments need a title and valid time range.')
       return
     }
 
@@ -160,9 +202,11 @@ export default function SplittingEditorPage() {
     setError(null)
 
     try {
-      const splitMarkers = validMarkers
-        .sort((a, b) => a.start - b.start)
-        .map((m) => ({ start: m.start, end: m.end, title: m.title.trim() }))
+      const splitMarkers = validSegments.map((s) => ({
+        start: s.start,
+        end: s.end,
+        title: s.title.trim(),
+      }))
 
       await window.electronAPI.splitter.split(filePath, splitMarkers, selectedSeriesId)
       navigate(`/series/${selectedSeriesId}`)
@@ -172,14 +216,6 @@ export default function SplittingEditorPage() {
       setSplitting(false)
     }
   }
-
-  const regions: WaveformRegion[] = markers.map((m, i) => ({
-    id: m.id,
-    start: m.start,
-    end: m.end,
-    color: COLORS[i % COLORS.length],
-    content: m.title,
-  }))
 
   const seriesOptions = series.map((s) => ({ value: s.id, label: s.title }))
 
@@ -195,113 +231,123 @@ export default function SplittingEditorPage() {
   const fileName = filePath.split('/').pop() ?? filePath
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">Splitting Editor</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold">Split Audio</h1>
           <p className="text-sm text-muted-foreground truncate">{fileName}</p>
         </div>
       </div>
 
       {/* Waveform */}
-      <div ref={waveformContainerRef}>
-        <Waveform
-          url={`file://${filePath}`}
-          regions={regions}
-          onReady={handleReady}
-          onRegionUpdate={handleRegionUpdate}
-          onTimeUpdate={handleTimeUpdate}
-          onRegionClick={handleRegionClick}
-          height={150}
-        />
+      <div>
+        {loading && (
+          <div className="flex items-center justify-center h-[150px] rounded-lg border border-border bg-card">
+            <p className="text-sm text-muted-foreground">Loading waveform...</p>
+          </div>
+        )}
+        {peaks && mediaUrl && (
+          <Waveform
+            ref={waveformRef}
+            url={mediaUrl}
+            peaks={peaks}
+            mediaDuration={duration}
+            splitMarkers={waveformSplitMarkers}
+            segmentRegions={waveformSegmentRegions}
+            onReady={handleReady}
+            onTimeUpdate={handleTimeUpdate}
+            onWaveformDblClick={handleWaveformDblClick}
+            onSplitMarkerDrag={handleSplitMarkerDrag}
+            height={150}
+          />
+        )}
       </div>
 
       {/* Transport Controls */}
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={controls.play}>
+        <Button variant="outline" size="icon" onClick={() => waveformRef.current?.play()}>
           <Play className="h-4 w-4" />
         </Button>
         <div className="text-sm text-muted-foreground font-mono">
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
         <div className="flex-1" />
-        <Button variant="outline" size="icon" onClick={controls.zoomOut}>
+        <Button variant="outline" size="icon" onClick={() => waveformRef.current?.zoomOut()}>
           <ZoomOut className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="icon" onClick={controls.zoomIn}>
+        <Button variant="outline" size="icon" onClick={() => waveformRef.current?.zoomIn()}>
           <ZoomIn className="h-4 w-4" />
-        </Button>
-        <Separator orientation="vertical" className="h-6 mx-1" />
-        <Button variant="outline" size="sm" onClick={splitAtCurrent}>
-          <Scissors className="h-4 w-4 mr-1" />
-          Split Here
-        </Button>
-        <Button variant="outline" size="sm" onClick={addMarkerAtCurrent}>
-          <Plus className="h-4 w-4 mr-1" />
-          Add Segment
         </Button>
       </div>
 
-      {/* Segments List */}
+      {/* Hint */}
+      <p className="text-sm text-muted-foreground">
+        Double-click the waveform to add a split point. Drag markers to adjust.
+      </p>
+
+      {/* Segments Table */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Segments ({markers.length})</h2>
-        <div className="space-y-2">
-          {markers
-            .sort((a, b) => a.start - b.start)
-            .map((m, i) => (
-              <Card
-                key={m.id}
-                className={`transition-colors ${selectedMarkerId === m.id ? 'border-primary' : ''}`}
-                onClick={() => {
-                  setSelectedMarkerId(m.id)
-                  controls.seekTo(m.start)
-                }}
+        <h2 className="text-lg font-semibold mb-2">Segments ({segments.length})</h2>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">#</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead className="w-20">Start</TableHead>
+              <TableHead className="w-20">End</TableHead>
+              <TableHead className="w-10" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {segments.map((seg) => (
+              <TableRow
+                key={seg.splitPointId ?? '__first'}
+                className="cursor-pointer"
+                onClick={() => waveformRef.current?.seekTo(seg.start)}
               >
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: COLORS[i % COLORS.length].replace('0.2', '0.8') }}
-                    />
-                    <span className="text-sm text-muted-foreground w-6">{i + 1}</span>
-                    <Input
-                      value={m.title}
-                      onChange={(e) => updateMarkerTitle(m.id, e.target.value)}
-                      className="flex-1 h-8"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
-                      {formatDurationShort(m.start)} - {formatDurationShort(m.end)}
-                    </span>
-                    <span className="text-xs text-muted-foreground font-mono w-14 text-right">
-                      {formatDurationShort(m.end - m.start)}
-                    </span>
+                <TableCell className="font-mono text-muted-foreground">{seg.index + 1}</TableCell>
+                <TableCell>
+                  <Input
+                    value={seg.title}
+                    onChange={(e) => updateTitle(seg.splitPointId, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-8"
+                  />
+                </TableCell>
+                <TableCell className="font-mono text-sm text-muted-foreground">
+                  {formatTimeShort(seg.start)}
+                </TableCell>
+                <TableCell className="font-mono text-sm text-muted-foreground">
+                  {formatTimeShort(seg.end)}
+                </TableCell>
+                <TableCell>
+                  {seg.splitPointId && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 shrink-0"
+                      className="h-7 w-7"
                       onClick={(e) => {
                         e.stopPropagation()
-                        removeMarker(m.id)
+                        if (seg.splitPointId) removeSplitPoint(seg.splitPointId)
                       }}
+                      title="Remove split point (merge with previous)"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <X className="h-3.5 w-3.5" />
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                </TableCell>
+              </TableRow>
             ))}
-        </div>
+          </TableBody>
+        </Table>
       </div>
 
-      <Separator />
-
       {/* Actions */}
-      <div className="flex items-end gap-4">
+      <div className="flex items-end gap-4 pt-2">
         <div className="space-y-2 flex-1 max-w-xs">
           <Label>Target Series</Label>
           {seriesOptions.length > 0 ? (
@@ -316,10 +362,10 @@ export default function SplittingEditorPage() {
         </div>
         <Button
           onClick={handleSplit}
-          disabled={splitting || !selectedSeriesId || markers.length === 0}
+          disabled={splitting || !selectedSeriesId || segments.length === 0}
         >
           <Scissors className="h-4 w-4 mr-2" />
-          {splitting ? 'Splitting...' : `Split into ${markers.length} Episode${markers.length !== 1 ? 's' : ''}`}
+          {splitting ? 'Splitting...' : `Split into ${segments.length} Episode${segments.length !== 1 ? 's' : ''}`}
         </Button>
       </div>
 

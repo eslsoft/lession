@@ -67,6 +67,7 @@ const api: ElectronAPI = {
   },
   media: {
     readFile: (filePath: string) => ipcRenderer.invoke('media:read-file', filePath),
+    extractPeaks: (filePath: string) => ipcRenderer.invoke('media:extract-peaks', filePath),
   },
 }
 

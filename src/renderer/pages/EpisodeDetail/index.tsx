@@ -34,7 +34,6 @@ export default function EpisodeDetailPage() {
   const [currentTime, setCurrentTime] = useState(0)
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
 
   const [showEditDrawer, setShowEditDrawer] = useState(false)
   const [editTitle, setEditTitle] = useState('')
@@ -53,33 +52,6 @@ export default function EpisodeDetailPage() {
     if (series.length === 0) fetchSeries()
     if (!initialized) fetchConfig()
   }, [episodeId])
-
-  // Load local media as Blob URL
-  useEffect(() => {
-    if (!currentEpisode) return
-    const localPath = currentEpisode.localPath
-    if (!localPath || localPath.startsWith('http')) return
-
-    let revoked = false
-    const mimeMap: Record<string, string> = {
-      '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
-      '.flac': 'audio/flac', '.aac': 'audio/aac', '.m4a': 'audio/mp4',
-      '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
-    }
-    const ext = localPath.substring(localPath.lastIndexOf('.')).toLowerCase()
-    const mime = mimeMap[ext] ?? 'application/octet-stream'
-
-    window.electronAPI.media.readFile(localPath).then((buffer) => {
-      if (revoked) return
-      const blob = new Blob([buffer], { type: mime })
-      setBlobUrl(URL.createObjectURL(blob))
-    })
-
-    return () => {
-      revoked = true
-      setBlobUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
-    }
-  }, [currentEpisode?.id, currentEpisode?.localPath])
 
   // Fetch transcript
   useEffect(() => {
@@ -198,7 +170,10 @@ export default function EpisodeDetailPage() {
   }
 
   // ── Derived state ──
-  const mediaSrc = blobUrl
+  const localPath = currentEpisode.localPath
+  const mediaSrc = localPath && !localPath.startsWith('http')
+    ? 'local-media://localhost' + encodeURI(localPath)
+    : localPath ?? null
   const hasError = !!currentEpisode.lastError || !!actionError
   const isTranscribed = currentEpisode.status === 'transcribed'
   const showTranscribe = !isTranscribed || hasError

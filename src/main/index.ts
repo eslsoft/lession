@@ -1,6 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
-import { readFileSync } from 'node:fs';
 import started from 'electron-squirrel-startup';
 import { getDatabase, closeDatabase } from './db';
 import { registerSeriesIpc } from './ipc/series.ipc';
@@ -11,11 +10,16 @@ import { registerConfigIpc } from './ipc/config.ipc';
 import { registerSplitterIpc } from './ipc/splitter.ipc';
 import { registerPublisherIpc } from './ipc/publisher.ipc';
 import { registerDialogIpc } from './ipc/dialog.ipc';
+import { registerMediaIpc } from './ipc/media.ipc';
+import { registerMediaScheme, registerMediaProtocol } from './protocol';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
+
+// Must be called before app.whenReady().
+registerMediaScheme();
 
 // Register all IPC handlers
 function registerAllIpc(): void {
@@ -27,6 +31,7 @@ function registerAllIpc(): void {
   registerSplitterIpc();
   registerPublisherIpc();
   registerDialogIpc();
+  registerMediaIpc();
 }
 
 const createWindow = () => {
@@ -58,10 +63,7 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
-  // IPC: read local media file and return Buffer to renderer
-  ipcMain.handle('media:read-file', (_event, filePath: string) => {
-    return readFileSync(filePath);
-  });
+  registerMediaProtocol();
 
   // Initialize database
   getDatabase();

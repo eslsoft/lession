@@ -218,5 +218,6 @@ export interface ElectronAPI {
   // Media file reading
   media: {
     readFile: (filePath: string) => Promise<ArrayBuffer>
+    extractPeaks: (filePath: string) => Promise<{ peaks: number[]; duration: number }>
   }
 }

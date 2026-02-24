@@ -1,7 +1,9 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react'
+import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import Regions from 'wavesurfer.js/dist/plugins/regions.esm.js'
 import Zoom from 'wavesurfer.js/dist/plugins/zoom.esm.js'
+import Hover from 'wavesurfer.js/dist/plugins/hover.esm.js'
+import Timeline from 'wavesurfer.js/dist/plugins/timeline.esm.js'
 
 export interface WaveformRegion {
   id: string
@@ -11,107 +13,73 @@ export interface WaveformRegion {
   content?: string
 }
 
+export interface SplitMarker {
+  id: string
+  time: number
+}
+
+export interface SegmentRegion {
+  start: number
+  end: number
+  color: string
+}
+
+export interface WaveformHandle {
+  play: () => void
+  seekTo: (time: number) => void
+  zoomIn: () => void
+  zoomOut: () => void
+}
+
 interface WaveformProps {
-  url: string
+  url?: string
+  blob?: Blob
+  peaks?: Float32Array
+  mediaDuration?: number
   regions?: WaveformRegion[]
+  splitMarkers?: SplitMarker[]
+  segmentRegions?: SegmentRegion[]
   onReady?: (duration: number) => void
   onRegionUpdate?: (id: string, start: number, end: number) => void
   onTimeUpdate?: (currentTime: number) => void
   onRegionClick?: (id: string) => void
+  onWaveformDblClick?: (time: number) => void
+  onSplitMarkerDrag?: (id: string, newTime: number) => void
   height?: number
 }
 
-export function Waveform({
+function formatTimeLabel(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+export const Waveform = forwardRef<WaveformHandle, WaveformProps>(function Waveform({
   url,
+  blob,
+  peaks,
+  mediaDuration,
   regions = [],
+  splitMarkers,
+  segmentRegions,
   onReady,
   onRegionUpdate,
   onTimeUpdate,
   onRegionClick,
+  onWaveformDblClick,
+  onSplitMarkerDrag,
   height = 128,
-}: WaveformProps) {
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WaveSurfer | null>(null)
   const regionsPluginRef = useRef<ReturnType<typeof Regions.create> | null>(null)
   const [isReady, setIsReady] = useState(false)
 
-  // Initialize wavesurfer
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    const regionsPlugin = Regions.create()
-    regionsPluginRef.current = regionsPlugin
-
-    const ws = WaveSurfer.create({
-      container: containerRef.current,
-      waveColor: '#a1a1aa',
-      progressColor: '#fafafa',
-      cursorColor: '#fafafa',
-      cursorWidth: 1,
-      height,
-      minPxPerSec: 20,
-      scrollParent: true,
-      autoScroll: true,
-      autoCenter: false,
-      plugins: [
-        regionsPlugin,
-        Zoom.create({
-          scale: 0.5,
-          maxZoom: 500,
-          exponentialZooming: true,
-        }),
-      ],
-    })
-
-    wsRef.current = ws
-
-    ws.on('ready', () => {
-      setIsReady(true)
-      onReady?.(ws.getDuration())
-    })
-
-    ws.on('timeupdate', (time: number) => {
-      onTimeUpdate?.(time)
-    })
-
-    regionsPlugin.on('region-updated', (region: { id: string; start: number; end: number }) => {
-      onRegionUpdate?.(region.id, region.start, region.end)
-    })
-
-    regionsPlugin.on('region-clicked', (region: { id: string }, e: Event) => {
-      e.stopPropagation()
-      onRegionClick?.(region.id)
-    })
-
-    ws.load(url)
-
-    return () => {
-      ws.destroy()
-      wsRef.current = null
-      regionsPluginRef.current = null
-      setIsReady(false)
-    }
-  }, [url, height])
-
-  // Sync regions
-  useEffect(() => {
-    if (!isReady || !regionsPluginRef.current) return
-
-    const plugin = regionsPluginRef.current
-    plugin.clearRegions()
-
-    for (const r of regions) {
-      plugin.addRegion({
-        id: r.id,
-        start: r.start,
-        end: r.end,
-        color: r.color ?? 'rgba(99, 102, 241, 0.2)',
-        content: r.content,
-        drag: true,
-        resize: true,
-      })
-    }
-  }, [regions, isReady])
+  // Store callbacks in refs to avoid re-creating wavesurfer
+  const onWaveformDblClickRef = useRef(onWaveformDblClick)
+  onWaveformDblClickRef.current = onWaveformDblClick
+  const onSplitMarkerDragRef = useRef(onSplitMarkerDrag)
+  onSplitMarkerDragRef.current = onSplitMarkerDrag
 
   const play = useCallback(() => {
     wsRef.current?.playPause()
@@ -137,38 +105,155 @@ export function Waveform({
     wsRef.current.zoom(Math.max(current / 2, 5))
   }, [])
 
-  // Expose methods via ref-like pattern
+  useImperativeHandle(ref, () => ({ play, seekTo, zoomIn, zoomOut }), [play, seekTo, zoomIn, zoomOut])
+
+  // Initialize wavesurfer
   useEffect(() => {
-    const container = containerRef.current
-    if (container) {
-      (container as unknown as Record<string, unknown>).__waveformControls = { play, seekTo, zoomIn, zoomOut }
+    if (!containerRef.current) return
+
+    const regionsPlugin = Regions.create()
+    regionsPluginRef.current = regionsPlugin
+
+    const ws = WaveSurfer.create({
+      container: containerRef.current,
+      waveColor: '#a1a1aa',
+      progressColor: '#fafafa',
+      cursorColor: '#ef4444',
+      cursorWidth: 2,
+      height,
+      minPxPerSec: 20,
+      scrollParent: true,
+      autoScroll: true,
+      autoCenter: false,
+      plugins: [
+        regionsPlugin,
+        Hover.create({
+          lineColor: '#ef4444',
+          lineWidth: 1,
+          labelSize: 11,
+          labelBackground: 'rgba(0, 0, 0, 0.75)',
+          labelColor: '#fff',
+          formatTimeCallback: formatTimeLabel,
+        }),
+        Timeline.create({
+          height: 24,
+          formatTimeCallback: formatTimeLabel,
+          secondaryLabelOpacity: 0.4,
+        }),
+      ],
+    })
+
+    wsRef.current = ws
+
+    ws.on('ready', () => {
+      // Register Zoom plugin only after audio is loaded to avoid
+      // "No audio loaded" errors from wheel events during loading
+      ws.registerPlugin(Zoom.create({
+        scale: 0.5,
+        maxZoom: 500,
+        exponentialZooming: true,
+      }))
+      setIsReady(true)
+      onReady?.(ws.getDuration())
+    })
+
+    ws.on('timeupdate', (time: number) => {
+      onTimeUpdate?.(time)
+    })
+
+    ws.on('dblclick', (relativeX: number) => {
+      const time = relativeX * ws.getDuration()
+      onWaveformDblClickRef.current?.(time)
+    })
+
+    regionsPlugin.on('region-updated', (region: { id: string; start: number; end: number }) => {
+      // Split marker drag: point markers have start === end
+      if (region.id.startsWith('split-') && region.start === region.end) {
+        onSplitMarkerDragRef.current?.(region.id, region.start)
+      } else {
+        onRegionUpdate?.(region.id, region.start, region.end)
+      }
+    })
+
+    regionsPlugin.on('region-clicked', (region: { id: string }, e: Event) => {
+      e.stopPropagation()
+      onRegionClick?.(region.id)
+    })
+
+    if (peaks && url) {
+      // Pre-computed peaks: skip browser-side decoding, stream audio for playback
+      ws.load(url, [peaks], mediaDuration)
+    } else if (blob) {
+      ws.loadBlob(blob)
+    } else if (url) {
+      ws.load(url)
     }
-  }, [play, seekTo, zoomIn, zoomOut])
+
+    return () => {
+      ws.destroy()
+      wsRef.current = null
+      regionsPluginRef.current = null
+      setIsReady(false)
+    }
+  }, [url, blob, peaks, mediaDuration, height])
+
+  // Sync split markers and segment regions (new mode)
+  useEffect(() => {
+    if (!isReady || !regionsPluginRef.current || (!splitMarkers && !segmentRegions)) return
+
+    const plugin = regionsPluginRef.current
+    plugin.clearRegions()
+
+    // Add segment background regions (non-draggable)
+    if (segmentRegions) {
+      for (const seg of segmentRegions) {
+        plugin.addRegion({
+          start: seg.start,
+          end: seg.end,
+          color: seg.color,
+          drag: false,
+          resize: false,
+        })
+      }
+    }
+
+    // Add split point markers (draggable red lines)
+    if (splitMarkers) {
+      for (const marker of splitMarkers) {
+        plugin.addRegion({
+          id: marker.id,
+          start: marker.time,
+          color: '#ef4444',
+          drag: true,
+          resize: false,
+        })
+      }
+    }
+  }, [splitMarkers, segmentRegions, isReady])
+
+  // Sync legacy regions (backward compat)
+  useEffect(() => {
+    if (!isReady || !regionsPluginRef.current || splitMarkers || segmentRegions) return
+
+    const plugin = regionsPluginRef.current
+    plugin.clearRegions()
+
+    for (const r of regions) {
+      plugin.addRegion({
+        id: r.id,
+        start: r.start,
+        end: r.end,
+        color: r.color ?? 'rgba(99, 102, 241, 0.2)',
+        content: r.content,
+        drag: true,
+        resize: true,
+      })
+    }
+  }, [regions, isReady, splitMarkers, segmentRegions])
 
   return (
     <div>
       <div ref={containerRef} className="w-full rounded-lg border border-border bg-card" />
     </div>
   )
-}
-
-export function useWaveformControls(ref: React.RefObject<HTMLDivElement | null>) {
-  return {
-    play: () => {
-      const controls = (ref.current as unknown as Record<string, unknown>)?.__waveformControls as Record<string, () => void> | undefined
-      controls?.play?.()
-    },
-    seekTo: (time: number) => {
-      const controls = (ref.current as unknown as Record<string, unknown>)?.__waveformControls as Record<string, (t: number) => void> | undefined
-      controls?.seekTo?.(time)
-    },
-    zoomIn: () => {
-      const controls = (ref.current as unknown as Record<string, unknown>)?.__waveformControls as Record<string, () => void> | undefined
-      controls?.zoomIn?.()
-    },
-    zoomOut: () => {
-      const controls = (ref.current as unknown as Record<string, unknown>)?.__waveformControls as Record<string, () => void> | undefined
-      controls?.zoomOut?.()
-    },
-  }
-}
+})
