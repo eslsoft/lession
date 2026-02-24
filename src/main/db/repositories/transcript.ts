@@ -45,7 +45,7 @@ export function createTranscript(data: Omit<Transcript, 'id' | 'createdAt' | 'up
   return getTranscriptById(id)!
 }
 
-function getTranscriptById(id: string): Transcript | null {
+export function getTranscriptById(id: string): Transcript | null {
   const db = getDatabase()
   const stmt = db.prepare('SELECT * FROM transcripts WHERE id = ?')
   const row = stmt.get(id) as TranscriptRow | undefined
@@ -100,6 +100,49 @@ export function updateSegmentText(id: string, segmentIndex: number, text: string
   if (segmentIndex < 0 || segmentIndex >= segments.length) return
 
   segments[segmentIndex] = { ...segments[segmentIndex], text, edited: true }
+
+  const now = new Date().toISOString()
+  const stmt = db.prepare('UPDATE transcripts SET segments = ?, updatedAt = ? WHERE id = ?')
+  stmt.run(JSON.stringify(segments), now, id)
+}
+
+export function splitSegment(id: string, segmentIndex: number, wordIndex: number): void {
+  const db = getDatabase()
+  const transcript = getTranscriptById(id)
+  if (!transcript) return
+
+  const segments = [...transcript.segments]
+  if (segmentIndex < 0 || segmentIndex >= segments.length) return
+
+  const segment = segments[segmentIndex]
+  if (!segment.words || wordIndex <= 0 || wordIndex >= segment.words.length) return
+
+  const firstWords = segment.words.slice(0, wordIndex)
+  const secondWords = segment.words.slice(wordIndex)
+
+  const firstSegment: Segment = {
+    start: segment.start,
+    end: firstWords[firstWords.length - 1].end,
+    text: firstWords.map((w) => w.word).join(' '),
+    edited: true,
+    speaker: segment.speaker,
+    words: firstWords,
+    phrases: undefined,
+    complexity: undefined,
+  }
+
+  const secondSegment: Segment = {
+    start: secondWords[0].start,
+    end: segment.end,
+    text: secondWords.map((w) => w.word).join(' '),
+    edited: true,
+    speaker: segment.speaker,
+    words: secondWords,
+    phrases: undefined,
+    complexity: undefined,
+  }
+
+  segments.splice(segmentIndex, 1, firstSegment, secondSegment)
 
   const now = new Date().toISOString()
   const stmt = db.prepare('UPDATE transcripts SET segments = ?, updatedAt = ? WHERE id = ?')

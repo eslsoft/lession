@@ -162,6 +162,7 @@ export interface ElectronAPI {
     get: (episodeId: string) => Promise<Transcript | null>
     generate: (episodeId: string) => Promise<Transcript>
     updateSegment: (transcriptId: string, segmentIndex: number, text: string) => Promise<void>
+    splitSegment: (transcriptId: string, segmentIndex: number, wordIndex: number) => Promise<void>
   }
   // Download
   download: {

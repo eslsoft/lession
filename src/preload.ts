@@ -23,6 +23,8 @@ const api: ElectronAPI = {
     generate: (episodeId) => ipcRenderer.invoke(IPC.TRANSCRIPT_GENERATE, episodeId),
     updateSegment: (transcriptId, segmentIndex, text) =>
       ipcRenderer.invoke(IPC.TRANSCRIPT_UPDATE_SEGMENT, transcriptId, segmentIndex, text),
+    splitSegment: (transcriptId, segmentIndex, wordIndex) =>
+      ipcRenderer.invoke(IPC.TRANSCRIPT_SPLIT_SEGMENT, transcriptId, segmentIndex, wordIndex),
   },
   download: {
     list: () => ipcRenderer.invoke(IPC.DOWNLOAD_LIST),

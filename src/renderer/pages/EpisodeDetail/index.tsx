@@ -105,6 +105,15 @@ export default function EpisodeDetailPage() {
     [transcript, episodeId],
   )
 
+  const handleSegmentSplit = useCallback(
+    async (segmentIndex: number, wordIndex: number) => {
+      if (!transcript || !episodeId) return
+      await window.electronAPI.transcript.splitSegment(transcript.id, segmentIndex, wordIndex)
+      setTranscript(await window.electronAPI.transcript.get(episodeId))
+    },
+    [transcript, episodeId],
+  )
+
   const openEditDrawer = () => {
     if (!currentEpisode) return
     setEditTitle(currentEpisode.title)
@@ -306,6 +315,7 @@ export default function EpisodeDetailPage() {
             currentTime={currentTime}
             onSeek={handleSeek}
             onSegmentEdit={handleSegmentUpdate}
+            onSegmentSplit={handleSegmentSplit}
             onActiveSegmentChange={setActiveSegment}
           />
         </div>

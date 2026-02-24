@@ -20,6 +20,7 @@ export const IPC = {
   TRANSCRIPT_GET: 'transcript:get',
   TRANSCRIPT_GENERATE: 'transcript:generate',
   TRANSCRIPT_UPDATE_SEGMENT: 'transcript:updateSegment',
+  TRANSCRIPT_SPLIT_SEGMENT: 'transcript:splitSegment',
 
   // Download
   DOWNLOAD_LIST: 'download:list',

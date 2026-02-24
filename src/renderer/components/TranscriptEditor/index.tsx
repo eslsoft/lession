@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Edit3, User, Eye } from 'lucide-react'
+import { User, Eye, Scissors } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { cn } from '../../lib/utils'
@@ -104,6 +104,53 @@ function NlpAnnotatedSegment({
   return <div className="flex flex-wrap items-end">{elements}</div>
 }
 
+// ── Split Mode Segment ──────────────────────────────────────────────────────
+
+function SplitModeSegment({
+  words,
+  onWordClick,
+}: {
+  words: WordToken[]
+  onWordClick: (wordIndex: number) => void
+}) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+
+  return (
+    <div className="flex flex-wrap items-center gap-y-1">
+      {words.map((word, wi) => (
+        <React.Fragment key={wi}>
+          {/* Divider before each word (except the first) */}
+          {wi > 0 && (
+            <span
+              className={cn(
+                'inline-block w-0.5 h-5 mx-0.5 rounded-full transition-colors',
+                hoverIndex === wi ? 'bg-red-500' : 'bg-border',
+              )}
+            />
+          )}
+          <span
+            className={cn(
+              'text-sm leading-snug px-0.5 py-0.5 rounded cursor-pointer transition-colors',
+              hoverIndex === wi
+                ? 'bg-red-100 text-red-700'
+                : 'hover:bg-accent',
+            )}
+            onMouseEnter={() => setHoverIndex(wi)}
+            onMouseLeave={() => setHoverIndex(null)}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (wi > 0) onWordClick(wi)
+            }}
+            title={wi > 0 ? `Split here: "${words.slice(wi).map(w => w.word).join(' ')}" becomes new segment` : 'Cannot split before first word'}
+          >
+            {word.word}
+          </span>
+        </React.Fragment>
+      ))}
+    </div>
+  )
+}
+
 // ── Main Component ───────────────────────────────────────────────────────────
 
 interface TranscriptEditorProps {
@@ -111,6 +158,7 @@ interface TranscriptEditorProps {
   currentTime: number
   onSeek?: (time: number) => void
   onSegmentEdit?: (segmentIndex: number, text: string) => void
+  onSegmentSplit?: (segmentIndex: number, wordIndex: number) => void
   onActiveSegmentChange?: (segment: Segment | null) => void
 }
 
@@ -150,11 +198,13 @@ export default function TranscriptEditor({
   currentTime,
   onSeek,
   onSegmentEdit,
+  onSegmentSplit,
   onActiveSegmentChange,
 }: TranscriptEditorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
   const [nlpHighlight, setNlpHighlight] = useState(false)
+  const [splittingIndex, setSplittingIndex] = useState<number | null>(null)
   const activeSegRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -206,6 +256,24 @@ export default function TranscriptEditor({
     [cancelEditing, saveEditing],
   )
 
+  // Exit split mode on Escape
+  useEffect(() => {
+    if (splittingIndex === null) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSplittingIndex(null)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [splittingIndex])
+
+  const handleSplitWordClick = useCallback(
+    (segmentIndex: number, wordIndex: number) => {
+      onSegmentSplit?.(segmentIndex, wordIndex)
+      setSplittingIndex(null)
+    },
+    [onSegmentSplit],
+  )
+
   if (!transcript || segments.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-8 text-center">
@@ -253,7 +321,9 @@ export default function TranscriptEditor({
           {segments.map((segment, index) => {
             const isActive = index === activeSegmentIndex
             const isEditing = index === editingIndex
+            const isSplitting = index === splittingIndex
             const activeWordIndex = isActive ? findActiveWordIndex(segment, currentTime) : -1
+            const canSplit = segment.words && segment.words.length > 1
 
             return (
               <div
@@ -262,30 +332,48 @@ export default function TranscriptEditor({
                 className={cn(
                   'group px-4 py-3 border-b border-border/50 cursor-pointer transition-colors',
                   isActive ? 'bg-accent/50' : 'hover:bg-accent/20',
+                  isSplitting && 'ring-2 ring-inset ring-orange-400 bg-orange-50/50',
                 )}
                 onClick={() => {
-                  if (!isEditing) {
+                  if (!isEditing && !isSplitting) {
                     onSeek?.(segment.start)
                   }
                 }}
                 onDoubleClick={() => {
-                  if (!isEditing && onSegmentEdit) {
+                  if (!isEditing && !isSplitting && onSegmentEdit) {
                     startEditing(index, segment.text)
                   }
                 }}
               >
-                {/* Timestamp + speaker + complexity */}
+                {/* Timestamp + split button + speaker + complexity */}
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs text-muted-foreground tabular-nums">
                     {formatTimestamp(segment.start)} - {formatTimestamp(segment.end)}
                   </span>
+                  {canSplit && onSegmentSplit && (
+                    <button
+                      type="button"
+                      className={cn(
+                        'p-0.5 rounded transition-colors',
+                        isSplitting
+                          ? 'text-orange-600 bg-orange-100'
+                          : 'text-muted-foreground/0 group-hover:text-muted-foreground hover:text-foreground hover:bg-accent',
+                      )}
+                      title={isSplitting ? 'Click a word to split (Esc to cancel)' : 'Split segment'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSplittingIndex(isSplitting ? null : index)
+                      }}
+                    >
+                      <Scissors className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {segment.speaker && (
                     <span className="flex items-center gap-1 text-xs text-blue-600">
                       <User className="h-3 w-3" />
                       {segment.speaker}
                     </span>
                   )}
-                  {segment.edited && <Edit3 className="h-3 w-3 text-amber-500" />}
                   <span className="flex-1" />
                   {segment.complexity && (
                     <span className={cn('text-[10px] leading-none', COMPLEXITY_DOT_COLORS[segment.complexity.score])}>
@@ -307,6 +395,17 @@ export default function TranscriptEditor({
                       autoFocus
                     />
                     <p className="text-xs text-muted-foreground">Enter to save, Esc to cancel</p>
+                  </div>
+                ) : isSplitting && segment.words.length > 0 ? (
+                  // Split mode: clickable words with dividers
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <SplitModeSegment
+                      words={segment.words}
+                      onWordClick={(wordIndex) => handleSplitWordClick(index, wordIndex)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Click a word to make it the start of a new segment. <span className="text-muted-foreground/70">Esc to cancel</span>
+                    </p>
                   </div>
                 ) : nlpHighlight && segment.words.length > 0 ? (
                   // NLP annotation: phrase-level underline brackets

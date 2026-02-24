@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
-import { getTranscript, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText } from '../db/repositories/transcript'
+import { getTranscript, getTranscriptById, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText, splitSegment } from '../db/repositories/transcript'
 import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositories/episode'
 import { getSeries } from '../db/repositories/series'
 import { transcribe } from '../services/transcription'
@@ -89,5 +89,27 @@ export function registerTranscriptIpc(): void {
 
   ipcMain.handle(IPC.TRANSCRIPT_UPDATE_SEGMENT, (_event, transcriptId: string, segmentIndex: number, text: string) => {
     updateSegmentText(transcriptId, segmentIndex, text)
+  })
+
+  ipcMain.handle(IPC.TRANSCRIPT_SPLIT_SEGMENT, async (_event, transcriptId: string, segmentIndex: number, wordIndex: number) => {
+    splitSegment(transcriptId, segmentIndex, wordIndex)
+
+    // Re-run NLP on the two newly created segments to restore phrases & complexity
+    const transcript = getTranscriptById(transcriptId)
+    if (!transcript) return
+
+    const newFirst = transcript.segments[segmentIndex]
+    const newSecond = transcript.segments[segmentIndex + 1]
+    if (!newFirst || !newSecond) return
+
+    try {
+      const nlpResults = await processTranscript([newFirst, newSecond])
+      const segments = [...transcript.segments]
+      segments[segmentIndex] = nlpResults[0]
+      segments[segmentIndex + 1] = nlpResults[1]
+      updateTranscriptSegments(transcriptId, segments)
+    } catch {
+      // NLP failed — keep the split result without NLP data
+    }
   })
 }
