@@ -45,6 +45,7 @@ interface WaveformProps {
   onRegionClick?: (id: string) => void
   onWaveformDblClick?: (time: number) => void
   onSplitMarkerDrag?: (id: string, newTime: number) => void
+  onPlayPause?: (isPlaying: boolean) => void
   height?: number
 }
 
@@ -68,6 +69,7 @@ export const Waveform = forwardRef<WaveformHandle, WaveformProps>(function Wavef
   onRegionClick,
   onWaveformDblClick,
   onSplitMarkerDrag,
+  onPlayPause,
   height = 128,
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -157,6 +159,9 @@ export const Waveform = forwardRef<WaveformHandle, WaveformProps>(function Wavef
       setIsReady(true)
       onReady?.(ws.getDuration())
     })
+
+    ws.on('play', () => onPlayPause?.(true))
+    ws.on('pause', () => onPlayPause?.(false))
 
     ws.on('timeupdate', (time: number) => {
       onTimeUpdate?.(time)

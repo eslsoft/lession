@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Play, ZoomIn, ZoomOut, Scissors, ArrowLeft, X } from 'lucide-react'
+import { Play, Pause, ZoomIn, ZoomOut, Scissors, ArrowLeft, X } from 'lucide-react'
 import { Waveform } from '../../components/Waveform'
 import type { SplitMarker, SegmentRegion, WaveformHandle } from '../../components/Waveform'
 import { useSeriesStore } from '../../stores/seriesStore'
@@ -63,6 +63,7 @@ export default function SplittingEditorPage() {
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [splitting, setSplitting] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [peaks, setPeaks] = useState<Float32Array | null>(null)
@@ -262,6 +263,7 @@ export default function SplittingEditorPage() {
             onTimeUpdate={handleTimeUpdate}
             onWaveformDblClick={handleWaveformDblClick}
             onSplitMarkerDrag={handleSplitMarkerDrag}
+            onPlayPause={setIsPlaying}
             height={150}
           />
         )}
@@ -270,7 +272,7 @@ export default function SplittingEditorPage() {
       {/* Transport Controls */}
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon" onClick={() => waveformRef.current?.play()}>
-          <Play className="h-4 w-4" />
+          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>
         <div className="text-sm text-muted-foreground font-mono">
           {formatTime(currentTime)} / {formatTime(duration)}
