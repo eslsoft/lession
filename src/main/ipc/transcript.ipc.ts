@@ -5,6 +5,7 @@ import { getTranscript, getTranscriptById, createTranscript, updateTranscript, u
 import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositories/episode'
 import { getSeries } from '../db/repositories/series'
 import { transcribe } from '../services/transcription'
+import { transcribeWithReplicate } from '../services/transcription-replicate'
 import { processTranscript } from '../services/nlp'
 import type { AppConfig } from '../../shared/types'
 
@@ -36,18 +37,31 @@ export function registerTranscriptIpc(): void {
     updateEpisode(episodeId, { lastError: undefined })
 
     try {
-      // Stage 1: WhisperX transcription
+      // Stage 1: Transcription (local or cloud)
       updateEpisodeStatus(episodeId, 'transcribing')
       emitProgress('transcribing', 0)
 
-      const segments = await transcribe(
-        config.transcription.whisperxPath,
-        episode.localPath,
-        series.language,
-        config.transcription.device,
-        config.transcription.computeType,
-        (percent) => emitProgress('transcribing', percent),
-      )
+      let segments
+      if (config.transcription.provider === 'replicate') {
+        const { apiToken, model } = config.transcription.replicate
+        if (!apiToken) throw new Error('Replicate API token is not configured.')
+        segments = await transcribeWithReplicate(
+          apiToken,
+          model,
+          episode.localPath,
+          series.language,
+          (percent) => emitProgress('transcribing', percent),
+        )
+      } else {
+        segments = await transcribe(
+          config.transcription.whisperxPath,
+          episode.localPath,
+          series.language,
+          config.transcription.device,
+          config.transcription.computeType,
+          (percent) => emitProgress('transcribing', percent),
+        )
+      }
 
       let transcript = getTranscript(episodeId)
       if (transcript) {

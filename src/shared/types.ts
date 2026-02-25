@@ -129,11 +129,15 @@ export interface AppConfig {
     publicBaseUrl: string
   }
   transcription: {
-    provider: 'local_whisperx'
+    provider: 'local_whisperx' | 'replicate'
     whisperxPath: string
     device: 'cpu' | 'cuda' | 'mps'
     computeType: string
     defaultLanguage: string
+    replicate: {
+      apiToken: string
+      model: string
+    }
   }
   import: {
     ytdlpPath: string
