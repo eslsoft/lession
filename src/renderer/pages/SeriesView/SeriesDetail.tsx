@@ -27,6 +27,7 @@ export default function SeriesDetailPage() {
   const [showNewEpisode, setShowNewEpisode] = useState(false)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [newEpTitle, setNewEpTitle] = useState('')
+  const [batchPublishProgress, setBatchPublishProgress] = useState<{ current: number; total: number } | null>(null)
 
   useEffect(() => {
     if (!currentSeries) fetchSeries()
@@ -104,11 +105,19 @@ export default function SeriesDetailPage() {
   }
 
   const handleBatchPublish = async (ids: string[], targetStatus: 'preview' | 'published') => {
-    for (const epId of ids) {
+    const publishableIds = ids.filter((epId) => {
       const ep = episodes.find((e) => e.id === epId)
-      if (ep && ep.status === 'transcribed') {
-        await window.electronAPI.publisher.publishEpisode(epId, targetStatus)
+      return ep && ep.status === 'transcribed'
+    })
+    if (publishableIds.length === 0) return
+    setBatchPublishProgress({ current: 0, total: publishableIds.length })
+    try {
+      for (let i = 0; i < publishableIds.length; i++) {
+        setBatchPublishProgress({ current: i + 1, total: publishableIds.length })
+        await window.electronAPI.publisher.publishEpisode(publishableIds[i], targetStatus)
       }
+    } finally {
+      setBatchPublishProgress(null)
     }
     if (id) await fetchEpisodes(id)
   }
@@ -135,6 +144,7 @@ export default function SeriesDetailPage() {
         episodes={episodes}
         loading={episodesLoading}
         progresses={progresses}
+        batchPublishProgress={batchPublishProgress}
         onEpisodeClick={(epId) => navigate(`/series/${id}/episodes/${epId}`)}
         onDeleteEpisode={deleteEpisode}
         onBatchPublish={handleBatchPublish}

@@ -16,6 +16,7 @@ interface EpisodeTableProps {
   episodes: Episode[]
   loading: boolean
   progresses: Record<string, TranscriptionProgress>
+  batchPublishProgress: { current: number; total: number } | null
   onEpisodeClick: (episodeId: string) => void
   onDeleteEpisode: (id: string) => Promise<void>
   onBatchPublish: (ids: string[], targetStatus: 'preview' | 'published') => Promise<void>
@@ -28,6 +29,7 @@ export function EpisodeTable({
   episodes,
   loading,
   progresses,
+  batchPublishProgress,
   onEpisodeClick,
   onDeleteEpisode,
   onBatchPublish,
@@ -101,15 +103,24 @@ export function EpisodeTable({
               <span className="text-sm text-muted-foreground self-center">
                 {selectedIds.size} selected
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={batchPublishing}
-                onClick={() => handleBatchPublish('published')}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {batchPublishing ? 'Publishing...' : 'Publish'}
-              </Button>
+              {batchPublishProgress ? (
+                <div className="flex items-center gap-2 self-center">
+                  <Progress value={(batchPublishProgress.current / batchPublishProgress.total) * 100} className="w-32 h-2" />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    Publishing {batchPublishProgress.current}/{batchPublishProgress.total}
+                  </span>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={batchPublishing}
+                  onClick={() => handleBatchPublish('published')}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Publish
+                </Button>
+              )}
               <Button
                 variant="destructive"
                 size="sm"
