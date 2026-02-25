@@ -2,7 +2,7 @@
 // Shared between main process and renderer.
 
 export const s3Keys = {
-  index: () => 'index.json',
+  index: () => 'series/index.json',
   seriesFeed: (seriesId: string) => `series/${seriesId}/feed.json`,
   seriesCover: (seriesId: string, ext: string) => `series/${seriesId}/cover${ext}`,
   episodeBase: (seriesId: string, episodeId: string) => `series/${seriesId}/episodes/${episodeId}`,

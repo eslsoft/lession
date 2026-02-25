@@ -139,15 +139,25 @@ export function generateIndexJson(
   return {
     version: '1',
     updatedAt: new Date().toISOString(),
-    series: publishedSeries.map((s) => ({
-      id: s.id,
-      title: s.title,
-      type: s.type,
-      language: s.language,
-      cover: s.coverPath ? s3Keys.seriesCover(s.id, getExt(s.coverPath)) : '',
-      feedUrl: s3Keys.seriesFeed(s.id),
-      publishedAt: s.updatedAt,
-    })),
+    series: publishedSeries.map((s) => {
+      const eps = episodes.get(s.id) || []
+      const publishedEps = eps.filter((ep) => ep.publishStatus === 'published')
+      return {
+        id: s.id,
+        title: s.title,
+        description: s.description ?? '',
+        type: s.type,
+        language: s.language,
+        authors: s.authors ?? [],
+        category: s.category ?? '',
+        tags: s.tags ?? [],
+        level: s.level ?? '',
+        cover: s.coverPath ? s3Keys.seriesCover(s.id, getExt(s.coverPath)) : '',
+        feedUrl: s3Keys.seriesFeed(s.id),
+        episodeCount: publishedEps.length,
+        publishedAt: s.updatedAt,
+      }
+    }),
   }
 }
 
