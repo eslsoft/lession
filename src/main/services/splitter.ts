@@ -26,7 +26,9 @@ export async function getMediaMetadata(filePath: string): Promise<{ duration: nu
       try {
         const info = JSON.parse(stdout)
         const hasVideo = (info.streams || []).some(
-          (s: Record<string, unknown>) => s.codec_type === 'video',
+          (s: Record<string, unknown>) =>
+            s.codec_type === 'video' &&
+            (s.disposition as Record<string, unknown> | undefined)?.attached_pic !== 1,
         )
         resolve({
           duration: parseFloat(info.format.duration),

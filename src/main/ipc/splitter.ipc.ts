@@ -11,22 +11,50 @@ import type { Episode, Segment } from '../../shared/types'
 
 /**
  * Slice transcript segments for a time range [start, end).
- * Segments are assigned by their midpoint — if the midpoint falls
- * within the range, the segment belongs to this episode.
+ * When a segment straddles a split boundary, it is split at the word level:
+ * words whose midpoint falls within [start, end) are kept, and the segment
+ * text / timestamps are rebuilt from the remaining words.
  * All timestamps are offset so the episode starts at 0.
  */
 function sliceSegments(allSegments: Segment[], start: number, end: number): Segment[] {
-  return allSegments
-    .filter((seg) => {
-      const mid = (seg.start + seg.end) / 2
+  const result: Segment[] = []
+
+  for (const seg of allSegments) {
+    // Skip segments entirely outside the range
+    if (seg.end <= start || seg.start >= end) continue
+
+    // Segment fully inside — keep as-is
+    if (seg.start >= start && seg.end <= end) {
+      result.push({
+        ...seg,
+        start: seg.start - start,
+        end: seg.end - start,
+        words: seg.words.map((w) => ({ ...w, start: w.start - start, end: w.end - start })),
+      })
+      continue
+    }
+
+    // Segment straddles boundary — split at word level
+    const keptWords = seg.words.filter((w) => {
+      const mid = (w.start + w.end) / 2
       return mid >= start && mid < end
     })
-    .map((seg) => ({
+    if (keptWords.length === 0) continue
+
+    const text = keptWords.map((w) => w.word).join(' ')
+    result.push({
       ...seg,
-      start: seg.start - start,
-      end: seg.end - start,
-      words: seg.words.map((w) => ({ ...w, start: w.start - start, end: w.end - start })),
-    }))
+      start: Math.max(seg.start, start) - start,
+      end: Math.min(seg.end, end) - start,
+      text,
+      words: keptWords.map((w) => ({ ...w, start: w.start - start, end: w.end - start })),
+      // Clear derived NLP data since text changed
+      phrases: undefined,
+      complexity: undefined,
+    })
+  }
+
+  return result
 }
 
 export function registerSplitterIpc(): void {
