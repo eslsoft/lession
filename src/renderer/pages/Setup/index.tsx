@@ -25,6 +25,10 @@ const defaultConfig: AppConfig = {
     device: 'cpu',
     computeType: 'float16',
     defaultLanguage: 'en',
+    replicate: {
+      apiToken: '',
+      model: 'victor-upmeet/whisperx',
+    },
   },
   import: {
     ytdlpPath: '',
@@ -244,49 +248,112 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
               {activeSection === 'transcription' && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="whisperxPath">WhisperX Path</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="whisperxPath"
-                        placeholder="/usr/local/bin/whisperx"
-                        value={form.transcription.whisperxPath}
-                        onChange={(e) => updateTranscription('whisperxPath', e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button variant="outline" size="icon" onClick={() => handleSelectFile('whisperxPath')}>
-                        <FolderOpen className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Label htmlFor="provider">Provider</Label>
+                    <Select
+                      id="provider"
+                      value={form.transcription.provider}
+                      onChange={(e) => updateTranscription('provider', e.target.value as 'local_whisperx' | 'replicate')}
+                      options={[
+                        { value: 'local_whisperx', label: 'Local WhisperX' },
+                        { value: 'replicate', label: 'Replicate (Cloud)' },
+                      ]}
+                    />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="device">Device</Label>
-                      <Select
-                        id="device"
-                        value={form.transcription.device}
-                        onChange={(e) => updateTranscription('device', e.target.value as 'cpu' | 'cuda' | 'mps')}
-                        options={[
-                          { value: 'cpu', label: 'CPU' },
-                          { value: 'cuda', label: 'CUDA (NVIDIA GPU)' },
-                          { value: 'mps', label: 'MPS (Apple Silicon)' },
-                        ]}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="computeType">Compute Type</Label>
-                      <Select
-                        id="computeType"
-                        value={form.transcription.computeType}
-                        onChange={(e) => updateTranscription('computeType', e.target.value)}
-                        options={[
-                          { value: 'float16', label: 'float16' },
-                          { value: 'int8', label: 'int8' },
-                          { value: 'float32', label: 'float32' },
-                        ]}
-                      />
-                    </div>
-                  </div>
+                  <Separator />
+
+                  {form.transcription.provider === 'local_whisperx' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="whisperxPath">WhisperX Path</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="whisperxPath"
+                            placeholder="/usr/local/bin/whisperx"
+                            value={form.transcription.whisperxPath}
+                            onChange={(e) => updateTranscription('whisperxPath', e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button variant="outline" size="icon" onClick={() => handleSelectFile('whisperxPath')}>
+                            <FolderOpen className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="device">Device</Label>
+                          <Select
+                            id="device"
+                            value={form.transcription.device}
+                            onChange={(e) => updateTranscription('device', e.target.value as 'cpu' | 'cuda' | 'mps')}
+                            options={[
+                              { value: 'cpu', label: 'CPU' },
+                              { value: 'cuda', label: 'CUDA (NVIDIA GPU)' },
+                              { value: 'mps', label: 'MPS (Apple Silicon)' },
+                            ]}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="computeType">Compute Type</Label>
+                          <Select
+                            id="computeType"
+                            value={form.transcription.computeType}
+                            onChange={(e) => updateTranscription('computeType', e.target.value)}
+                            options={[
+                              { value: 'float16', label: 'float16' },
+                              { value: 'int8', label: 'int8' },
+                              { value: 'float32', label: 'float32' },
+                            ]}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {form.transcription.provider === 'replicate' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="replicateApiToken">API Token</Label>
+                        <Input
+                          id="replicateApiToken"
+                          type="password"
+                          placeholder="r8_..."
+                          value={form.transcription.replicate?.apiToken ?? ''}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              transcription: {
+                                ...prev.transcription,
+                                replicate: { ...prev.transcription.replicate, apiToken: e.target.value },
+                              },
+                            }))
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Get your token at replicate.com/account/api-tokens
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="replicateModel">Model</Label>
+                        <Input
+                          id="replicateModel"
+                          placeholder="owner/model:version"
+                          value={form.transcription.replicate?.model ?? ''}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              transcription: {
+                                ...prev.transcription,
+                                replicate: { ...prev.transcription.replicate, model: e.target.value },
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="defaultLanguage">Default Language</Label>

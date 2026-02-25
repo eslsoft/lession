@@ -8,7 +8,13 @@ const store = new Store()
 
 export function registerConfigIpc(): void {
   ipcMain.handle(IPC.CONFIG_GET, () => {
-    return (store.get('config') as AppConfig | undefined) ?? null
+    const config = store.get('config') as AppConfig | undefined
+    if (!config) return null
+    // Ensure replicate config exists for older configs
+    if (!config.transcription.replicate) {
+      config.transcription.replicate = { apiToken: '', model: 'victor-upmeet/whisperx' }
+    }
+    return config
   })
 
   ipcMain.handle(IPC.CONFIG_SET, (_event, config: AppConfig) => {
