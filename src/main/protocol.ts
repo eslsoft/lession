@@ -1,18 +1,6 @@
 import { protocol } from 'electron';
-import path from 'node:path';
 import { createReadStream, statSync } from 'node:fs';
-
-const MIME_TYPES: Record<string, string> = {
-  '.mp3': 'audio/mpeg',
-  '.m4a': 'audio/mp4',
-  '.mp4': 'audio/mp4',
-  '.wav': 'audio/wav',
-  '.ogg': 'audio/ogg',
-  '.flac': 'audio/flac',
-  '.aac': 'audio/aac',
-  '.wma': 'audio/x-ms-wma',
-  '.webm': 'audio/webm',
-};
+import { guessMimeType } from '../shared/media-formats';
 
 /**
  * Register the `local-media://` scheme as privileged.
@@ -35,8 +23,7 @@ export function registerMediaProtocol(): void {
 
     try {
       const stat = statSync(filePath);
-      const ext = path.extname(filePath).toLowerCase();
-      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+      const contentType = guessMimeType(filePath);
 
       const rangeHeader = request.headers.get('range');
       if (rangeHeader) {

@@ -1,7 +1,7 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3'
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 import type { AppConfig } from '../../shared/types'
+import { guessMimeType } from '../../shared/media-formats'
 
 export function createS3Client(config: AppConfig['storage']): S3Client {
   return new S3Client({
@@ -91,24 +91,3 @@ export async function testConnection(config: AppConfig['storage']): Promise<bool
 }
 
 export { s3Keys } from '../../shared/s3-keys'
-
-function guessMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase()
-  const map: Record<string, string> = {
-    '.mp3': 'audio/mpeg',
-    '.m4a': 'audio/mp4',
-    '.wav': 'audio/wav',
-    '.ogg': 'audio/ogg',
-    '.flac': 'audio/flac',
-    '.mp4': 'video/mp4',
-    '.webm': 'video/webm',
-    '.mkv': 'video/x-matroska',
-    '.json': 'application/json',
-    '.srt': 'text/plain',
-    '.vtt': 'text/vtt',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.png': 'image/png',
-  }
-  return map[ext] ?? 'application/octet-stream'
-}

@@ -13,6 +13,7 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Select } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
+import { MEDIA_FILE_FILTER, IMAGE_FILE_FILTER, isVideoPath } from '@shared/media-formats'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
 import { Separator } from '../../components/ui/separator'
 import { CoverImage } from '../../components/CoverImage'
@@ -183,7 +184,7 @@ export default function SeriesDetailPage() {
     if (!id) return
     const filePath = await window.electronAPI.dialog.openFile({
       filters: [
-        { name: 'Media Files', extensions: ['mp3', 'mp4', 'wav', 'm4a', 'ogg', 'flac', 'webm', 'mkv', 'avi', 'mov'] },
+        MEDIA_FILE_FILTER,
       ],
     })
     if (!filePath) return
@@ -196,7 +197,7 @@ export default function SeriesDetailPage() {
     if (!id || !newEpTitle.trim()) return
     setCreatingEp(true)
     try {
-      const isVideo = /\.(mp4|webm|mkv|avi|mov)$/i.test(filePath)
+      const isVideo = isVideoPath(filePath)
       const metadata = await window.electronAPI.splitter.getMetadata(filePath)
       const episode = await createEpisode({
         seriesId: id,
@@ -219,7 +220,7 @@ export default function SeriesDetailPage() {
   const handleSplitImport = async () => {
     const filePath = await window.electronAPI.dialog.openFile({
       filters: [
-        { name: 'Media Files', extensions: ['mp3', 'mp4', 'wav', 'm4a', 'ogg', 'flac', 'webm', 'mkv', 'avi', 'mov'] },
+        MEDIA_FILE_FILTER,
       ],
     })
     if (!filePath) return
@@ -234,7 +235,7 @@ export default function SeriesDetailPage() {
     if (!id) return
     const filePath = await window.electronAPI.dialog.openFile({
       filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] },
+        IMAGE_FILE_FILTER,
       ],
     })
     if (!filePath) return
@@ -247,7 +248,7 @@ export default function SeriesDetailPage() {
   const handleSelectFileAndShowDialog = async () => {
     const filePath = await window.electronAPI.dialog.openFile({
       filters: [
-        { name: 'Media Files', extensions: ['mp3', 'mp4', 'wav', 'm4a', 'ogg', 'flac', 'webm', 'mkv', 'avi', 'mov'] },
+        MEDIA_FILE_FILTER,
       ],
     })
     if (!filePath) return
