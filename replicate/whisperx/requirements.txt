@@ -1,0 +1,2 @@
+whisperx==3.8.1
+ffmpeg-python==0.2.0
