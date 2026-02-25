@@ -1,11 +1,28 @@
 import { spawn } from 'node:child_process';
+import { app } from 'electron';
+import path from 'node:path';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+
+function getPeaksCachePath(filePath: string): string {
+  const dir = path.join(app.getPath('userData'), 'peaks-cache');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const hash = crypto.createHash('sha256').update(filePath).digest('hex');
+  return path.join(dir, `${hash}.json`);
+}
 
 /**
  * Extract waveform peaks from an audio file using ffmpeg.
- * Decodes to 8kHz mono and computes ~200 peaks/second in a streaming fashion
- * so memory usage stays constant regardless of file size.
+ * Results are cached to disk so subsequent loads are instant.
  */
 export function extractPeaks(filePath: string): Promise<{ peaks: number[]; duration: number }> {
+  // Check cache first
+  const cachePath = getPeaksCachePath(filePath);
+  if (fs.existsSync(cachePath)) {
+    const cached = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+    return Promise.resolve(cached);
+  }
+
   return new Promise((resolve, reject) => {
     const proc = spawn('ffmpeg', [
       '-i', filePath,
@@ -58,7 +75,10 @@ export function extractPeaks(filePath: string): Promise<{ peaks: number[]; durat
         peaks.push(currentMax);
       }
       const duration = sampleCount / SAMPLE_RATE;
-      resolve({ peaks, duration });
+      const result = { peaks, duration };
+      // Cache for next time
+      try { fs.writeFileSync(cachePath, JSON.stringify(result)); } catch { /* ignore */ }
+      resolve(result);
     });
 
     proc.on('error', (err) => {

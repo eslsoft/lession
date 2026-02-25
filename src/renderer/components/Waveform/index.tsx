@@ -182,8 +182,12 @@ export const Waveform = forwardRef<WaveformHandle, WaveformProps>(function Wavef
     })
 
     regionsPlugin.on('region-clicked', (region: { id: string }, e: Event) => {
-      e.stopPropagation()
-      onRegionClick?.(region.id)
+      // Only stop propagation for interactive split markers
+      // Let background segment region clicks propagate for waveform seek
+      if (region.id.startsWith('split-')) {
+        e.stopPropagation()
+        onRegionClick?.(region.id)
+      }
     })
 
     if (peaks && url) {

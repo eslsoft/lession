@@ -1,14 +1,12 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Play, Pause, ZoomIn, ZoomOut, Scissors, ArrowLeft, X } from 'lucide-react'
+import { Play, Pause, ZoomIn, ZoomOut, Scissors, ArrowLeft, X, Loader2, Mic, Check, Search, Plus, AudioLines } from 'lucide-react'
 import { Waveform } from '../../components/Waveform'
 import type { SplitMarker, SegmentRegion, WaveformHandle } from '../../components/Waveform'
-import { useSeriesStore } from '../../stores/seriesStore'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
-import { Select } from '../../components/ui/select'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
+import type { Segment } from '../../../shared/types'
 
 const SEGMENT_COLORS = [
   'rgba(99, 102, 241, 0.15)',
@@ -32,6 +30,13 @@ function formatTimeShort(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  if (m === 0) return `${s}s`
+  return `${m}m ${s}s`
+}
+
 let nextId = 1
 function genId(): string {
   return `split-${nextId++}`
@@ -46,7 +51,7 @@ interface DerivedSegment {
   index: number
   start: number
   end: number
-  splitPointId: string | null  // null for first segment (starts at 0)
+  splitPointId: string | null
   title: string
 }
 
@@ -56,8 +61,7 @@ export default function SplittingEditorPage() {
   const filePath = searchParams.get('file')
   const presetSeriesId = searchParams.get('seriesId')
 
-  const { series, fetchSeries } = useSeriesStore()
-  const [selectedSeriesId, setSelectedSeriesId] = useState(presetSeriesId ?? '')
+  const seriesId = presetSeriesId ?? ''
   const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([])
   const [segmentTitles, setSegmentTitles] = useState<Map<string | null, string>>(new Map())
   const [duration, setDuration] = useState(0)
@@ -65,20 +69,21 @@ export default function SplittingEditorPage() {
   const [splitting, setSplitting] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [transcribing, setTranscribing] = useState(false)
+  const [hasTranscript, setHasTranscript] = useState(false)
+  const [transcriptSegments, setTranscriptSegments] = useState<Segment[] | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [transcribeProgress, setTranscribeProgress] = useState(0)
+  const [detectingSilence, setDetectingSilence] = useState(false)
+  const [silenceMinDuration, setSilenceMinDuration] = useState('5')
 
   const [peaks, setPeaks] = useState<Float32Array | null>(null)
   const [loading, setLoading] = useState(false)
 
   const waveformRef = useRef<WaveformHandle>(null)
 
-  // Audio URL via custom protocol (streamed by main process, no IPC transfer)
   const mediaUrl = filePath ? 'local-media://localhost' + encodeURI(filePath) : undefined
 
-  useEffect(() => {
-    fetchSeries()
-  }, [fetchSeries])
-
-  // Extract waveform peaks via ffmpeg (streaming, constant memory)
   useEffect(() => {
     if (!filePath) return
     let cancelled = false
@@ -95,36 +100,52 @@ export default function SplittingEditorPage() {
     return () => { cancelled = true }
   }, [filePath])
 
-  // Load chapters from URL params → convert to split points
+  // Load existing transcript on mount
+  useEffect(() => {
+    if (!filePath) return
+    window.electronAPI.transcript.getFileTranscript(filePath).then((segs) => {
+      if (segs) {
+        setTranscriptSegments(segs)
+        setHasTranscript(true)
+      }
+    })
+  }, [filePath])
+
+  useEffect(() => {
+    const cleanup = window.electronAPI.transcript.onFileProgress((data) => {
+      setTranscribeProgress(data.percent)
+    })
+    return cleanup
+  }, [])
+
   useEffect(() => {
     const chaptersParam = searchParams.get('chapters')
     if (!chaptersParam) return
     try {
       const chapters = JSON.parse(decodeURIComponent(chaptersParam)) as { title: string; startTime: number; endTime: number }[]
       if (chapters.length === 0) return
-
       const sorted = [...chapters].sort((a, b) => a.startTime - b.startTime)
       const points: SplitPoint[] = []
       const titles = new Map<string | null, string>()
-
-      // First segment title (key = null)
       titles.set(null, sorted[0].title)
-
-      // Each chapter boundary after the first becomes a split point
       for (let i = 1; i < sorted.length; i++) {
         const id = genId()
         points.push({ id, time: sorted[i].startTime })
         titles.set(id, sorted[i].title)
       }
-
       setSplitPoints(points)
       setSegmentTitles(titles)
-    } catch {
-      // ignore invalid chapters
-    }
+    } catch { /* ignore */ }
   }, [searchParams])
 
-  // Derive segments from split points
+  const searchResults = useMemo(() => {
+    if (!transcriptSegments || !searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return transcriptSegments
+      .filter((seg) => seg.text.toLowerCase().includes(q))
+      .slice(0, 50)
+  }, [transcriptSegments, searchQuery])
+
   const segments: DerivedSegment[] = useMemo(() => {
     if (duration === 0) return []
     const sorted = [...splitPoints].sort((a, b) => a.time - b.time)
@@ -138,7 +159,14 @@ export default function SplittingEditorPage() {
     }))
   }, [splitPoints, duration, segmentTitles])
 
-  // Build waveform props
+  // Which segment is currently playing
+  const activeSegmentIndex = useMemo(() => {
+    for (let i = segments.length - 1; i >= 0; i--) {
+      if (currentTime >= segments[i].start) return i
+    }
+    return 0
+  }, [segments, currentTime])
+
   const waveformSplitMarkers: SplitMarker[] = useMemo(
     () => splitPoints.map((sp) => ({ id: sp.id, time: sp.time })),
     [splitPoints],
@@ -150,7 +178,6 @@ export default function SplittingEditorPage() {
   )
 
   const handleReady = useCallback((dur: number) => {
-    // Duration may be more accurate from WaveSurfer than ffmpeg
     if (dur > 0) setDuration(dur)
   }, [])
 
@@ -158,20 +185,16 @@ export default function SplittingEditorPage() {
     setCurrentTime(time)
   }, [])
 
-  // Double-click waveform → add split point
   const handleWaveformDblClick = useCallback((time: number) => {
-    // Snap to avoid placing at exact 0 or duration
     const snapped = Math.max(0.1, Math.min(time, duration - 0.1))
     const id = genId()
     setSplitPoints((prev) => [...prev, { id, time: snapped }])
   }, [duration])
 
-  // Drag split marker → update time
   const handleSplitMarkerDrag = useCallback((id: string, newTime: number) => {
     setSplitPoints((prev) => prev.map((sp) => sp.id === id ? { ...sp, time: newTime } : sp))
   }, [])
 
-  // Remove a split point → merge segments
   const removeSplitPoint = useCallback((id: string) => {
     setSplitPoints((prev) => prev.filter((sp) => sp.id !== id))
     setSegmentTitles((prev) => {
@@ -181,7 +204,6 @@ export default function SplittingEditorPage() {
     })
   }, [])
 
-  // Update segment title
   const updateTitle = useCallback((key: string | null, title: string) => {
     setSegmentTitles((prev) => {
       const next = new Map(prev)
@@ -190,35 +212,86 @@ export default function SplittingEditorPage() {
     })
   }, [])
 
-  const handleSplit = async () => {
-    if (!filePath || !selectedSeriesId || segments.length === 0) return
+  const addSplitAt = useCallback((time: number) => {
+    const snapped = Math.max(0.1, Math.min(time, duration - 0.1))
+    const id = genId()
+    setSplitPoints((prev) => [...prev, { id, time: snapped }])
+  }, [duration])
 
+  const seekAndPlay = useCallback((time: number) => {
+    if (!waveformRef.current) return
+    waveformRef.current.seekTo(time)
+    // Small delay so seek completes before play
+    setTimeout(() => waveformRef.current?.play(), 50)
+  }, [])
+
+  const handleTranscribe = async () => {
+    if (!filePath) return
+    setTranscribing(true)
+    setError(null)
+    setTranscribeProgress(0)
+    try {
+      const segs = await window.electronAPI.transcript.transcribeFile(filePath)
+      setTranscriptSegments(segs)
+      setHasTranscript(true)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setTranscribing(false)
+    }
+  }
+
+  const handleDetectSilence = async () => {
+    if (!filePath) return
+    setDetectingSilence(true)
+    setError(null)
+    try {
+      const minDur = parseFloat(silenceMinDuration) || 5
+      const gaps = await window.electronAPI.splitter.detectSilence(filePath, '-30dB', minDur)
+      if (gaps.length === 0) {
+        setError('No silence gaps detected. Try lowering the minimum duration.')
+        return
+      }
+      const newPoints: SplitPoint[] = []
+      const newTitles = new Map<string | null, string>()
+      newTitles.set(null, 'Segment 1')
+      for (let i = 0; i < gaps.length; i++) {
+        const id = genId()
+        newPoints.push({ id, time: (gaps[i].start + gaps[i].end) / 2 })
+        newTitles.set(id, `Segment ${i + 2}`)
+      }
+      setSplitPoints(newPoints)
+      setSegmentTitles(newTitles)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setDetectingSilence(false)
+    }
+  }
+
+  const handleSplit = async () => {
+    if (!filePath || !seriesId || segments.length === 0) return
     const validSegments = segments.filter((s) => s.end > s.start && s.title.trim())
     if (validSegments.length === 0) {
       setError('All segments need a title and valid time range.')
       return
     }
-
     setSplitting(true)
     setError(null)
-
     try {
       const splitMarkers = validSegments.map((s) => ({
         start: s.start,
         end: s.end,
         title: s.title.trim(),
       }))
-
-      await window.electronAPI.splitter.split(filePath, splitMarkers, selectedSeriesId)
-      navigate(`/series/${selectedSeriesId}`)
+      await window.electronAPI.splitter.split(filePath, splitMarkers, seriesId)
+      navigate(`/series/${seriesId}`)
     } catch (err) {
       setError((err as Error).message)
     } finally {
       setSplitting(false)
     }
   }
-
-  const seriesOptions = series.map((s) => ({ value: s.id, label: s.title }))
 
   if (!filePath) {
     return (
@@ -230,9 +303,10 @@ export default function SplittingEditorPage() {
   }
 
   const fileName = filePath.split('/').pop() ?? filePath
+  const busy = transcribing || detectingSilence
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -242,137 +316,248 @@ export default function SplittingEditorPage() {
           <h1 className="text-2xl font-bold">Split Audio</h1>
           <p className="text-sm text-muted-foreground truncate">{fileName}</p>
         </div>
+        <Button
+          onClick={handleSplit}
+          disabled={splitting || !seriesId || segments.length === 0}
+        >
+          <Scissors className="h-4 w-4 mr-2" />
+          {splitting ? 'Splitting...' : `Split into ${segments.length} episodes`}
+        </Button>
       </div>
 
       {/* Waveform */}
-      <div>
-        {loading && (
-          <div className="flex items-center justify-center h-[150px] rounded-lg border border-border bg-card">
-            <p className="text-sm text-muted-foreground">Loading waveform...</p>
-          </div>
-        )}
-        {peaks && mediaUrl && (
-          <Waveform
-            ref={waveformRef}
-            url={mediaUrl}
-            peaks={peaks}
-            mediaDuration={duration}
-            splitMarkers={waveformSplitMarkers}
-            segmentRegions={waveformSegmentRegions}
-            onReady={handleReady}
-            onTimeUpdate={handleTimeUpdate}
-            onWaveformDblClick={handleWaveformDblClick}
-            onSplitMarkerDrag={handleSplitMarkerDrag}
-            onPlayPause={setIsPlaying}
-            height={150}
-          />
-        )}
-      </div>
+      {loading && (
+        <div className="flex items-center justify-center h-[150px] rounded-lg border border-border bg-card">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {peaks && mediaUrl && (
+        <Waveform
+          ref={waveformRef}
+          url={mediaUrl}
+          peaks={peaks}
+          mediaDuration={duration}
+          splitMarkers={waveformSplitMarkers}
+          segmentRegions={waveformSegmentRegions}
+          onReady={handleReady}
+          onTimeUpdate={handleTimeUpdate}
+          onWaveformDblClick={handleWaveformDblClick}
+          onSplitMarkerDrag={handleSplitMarkerDrag}
+          onPlayPause={setIsPlaying}
+          height={150}
+        />
+      )}
 
-      {/* Transport Controls */}
+      {/* Transport bar */}
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon" onClick={() => waveformRef.current?.play()}>
           {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>
-        <div className="text-sm text-muted-foreground font-mono">
+        <span className="text-sm text-muted-foreground font-mono tabular-nums">
           {formatTime(currentTime)} / {formatTime(duration)}
-        </div>
-        <div className="flex-1" />
-        <Button variant="outline" size="icon" onClick={() => waveformRef.current?.zoomOut()}>
+        </span>
+
+        <div className="w-px h-6 bg-border mx-1" />
+
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => waveformRef.current?.zoomOut()}>
           <ZoomOut className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="icon" onClick={() => waveformRef.current?.zoomIn()}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => waveformRef.current?.zoomIn()}>
           <ZoomIn className="h-4 w-4" />
         </Button>
+
+        <div className="flex-1" />
+
+        <span className="text-xs text-muted-foreground">
+          Click to seek · Double-click to split · Drag to adjust
+        </span>
       </div>
 
-      {/* Hint */}
-      <p className="text-sm text-muted-foreground">
-        Double-click the waveform to add a split point. Drag markers to adjust.
-      </p>
-
-      {/* Segments Table */}
-      <div>
-        <h2 className="text-lg font-semibold mb-2">Segments ({segments.length})</h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">#</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead className="w-20">Start</TableHead>
-              <TableHead className="w-20">End</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {segments.map((seg) => (
-              <TableRow
-                key={seg.splitPointId ?? '__first'}
-                className="cursor-pointer"
-                onClick={() => waveformRef.current?.seekTo(seg.start)}
-              >
-                <TableCell className="font-mono text-muted-foreground">{seg.index + 1}</TableCell>
-                <TableCell>
-                  <Input
-                    value={seg.title}
-                    onChange={(e) => updateTitle(seg.splitPointId, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-8"
-                  />
-                </TableCell>
-                <TableCell className="font-mono text-sm text-muted-foreground">
-                  {formatTimeShort(seg.start)}
-                </TableCell>
-                <TableCell className="font-mono text-sm text-muted-foreground">
-                  {formatTimeShort(seg.end)}
-                </TableCell>
-                <TableCell>
-                  {seg.splitPointId && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (seg.splitPointId) removeSplitPoint(seg.splitPointId)
-                      }}
-                      title="Remove split point (merge with previous)"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-end gap-4 pt-2">
-        <div className="space-y-2 flex-1 max-w-xs">
-          <Label>Target Series</Label>
-          {seriesOptions.length > 0 ? (
-            <Select
-              options={[{ value: '', label: 'Select a series...' }, ...seriesOptions]}
-              value={selectedSeriesId}
-              onChange={(e) => setSelectedSeriesId(e.target.value)}
-            />
+      {/* Tools bar */}
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="h-8" onClick={handleTranscribe} disabled={busy || loading}>
+          {transcribing ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : hasTranscript ? (
+            <Check className="h-3.5 w-3.5 mr-1.5 text-green-500" />
           ) : (
-            <p className="text-sm text-muted-foreground">No series available. Create one first.</p>
+            <Mic className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          {transcribing ? `${transcribeProgress}%` : hasTranscript ? 'Transcribed' : 'Transcribe'}
+        </Button>
+
+        <div className="w-px h-6 bg-border" />
+
+        <Button variant="outline" size="sm" className="h-8" onClick={handleDetectSilence} disabled={busy || loading}>
+          {detectingSilence ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <AudioLines className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          Detect Silence
+        </Button>
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">Min</Label>
+          <Input
+            type="number"
+            min="0.5"
+            step="0.5"
+            value={silenceMinDuration}
+            onChange={(e) => setSilenceMinDuration(e.target.value)}
+            className="h-7 w-20 text-xs"
+            title="Minimum silence duration (seconds)"
+          />
+          <span className="text-xs text-muted-foreground">sec</span>
+        </div>
+      </div>
+
+      {/* Transcript search */}
+      {hasTranscript && (
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search transcript..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-8 text-sm"
+            />
+          </div>
+
+          {searchQuery.trim() && (
+            <div className="rounded-lg border border-border max-h-48 overflow-y-auto">
+              {searchResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-3">No matches found.</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {searchResults.map((seg, i) => {
+                    const q = searchQuery.toLowerCase()
+                    const textLower = seg.text.toLowerCase()
+                    const matchIdx = textLower.indexOf(q)
+                    const before = seg.text.slice(0, matchIdx)
+                    const match = seg.text.slice(matchIdx, matchIdx + searchQuery.length)
+                    const after = seg.text.slice(matchIdx + searchQuery.length)
+
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-start gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer group"
+                        onClick={() => waveformRef.current?.seekTo(seg.start)}
+                      >
+                        <span className="text-xs font-mono text-muted-foreground whitespace-nowrap pt-0.5">
+                          {formatTimeShort(seg.start)}
+                        </span>
+                        <p className="text-sm flex-1 min-w-0 truncate">
+                          {before}<mark className="bg-yellow-200 dark:bg-yellow-800 rounded-sm px-0.5">{match}</mark>{after}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addSplitAt(seg.start)
+                          }}
+                          title="Add split point here"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
-        <Button
-          onClick={handleSplit}
-          disabled={splitting || !selectedSeriesId || segments.length === 0}
-        >
-          <Scissors className="h-4 w-4 mr-2" />
-          {splitting ? 'Splitting...' : `Split into ${segments.length} Episode${segments.length !== 1 ? 's' : ''}`}
-        </Button>
+      )}
+
+      {/* Segments */}
+      <div className="rounded-lg border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-b border-border">
+          <h2 className="text-sm font-medium">Segments ({segments.length})</h2>
+        </div>
+
+        <div className="divide-y divide-border">
+          {segments.map((seg) => {
+            const segDuration = seg.end - seg.start
+            const isActive = seg.index === activeSegmentIndex
+
+            return (
+              <div
+                key={seg.splitPointId ?? '__first'}
+                className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${
+                  isActive ? 'bg-accent/50' : 'hover:bg-muted/30'
+                }`}
+                onClick={() => waveformRef.current?.seekTo(seg.start)}
+                onDoubleClick={() => seekAndPlay(seg.start)}
+              >
+                {/* Index */}
+                <span className="text-xs font-mono text-muted-foreground w-6 text-right flex-shrink-0">
+                  {seg.index + 1}
+                </span>
+
+                {/* Color dot */}
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: SEGMENT_COLORS[seg.index % SEGMENT_COLORS.length].replace('0.15', '0.8') }}
+                />
+
+                {/* Title */}
+                <Input
+                  value={seg.title}
+                  onChange={(e) => updateTitle(seg.splitPointId, e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  className="h-7 text-sm flex-1"
+                />
+
+                {/* Times */}
+                <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                  {formatTimeShort(seg.start)}
+                </span>
+                <span className="text-xs text-muted-foreground">–</span>
+                <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                  {formatTimeShort(seg.end)}
+                </span>
+
+                {/* Duration badge */}
+                <span className="text-xs text-muted-foreground bg-muted rounded px-1.5 py-0.5 font-mono whitespace-nowrap min-w-[52px] text-center">
+                  {formatDuration(segDuration)}
+                </span>
+
+                {/* Remove / Merge */}
+                {seg.splitPointId ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (seg.splitPointId) removeSplitPoint(seg.splitPointId)
+                    }}
+                    title="Remove split point (merge with previous)"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                ) : (
+                  <div className="w-6 flex-shrink-0" />
+                )}
+              </div>
+            )
+          })}
+
+          {segments.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No segments yet. Use Detect Silence or double-click the waveform to add split points.
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
+        <div className="text-sm text-destructive bg-destructive/10 rounded-md px-4 py-3">
           {error}
         </div>
       )}

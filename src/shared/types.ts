@@ -182,6 +182,9 @@ export interface ElectronAPI {
     generate: (episodeId: string) => Promise<Transcript>
     updateSegment: (transcriptId: string, segmentIndex: number, text: string) => Promise<void>
     splitSegment: (transcriptId: string, segmentIndex: number, wordIndex: number) => Promise<void>
+    getFileTranscript: (filePath: string) => Promise<Segment[] | null>
+    transcribeFile: (filePath: string) => Promise<Segment[]>
+    onFileProgress: (callback: (data: { stage: string; percent: number }) => void) => () => void
   }
   // Download
   download: {
@@ -201,6 +204,7 @@ export interface ElectronAPI {
   splitter: {
     getMetadata: (filePath: string) => Promise<{ duration: number; format: string }>
     split: (filePath: string, markers: { start: number; end: number; title: string }[], seriesId: string) => Promise<Episode[]>
+    detectSilence: (filePath: string, noiseThreshold?: string, minDuration?: number) => Promise<{ start: number; end: number; duration: number }[]>
   }
   // Publisher
   publisher: {

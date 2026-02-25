@@ -26,6 +26,15 @@ const api: ElectronAPI = {
       ipcRenderer.invoke(IPC.TRANSCRIPT_UPDATE_SEGMENT, transcriptId, segmentIndex, text),
     splitSegment: (transcriptId, segmentIndex, wordIndex) =>
       ipcRenderer.invoke(IPC.TRANSCRIPT_SPLIT_SEGMENT, transcriptId, segmentIndex, wordIndex),
+    getFileTranscript: (filePath: string) =>
+      ipcRenderer.invoke(IPC.TRANSCRIPTION_GET_FILE, filePath),
+    transcribeFile: (filePath: string) =>
+      ipcRenderer.invoke(IPC.TRANSCRIPTION_TRANSCRIBE_FILE, filePath),
+    onFileProgress: (callback: (data: { stage: string; percent: number }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { stage: string; percent: number }) => callback(data)
+      ipcRenderer.on(IPC.TRANSCRIPTION_FILE_PROGRESS, handler)
+      return () => ipcRenderer.removeListener(IPC.TRANSCRIPTION_FILE_PROGRESS, handler)
+    },
   },
   download: {
     list: () => ipcRenderer.invoke(IPC.DOWNLOAD_LIST),
@@ -46,6 +55,8 @@ const api: ElectronAPI = {
   splitter: {
     getMetadata: (filePath) => ipcRenderer.invoke(IPC.SPLITTER_GET_METADATA, filePath),
     split: (filePath, markers, seriesId) => ipcRenderer.invoke(IPC.SPLITTER_SPLIT, filePath, markers, seriesId),
+    detectSilence: (filePath, noiseThreshold?, minDuration?) =>
+      ipcRenderer.invoke(IPC.SPLITTER_DETECT_SILENCE, filePath, noiseThreshold, minDuration),
   },
   publisher: {
     publishEpisode: (episodeId, targetStatus) => ipcRenderer.invoke(IPC.PUBLISHER_PUBLISH_EPISODE, episodeId, targetStatus),

@@ -38,6 +38,7 @@ export const IPC = {
   // Splitter
   SPLITTER_GET_METADATA: 'splitter:getMetadata',
   SPLITTER_SPLIT: 'splitter:split',
+  SPLITTER_DETECT_SILENCE: 'splitter:detectSilence',
 
   // Publisher
   PUBLISHER_PUBLISH_EPISODE: 'publisher:publishEpisode',
@@ -49,6 +50,11 @@ export const IPC = {
   // Dialog
   DIALOG_OPEN_FILE: 'dialog:openFile',
   DIALOG_OPEN_DIRECTORY: 'dialog:openDirectory',
+
+  // File-level transcription
+  TRANSCRIPTION_GET_FILE: 'transcription:get-file',
+  TRANSCRIPTION_TRANSCRIBE_FILE: 'transcription:transcribe-file',
+  TRANSCRIPTION_FILE_PROGRESS: 'transcription:file-progress',
 
   // Transcription progress (main -> renderer)
   TRANSCRIPTION_PROGRESS: 'transcription:progress',

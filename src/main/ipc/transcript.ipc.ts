@@ -4,8 +4,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { getTranscript, getTranscriptById, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText, splitSegment } from '../db/repositories/transcript'
 import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositories/episode'
 import { getSeries } from '../db/repositories/series'
-import { transcribe } from '../services/transcription'
-import { transcribeWithReplicate } from '../services/transcription-replicate'
+import { dispatchTranscribe, getCachedTranscript } from '../services/transcribe-dispatch'
 import { processTranscript } from '../services/nlp'
 import type { AppConfig } from '../../shared/types'
 
@@ -41,27 +40,12 @@ export function registerTranscriptIpc(): void {
       updateEpisodeStatus(episodeId, 'transcribing')
       emitProgress('transcribing', 0)
 
-      let segments
-      if (config.transcription.provider === 'replicate') {
-        const { apiToken, model } = config.transcription.replicate
-        if (!apiToken) throw new Error('Replicate API token is not configured.')
-        segments = await transcribeWithReplicate(
-          apiToken,
-          model,
-          episode.localPath,
-          series.language,
-          (percent) => emitProgress('transcribing', percent),
-        )
-      } else {
-        segments = await transcribe(
-          config.transcription.whisperxPath,
-          episode.localPath,
-          series.language,
-          config.transcription.device,
-          config.transcription.computeType,
-          (percent) => emitProgress('transcribing', percent),
-        )
-      }
+      const segments = await dispatchTranscribe(
+        config,
+        episode.localPath,
+        series.language,
+        (percent) => emitProgress('transcribing', percent),
+      )
 
       let transcript = getTranscript(episodeId)
       if (transcript) {
@@ -122,5 +106,29 @@ export function registerTranscriptIpc(): void {
     } catch {
       // NLP failed — keep the split result without NLP data
     }
+  })
+
+  // ── File-level transcription with cache ──
+
+  ipcMain.handle(IPC.TRANSCRIPTION_GET_FILE, (_event, filePath: string) => {
+    const cached = getCachedTranscript(filePath)
+    return cached?.segments ?? null
+  })
+
+  ipcMain.handle(IPC.TRANSCRIPTION_TRANSCRIBE_FILE, async (_event, filePath: string) => {
+    const config = store.get('config') as AppConfig | undefined
+    if (!config) throw new Error('App not configured. Please complete setup first.')
+
+    const mainWindow = BrowserWindow.getAllWindows()[0]
+    function emitProgress(stage: string, percent: number): void {
+      mainWindow?.webContents.send(IPC.TRANSCRIPTION_FILE_PROGRESS, { stage, percent })
+    }
+
+    emitProgress('transcribing', 0)
+    const language = config.transcription.defaultLanguage || 'en'
+    const segments = await dispatchTranscribe(config, filePath, language, (percent) => emitProgress('transcribing', percent))
+    if (segments.length === 0) throw new Error('Transcription produced no segments.')
+    emitProgress('transcribing', 100)
+    return segments
   })
 }
