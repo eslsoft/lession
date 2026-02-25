@@ -181,13 +181,18 @@ export function EpisodeTable({
                 className="cursor-pointer"
                 onClick={() => onEpisodeClick(ep.id)}
               >
-                <TableCell>
+                <TableCell
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleSelect(ep.id)
+                  }}
+                >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                    className="h-4 w-4 rounded border-input accent-primary cursor-pointer pointer-events-none"
                     checked={selectedIds.has(ep.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={() => toggleSelect(ep.id)}
+                    readOnly
                   />
                 </TableCell>
                 <TableCell className="text-muted-foreground">{ep.order + 1}</TableCell>
