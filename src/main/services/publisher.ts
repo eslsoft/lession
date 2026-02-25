@@ -155,6 +155,7 @@ export function generateIndexJson(
         cover: s.coverPath ? s3Keys.seriesCover(s.id, getExt(s.coverPath)) : '',
         feedUrl: s3Keys.seriesFeed(s.id),
         episodeCount: publishedEps.length,
+        totalDuration: publishedEps.reduce((sum, ep) => sum + (ep.duration ?? 0), 0),
         publishedAt: s.updatedAt,
       }
     }),
