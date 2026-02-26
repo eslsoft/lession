@@ -3,18 +3,37 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
+import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { execSync } from 'child_process';
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    icon: './assets/icon',
     extraResource: [
       'scripts',
     ],
   },
   rebuildConfig: {},
+  hooks: {
+    packageAfterCopy: async (_forgeConfig, buildPath) => {
+      const fs = await import('fs');
+      const path = await import('path');
+      // Copy package.json to buildPath so npm install can work
+      const srcPkg = path.join(process.cwd(), 'package.json');
+      const destPkg = path.join(buildPath, 'package.json');
+      if (!fs.existsSync(destPkg)) {
+        fs.copyFileSync(srcPkg, destPkg);
+      }
+      execSync('npm install --omit=dev --no-package-lock', {
+        cwd: buildPath,
+        stdio: 'inherit',
+      });
+    },
+  },
   makers: [
     new MakerSquirrel({}),
     new MakerZIP({}, ['darwin']),
@@ -22,6 +41,7 @@ const config: ForgeConfig = {
     new MakerDeb({}),
   ],
   plugins: [
+    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
       // If you are familiar with Vite configuration, it will look really familiar.
