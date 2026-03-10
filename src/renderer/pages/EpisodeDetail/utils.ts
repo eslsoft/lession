@@ -12,6 +12,7 @@ export function formatDuration(seconds?: number): string {
 export function getStatusVariant(status: EpisodeStatus) {
   switch (status) {
     case 'ready': return 'outline' as const
+    case 'converting': return 'default' as const
     case 'transcribing': return 'default' as const
     case 'transcribed': return 'secondary' as const
   }
@@ -20,6 +21,7 @@ export function getStatusVariant(status: EpisodeStatus) {
 export function getStatusLabel(status: EpisodeStatus): string {
   switch (status) {
     case 'ready': return 'Ready'
+    case 'converting': return 'Converting'
     case 'transcribing': return 'Transcribing'
     case 'transcribed': return 'Transcribed'
   }

@@ -12,6 +12,7 @@ import { registerTranscriptIpc } from './ipc/transcript.ipc';
 import { registerDownloadIpc } from './ipc/download.ipc';
 import { registerConfigIpc } from './ipc/config.ipc';
 import { registerSplitterIpc } from './ipc/splitter.ipc';
+import { registerConverterIpc } from './ipc/converter.ipc';
 import { registerPublisherIpc } from './ipc/publisher.ipc';
 import { registerDialogIpc } from './ipc/dialog.ipc';
 import { registerMediaIpc } from './ipc/media.ipc';
@@ -36,6 +37,7 @@ function registerAllIpc(): void {
   registerDownloadIpc();
   registerConfigIpc();
   registerSplitterIpc();
+  registerConverterIpc();
   registerPublisherIpc();
   registerDialogIpc();
   registerMediaIpc();

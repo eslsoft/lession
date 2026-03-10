@@ -45,11 +45,10 @@ export const useTranscriptionStore = create<TranscriptionState>((set) => ({
 window.electronAPI.transcription.onProgress((data) => {
   const { episodeId, stage, percent } = data
 
-  // The main-process pipeline ends with `emitProgress('nlp', 100)`.
-  // Treat that as the "done" signal:
-  //   1. Remove the progress entry so the UI stops showing a progress bar.
-  //   2. Push the episodeId into `completedIds` so pages can refetch data.
-  if (stage === 'nlp' && percent >= 100) {
+  // Done signals: transcription ends with ('nlp', 100), conversion ends with ('converting', 100).
+  // Also treat negative percent as error → clear progress.
+  const isDone = (stage === 'nlp' && percent >= 100) || (stage === 'converting' && (percent >= 100 || percent < 0))
+  if (isDone) {
     useTranscriptionStore.setState((state) => {
       const { [episodeId]: _, ...rest } = state.progresses
       return {

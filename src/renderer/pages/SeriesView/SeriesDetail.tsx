@@ -81,6 +81,7 @@ export default function SeriesDetailPage() {
     if (!id) return
     const isVideo = isVideoPath(filePath)
     const metadata = await window.electronAPI.splitter.getMetadata(filePath)
+    const needsConvert = !isVideo && !filePath.toLowerCase().endsWith('.m4a')
     const episode = await createEpisode({
       seriesId: id,
       title,
@@ -89,9 +90,13 @@ export default function SeriesDetailPage() {
       localPath: filePath,
       duration: metadata.duration,
       source: { type: 'direct', origin: filePath },
-      status: 'ready',
+      status: needsConvert ? 'converting' : 'ready',
       publishStatus: 'draft',
     })
+    // Fire-and-forget: convert to M4A in background
+    if (needsConvert) {
+      window.electronAPI.converter.convert(episode.id)
+    }
     setShowNewEpisode(false)
     navigate(`/series/${id}/episodes/${episode.id}`)
   }

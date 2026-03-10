@@ -29,7 +29,7 @@ export function initializeDatabase(db: Database.Database): void {
       duration REAL,
       sourceType TEXT,
       sourceOrigin TEXT,
-      status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'transcribing', 'transcribed')),
+      status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'converting', 'transcribing', 'transcribed')),
       publishStatus TEXT NOT NULL DEFAULT 'draft' CHECK(publishStatus IN ('draft', 'preview', 'published')),
       lastErrorMessage TEXT,
       lastErrorOccurredAt TEXT,
@@ -74,6 +74,7 @@ export function initializeDatabase(db: Database.Database): void {
   migrateEpisodeStatuses(db);
   migrateTranscriptsDropStatus(db);
   migrateSeriesAddFields(db);
+  migrateEpisodeAddConverting(db);
 }
 
 function migrateEpisodeStatuses(db: Database.Database): void {
@@ -101,7 +102,7 @@ function migrateEpisodeStatuses(db: Database.Database): void {
       duration REAL,
       sourceType TEXT,
       sourceOrigin TEXT,
-      status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'transcribing', 'transcribed')),
+      status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'converting', 'transcribing', 'transcribed')),
       publishStatus TEXT NOT NULL DEFAULT 'draft' CHECK(publishStatus IN ('draft', 'preview', 'published')),
       lastErrorMessage TEXT,
       lastErrorOccurredAt TEXT,
@@ -180,4 +181,46 @@ function migrateSeriesAddFields(db: Database.Database): void {
     ALTER TABLE series ADD COLUMN tags TEXT;
     ALTER TABLE series ADD COLUMN level TEXT CHECK(level IN ('beginner', 'intermediate', 'advanced'));
   `);
+}
+
+function migrateEpisodeAddConverting(db: Database.Database): void {
+  const tableInfo = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='episodes'"
+  ).get() as { sql: string } | undefined;
+
+  if (!tableInfo) return;
+  if (tableInfo.sql.includes('converting')) return; // already migrated
+
+  db.pragma('foreign_keys = OFF');
+
+  db.exec(`
+    CREATE TABLE episodes_new (
+      id TEXT PRIMARY KEY,
+      seriesId TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      mimeType TEXT NOT NULL CHECK(mimeType IN ('audio', 'video')),
+      localPath TEXT,
+      remoteUrl TEXT,
+      duration REAL,
+      sourceType TEXT,
+      sourceOrigin TEXT,
+      status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'converting', 'transcribing', 'transcribed')),
+      publishStatus TEXT NOT NULL DEFAULT 'draft' CHECK(publishStatus IN ('draft', 'preview', 'published')),
+      lastErrorMessage TEXT,
+      lastErrorOccurredAt TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (seriesId) REFERENCES series(id) ON DELETE CASCADE
+    );
+
+    INSERT INTO episodes_new SELECT * FROM episodes;
+
+    DROP TABLE episodes;
+    ALTER TABLE episodes_new RENAME TO episodes;
+    CREATE INDEX IF NOT EXISTS idx_episodes_seriesId ON episodes(seriesId);
+  `);
+
+  db.pragma('foreign_keys = ON');
 }

@@ -19,6 +19,7 @@ export interface Series {
 // ── Episode ──
 export type EpisodeStatus =
   | 'ready'
+  | 'converting'
   | 'transcribing'
   | 'transcribed'
 
@@ -205,6 +206,10 @@ export interface ElectronAPI {
     getMetadata: (filePath: string) => Promise<{ duration: number; format: string }>
     split: (filePath: string, markers: { start: number; end: number; title: string }[], seriesId: string) => Promise<Episode[]>
     detectSilence: (filePath: string, noiseThreshold?: string, minDuration?: number) => Promise<{ start: number; end: number; duration: number }[]>
+  }
+  // Converter
+  converter: {
+    convert: (episodeId: string) => Promise<void>
   }
   // Publisher
   publisher: {

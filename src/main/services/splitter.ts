@@ -46,9 +46,6 @@ export async function getMediaMetadata(filePath: string): Promise<{ duration: nu
   })
 }
 
-// Extensions that are already AAC-in-MP4 container and can be stream-copied to .m4a
-const AAC_COMPATIBLE_EXTS = new Set(['.m4a', '.m4b', '.mp4', '.aac'])
-
 export async function splitFile(
   filePath: string,
   segments: { start: number; end: number; title: string }[],
@@ -57,34 +54,29 @@ export async function splitFile(
   await mkdir(outputDir, { recursive: true })
 
   const srcExt = path.extname(filePath).toLowerCase()
-  const canCopy = AAC_COMPATIBLE_EXTS.has(srcExt)
   const outputPaths: string[] = []
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]
     // Sanitize title for filename
     const safeTitle = seg.title.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().replace(/\s+/g, '_')
-    const outputPath = path.join(outputDir, `${String(i + 1).padStart(3, '0')}_${safeTitle}.m4a`)
+    const outputPath = path.join(outputDir, `${String(i + 1).padStart(3, '0')}_${safeTitle}${srcExt}`)
 
-    await splitSegment(filePath, outputPath, seg.start, seg.end, canCopy)
+    await splitSegment(filePath, outputPath, seg.start, seg.end)
     outputPaths.push(outputPath)
   }
 
   return outputPaths
 }
 
-function splitSegment(inputPath: string, outputPath: string, start: number, end: number, canCopy: boolean): Promise<void> {
+function splitSegment(inputPath: string, outputPath: string, start: number, end: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const codecArgs = canCopy
-      ? ['-c', 'copy']
-      : ['-vn', '-c:a', 'aac', '-b:a', '128k']
-
     const proc = spawn('ffmpeg', [
       '-y',
       '-i', inputPath,
       '-ss', String(start),
       '-to', String(end),
-      ...codecArgs,
+      '-c', 'copy',
       '-avoid_negative_ts', 'make_zero',
       outputPath,
     ])

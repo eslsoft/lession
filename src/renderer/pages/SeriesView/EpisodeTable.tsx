@@ -207,6 +207,7 @@ export function EpisodeTable({
                   {progresses[ep.id] ? (
                     <div className="space-y-1">
                       <span className="text-xs text-muted-foreground">
+                        {progresses[ep.id].stage === 'converting' && 'Converting to M4A...'}
                         {progresses[ep.id].stage === 'transcribing' && 'Transcribing...'}
                         {progresses[ep.id].stage === 'nlp' && 'NLP processing...'}
                         {!progresses[ep.id].stage && 'Starting...'}

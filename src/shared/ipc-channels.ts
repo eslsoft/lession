@@ -40,6 +40,9 @@ export const IPC = {
   SPLITTER_SPLIT: 'splitter:split',
   SPLITTER_DETECT_SILENCE: 'splitter:detectSilence',
 
+  // Converter
+  CONVERTER_CONVERT: 'converter:convert',
+
   // Publisher
   PUBLISHER_PUBLISH_EPISODE: 'publisher:publishEpisode',
   PUBLISHER_UNPUBLISH_EPISODE: 'publisher:unpublishEpisode',

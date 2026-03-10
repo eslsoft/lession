@@ -58,6 +58,9 @@ const api: ElectronAPI = {
     detectSilence: (filePath, noiseThreshold?, minDuration?) =>
       ipcRenderer.invoke(IPC.SPLITTER_DETECT_SILENCE, filePath, noiseThreshold, minDuration),
   },
+  converter: {
+    convert: (episodeId) => ipcRenderer.invoke(IPC.CONVERTER_CONVERT, episodeId),
+  },
   publisher: {
     publishEpisode: (episodeId, targetStatus) => ipcRenderer.invoke(IPC.PUBLISHER_PUBLISH_EPISODE, episodeId, targetStatus),
     unpublishEpisode: (episodeId) => ipcRenderer.invoke(IPC.PUBLISHER_UNPUBLISH_EPISODE, episodeId),

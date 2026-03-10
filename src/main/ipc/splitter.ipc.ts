@@ -1,9 +1,10 @@
-import { ipcMain, app } from 'electron'
+import { ipcMain, app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { IPC } from '../../shared/ipc-channels'
 import { getMediaMetadata, splitFile } from '../services/splitter'
+import { convertToM4a } from '../services/converter'
 import { detectSilence } from '../services/silence-detect'
-import { createEpisode, getNextOrder, updateEpisodeStatus } from '../db/repositories/episode'
+import { createEpisode, getEpisode, getNextOrder, updateEpisode, updateEpisodeStatus } from '../db/repositories/episode'
 import { createTranscript, updateTranscriptSegments } from '../db/repositories/transcript'
 import { getCachedTranscript } from '../services/transcribe-dispatch'
 import { processTranscript } from '../services/nlp'
@@ -76,6 +77,8 @@ export function registerSplitterIpc(): void {
     }
 
     const isVideo = metadata.hasVideo
+    const srcExt = path.extname(filePath).toLowerCase()
+    const needsConvert = !isVideo && srcExt !== '.m4a'
     const episodes: Episode[] = []
 
     for (let i = 0; i < markers.length; i++) {
@@ -88,10 +91,45 @@ export function registerSplitterIpc(): void {
         localPath: outputPaths[i],
         duration: markers[i].end - markers[i].start,
         source: { type: 'local', origin: filePath },
-        status: 'ready',
+        status: needsConvert ? 'converting' : 'ready',
         publishStatus: 'draft',
       })
       episodes.push(episode)
+    }
+
+    // Convert non-M4A audio episodes in background
+    if (needsConvert) {
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      setImmediate(async () => {
+        for (const ep of episodes) {
+          if (!ep.localPath) continue
+          const emitProgress = (percent: number) => {
+            mainWindow?.webContents.send(IPC.TRANSCRIPTION_PROGRESS, {
+              episodeId: ep.id,
+              stage: 'converting',
+              percent,
+            })
+          }
+          try {
+            emitProgress(0)
+            const m4aPath = await convertToM4a(ep.localPath, outputDir, ep.duration ?? 0, emitProgress)
+            const current = getEpisode(ep.id)
+            updateEpisode(ep.id, {
+              localPath: m4aPath,
+              ...(current?.status === 'converting' ? { status: 'ready' } : {}),
+            })
+            emitProgress(100)
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            const current = getEpisode(ep.id)
+            updateEpisode(ep.id, {
+              ...(current?.status === 'converting' ? { status: 'ready' } : {}),
+              lastError: { message, occurredAt: new Date().toISOString() },
+            })
+            emitProgress(-1)
+          }
+        }
+      })
     }
 
     // Attach transcripts after all episodes are created
