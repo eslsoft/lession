@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronRight, AlertCircle, Loader2, Upload, Pencil, CheckCircle2, RefreshCw } from 'lucide-react'
+import { ChevronRight, AlertCircle, Loader2, Upload, Pencil, CheckCircle2, RefreshCw, FileAudio } from 'lucide-react'
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useSeriesStore } from '../../stores/seriesStore'
 import { useConfigStore } from '../../stores/configStore'
@@ -176,6 +176,9 @@ export default function EpisodeDetailPage() {
     : localPath ?? null
   const hasError = !!currentEpisode.lastError || !!actionError
   const isTranscribed = currentEpisode.status === 'transcribed'
+  const isConverting = currentEpisode.status === 'converting' || progress?.stage === 'converting'
+  const needsConvert = currentEpisode.mimeType === 'audio' && localPath != null && !localPath.toLowerCase().endsWith('.m4a')
+  const showConvert = needsConvert && !isConverting
   const showTranscribe = !isTranscribed || hasError
   const showRetranscribe = isTranscribed && !hasError
   const showPublishBtn = !!transcript
@@ -232,6 +235,18 @@ export default function EpisodeDetailPage() {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 shrink-0">
+          {showConvert && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (episodeId) window.electronAPI.converter.convert(episodeId)
+              }}
+            >
+              <FileAudio className="mr-1.5 h-3 w-3" />
+              Convert to M4A
+            </Button>
+          )}
           {showRetranscribe && (
             <Button variant="outline" size="sm" onClick={handleTranscribe} disabled={isTranscribing}>
               {isTranscribing

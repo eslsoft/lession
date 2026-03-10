@@ -24,6 +24,8 @@ export function registerConverterIpc(): void {
       })
     }
 
+    // Remember the status before converting so we can restore it afterwards
+    const statusBeforeConvert = episode.status
     updateEpisodeStatus(episodeId, 'converting')
     emitProgress(0)
 
@@ -32,12 +34,10 @@ export function registerConverterIpc(): void {
       const outputDir = path.join(app.getPath('userData'), 'episodes', episode.seriesId)
       const m4aPath = await convertToM4a(episode.localPath, outputDir, metadata.duration, emitProgress)
 
-      // Only transition to 'ready' if still in 'converting' state
-      // (cached transcript may have already moved it to 'transcribed')
-      const current = getEpisode(episodeId)
-      const newStatus = current?.status === 'converting' ? 'ready' : current?.status
-      updateEpisode(episodeId, { localPath: m4aPath, ...(newStatus ? { status: newStatus } : {}) })
-      // Signal completion — reuse the same pattern as transcription
+      // Restore the original status (e.g. 'transcribed' stays 'transcribed')
+      // Clear remoteUrl so next publish will re-upload the new M4A file
+      const restoreStatus = statusBeforeConvert === 'converting' ? 'ready' : statusBeforeConvert
+      updateEpisode(episodeId, { localPath: m4aPath, remoteUrl: undefined, status: restoreStatus })
       mainWindow?.webContents.send(IPC.TRANSCRIPTION_PROGRESS, {
         episodeId,
         stage: 'converting',
@@ -45,9 +45,10 @@ export function registerConverterIpc(): void {
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      const current = getEpisode(episodeId)
+      // Restore original status on error too
+      const restoreStatus = statusBeforeConvert === 'converting' ? 'ready' : statusBeforeConvert
       updateEpisode(episodeId, {
-        ...(current?.status === 'converting' ? { status: 'ready' } : {}),
+        status: restoreStatus,
         lastError: { message, occurredAt: new Date().toISOString() },
       })
       // Clear progress on error
