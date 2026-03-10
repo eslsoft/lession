@@ -65,6 +65,8 @@ async function runYtdlp(
 
   const proc = spawn(ytdlpPath, [
     '-o', outputTemplate,
+    '--extract-audio',
+    '--audio-format', 'm4a',
     '--write-info-json',
     '--newline',
     '--progress',
