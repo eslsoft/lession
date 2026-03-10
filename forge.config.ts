@@ -3,6 +3,7 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
+import { PublisherGithub } from '@electron-forge/publisher-github';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
@@ -16,6 +17,12 @@ const config: ForgeConfig = {
     extraResource: [
       'scripts',
     ],
+    osxSign: {},
+    osxNotarize: process.env.APPLE_ID ? {
+      appleId: process.env.APPLE_ID,
+      appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
+      teamId: process.env.APPLE_TEAM_ID,
+    } : undefined,
   },
   rebuildConfig: {},
   hooks: {
@@ -39,6 +46,16 @@ const config: ForgeConfig = {
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({}),
+  ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: 'eslsoft',
+        name: 'lession',
+      },
+      prerelease: false,
+      draft: true,
+    }),
   ],
   plugins: [
     new AutoUnpackNativesPlugin({}),

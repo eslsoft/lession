@@ -4,6 +4,7 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { updateElectronApp } from 'update-electron-app';
 import { getDatabase, closeDatabase } from './db';
 import { registerSeriesIpc } from './ipc/series.ipc';
 import { registerEpisodeIpc } from './ipc/episode.ipc';
@@ -20,6 +21,9 @@ import { registerMediaScheme, registerMediaProtocol } from './protocol';
 if (started) {
   app.quit();
 }
+
+// Auto-update: checks for updates via update.electronjs.org
+updateElectronApp();
 
 // Must be called before app.whenReady().
 registerMediaScheme();
