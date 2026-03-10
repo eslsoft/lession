@@ -84,4 +84,4 @@ Electron · React · TypeScript · Vite · Tailwind CSS · SQLite · Zustand
 
 ## License
 
-[MIT](LICENSE)
+[Apache License 2.0](LICENSE)
