@@ -267,6 +267,10 @@ function buildFeedItem(series: Series, episode: Episode) {
     : (episode.mimeType === 'video' ? 'mp4' : 'mp3')
   const mimeType = episode.mimeType === 'video' ? `video/${mediaExt}` : `audio/${mediaExt}`
 
+  const transcript = getTranscript(episode.id)
+  const sentenceCount = transcript?.segments.length ?? 0
+  const wordCount = transcript?.segments.reduce((sum, seg) => sum + seg.words.length, 0) ?? 0
+
   return {
     id: episode.id,
     title: episode.title,
@@ -281,6 +285,8 @@ function buildFeedItem(series: Series, episode: Episode) {
     ],
     _order: episode.order,
     _status: episode.publishStatus,
+    _sentence_count: sentenceCount,
+    _word_count: wordCount,
     _transcript_url: s3Keys.episodeTranscript(series.id, episode.id),
     _subtitles: {
       srt: s3Keys.episodeSubtitleSrt(series.id, episode.id),
