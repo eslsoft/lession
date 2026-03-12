@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { FolderOpen, CheckCircle, XCircle, Loader2, HardDrive, Mic, Download, X } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { FolderOpen, CheckCircle, XCircle, Loader2, HardDrive, Mic, Download, X, Volume2, Play, Square } from 'lucide-react'
 import { useConfigStore } from '../../stores/configStore'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -34,13 +34,23 @@ const defaultConfig: AppConfig = {
     ytdlpPath: '',
     downloadDir: '',
   },
+  tts: {
+    provider: 'edge_tts',
+    voice: 'en-US-AndrewMultilingualNeural',
+    speed: 1.0,
+    replicate: {
+      apiToken: '',
+      model: 'jaaari/kokoro-82m',
+    },
+  },
 }
 
-type Section = 'storage' | 'transcription' | 'import'
+type Section = 'storage' | 'transcription' | 'tts' | 'import'
 
 const sections = [
   { id: 'storage' as Section, label: 'Storage', icon: HardDrive },
   { id: 'transcription' as Section, label: 'Transcription', icon: Mic },
+  { id: 'tts' as Section, label: 'TTS', icon: Volume2 },
   { id: 'import' as Section, label: 'Import', icon: Download },
 ]
 
@@ -58,9 +68,24 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<boolean | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const [previewAudioPath, setPreviewAudioPath] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  function disposeAudio() {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.onended = null
+      audioRef.current.removeAttribute('src')
+      audioRef.current.load()
+      audioRef.current = null
+    }
+    setIsPlaying(false)
+  }
 
   useEffect(() => {
-    if (config) setForm(config)
+    if (config) setForm({ ...defaultConfig, ...config, tts: { ...defaultConfig.tts, ...config.tts } })
   }, [config])
 
   function updateStorage<K extends keyof AppConfig['storage']>(key: K, value: AppConfig['storage'][K]) {
@@ -74,6 +99,10 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
 
   function updateImport<K extends keyof AppConfig['import']>(key: K, value: AppConfig['import'][K]) {
     setForm((prev) => ({ ...prev, import: { ...prev.import, [key]: value } }))
+  }
+
+  function updateTts<K extends keyof AppConfig['tts']>(key: K, value: AppConfig['tts'][K]) {
+    setForm((prev) => ({ ...prev, tts: { ...prev.tts, [key]: value } }))
   }
 
   async function handleTestConnection() {
@@ -364,6 +393,191 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                       onChange={(e) => updateTranscription('defaultLanguage', e.target.value)}
                       className="w-32"
                     />
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'tts' && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ttsProvider">Provider</Label>
+                    <Select
+                      id="ttsProvider"
+                      value={form.tts?.provider ?? 'edge_tts'}
+                      onChange={(e) => {
+                        const provider = e.target.value as AppConfig['tts']['provider']
+                        updateTts('provider', provider)
+                        // Reset voice to default for the selected provider
+                        if (provider === 'edge_tts') updateTts('voice', 'en-US-AndrewMultilingualNeural')
+                        else if (provider === 'local_kokoro' || provider === 'replicate') updateTts('voice', 'af_heart')
+                        setPreviewAudioPath(null)
+                      }}
+                      options={[
+                        { value: 'edge_tts', label: 'Edge TTS (Recommended)' },
+                        { value: 'local_kokoro', label: 'Local Kokoro-82M' },
+                        { value: 'replicate', label: 'Replicate (Cloud)' },
+                      ]}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ttsVoice">Voice</Label>
+                      {form.tts?.provider === 'edge_tts' ? (
+                        <Select
+                          id="ttsVoice"
+                          value={form.tts?.voice ?? 'en-US-AndrewMultilingualNeural'}
+                          onChange={(e) => { updateTts('voice', e.target.value); setPreviewAudioPath(null) }}
+                          options={[
+                            { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
+                            { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
+                            { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
+                            { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
+                            { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
+                            { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
+                            { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
+                          ]}
+                        />
+                      ) : (
+                        <Select
+                          id="ttsVoice"
+                          value={form.tts?.voice ?? 'af_heart'}
+                          onChange={(e) => { updateTts('voice', e.target.value); setPreviewAudioPath(null) }}
+                          options={[
+                            { value: 'af_heart', label: 'Heart (Female)' },
+                            { value: 'af_bella', label: 'Bella (Female)' },
+                            { value: 'af_sarah', label: 'Sarah (Female)' },
+                            { value: 'am_adam', label: 'Adam (Male)' },
+                            { value: 'am_michael', label: 'Michael (Male)' },
+                            { value: 'bf_emma', label: 'Emma (British Female)' },
+                            { value: 'bm_george', label: 'George (British Male)' },
+                          ]}
+                        />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ttsSpeed">Speed</Label>
+                      <Input
+                        id="ttsSpeed"
+                        type="number"
+                        min={0.5}
+                        max={2.0}
+                        step={0.1}
+                        value={form.tts?.speed ?? 1.0}
+                        onChange={(e) => updateTts('speed', parseFloat(e.target.value) || 1.0)}
+                      />
+                    </div>
+                  </div>
+
+                  {form.tts?.provider === 'replicate' && (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <Label htmlFor="ttsReplicateToken">API Token</Label>
+                        <Input
+                          id="ttsReplicateToken"
+                          type="password"
+                          placeholder="r8_..."
+                          value={form.tts?.replicate?.apiToken ?? ''}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              tts: {
+                                ...prev.tts,
+                                replicate: { ...prev.tts.replicate, apiToken: e.target.value },
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ttsReplicateModel">Model</Label>
+                        <Input
+                          id="ttsReplicateModel"
+                          placeholder="owner/model"
+                          value={form.tts?.replicate?.model ?? ''}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              tts: {
+                                ...prev.tts,
+                                replicate: { ...prev.tts.replicate, model: e.target.value },
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <Separator />
+
+                  {/* Voice Preview */}
+                  <div className="space-y-3">
+                    <Label>Voice Preview</Label>
+                    <p className="text-xs text-muted-foreground">
+                      "The quick brown fox jumps over the lazy dog. This is a preview of the selected voice."
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          disposeAudio()
+                          setPreviewing(true)
+                          setPreviewAudioPath(null)
+                          try {
+                            const audioPath = await window.electronAPI.bookImport.preview(
+                              form.tts.provider,
+                              form.tts.voice,
+                              form.tts.speed,
+                            )
+                            setPreviewAudioPath(audioPath)
+                            // Auto-play after generation
+                            const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
+                            audio.onended = () => setIsPlaying(false)
+                            audio.play()
+                            audioRef.current = audio
+                            setIsPlaying(true)
+                          } catch (err) {
+                            console.error('TTS preview failed:', err)
+                          } finally {
+                            setPreviewing(false)
+                          }
+                        }}
+                        disabled={previewing}
+                      >
+                        {previewing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                        Try Voice
+                      </Button>
+                      {isPlaying && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => disposeAudio()}
+                        >
+                          <Square className="mr-1 h-3 w-3" /> Stop
+                        </Button>
+                      )}
+                      {previewAudioPath && !isPlaying && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            disposeAudio()
+                            const audio = new Audio(`local-media://localhost${encodeURI(previewAudioPath)}`)
+                            audio.onended = () => setIsPlaying(false)
+                            audio.play()
+                            audioRef.current = audio
+                            setIsPlaying(true)
+                          }}
+                        >
+                          <Play className="mr-1 h-3 w-3" /> Replay
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

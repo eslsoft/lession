@@ -2,7 +2,7 @@ import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
-import type { Segment } from '../../shared/types'
+import type { Segment } from '../../../shared/types'
 
 export interface CachedTranscript {
   filePath: string

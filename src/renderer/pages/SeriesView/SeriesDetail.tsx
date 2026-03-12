@@ -4,10 +4,12 @@ import { useSeriesStore } from '../../stores/seriesStore'
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useTranscriptionStore } from '../../stores/transcriptionStore'
 import { MEDIA_FILE_FILTER, IMAGE_FILE_FILTER, isVideoPath } from '@shared/media-formats'
+import type { BookImport, ExtractedBook } from '@shared/types'
 import { Separator } from '../../components/ui/separator'
 import { SeriesHeader } from './SeriesHeader'
 import { EditSeriesDialog } from './EditSeriesDialog'
 import { NewEpisodeDialog } from './NewEpisodeDialog'
+import { BookImportDialog } from './BookImportDialog'
 import { EpisodeTable } from './EpisodeTable'
 import { ConfirmDialog } from './ConfirmDialog'
 
@@ -28,6 +30,10 @@ export default function SeriesDetailPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [newEpTitle, setNewEpTitle] = useState('')
   const [batchPublishProgress, setBatchPublishProgress] = useState<{ current: number; total: number } | null>(null)
+  const [activeBookImport, setActiveBookImport] = useState<BookImport | null>(null)
+  const [extractedBook, setExtractedBook] = useState<ExtractedBook | null>(null)
+  const [showBookImport, setShowBookImport] = useState(false)
+  const [extracting, setExtracting] = useState(false)
 
   useEffect(() => {
     if (!currentSeries) fetchSeries()
@@ -35,6 +41,18 @@ export default function SeriesDetailPage() {
 
   useEffect(() => {
     if (id) fetchEpisodes(id)
+  }, [id, fetchEpisodes])
+
+  // Subscribe to book import progress
+  useEffect(() => {
+    const unsub = window.electronAPI.bookImport.onProgress((data) => {
+      if (data.seriesId !== id) return
+      setActiveBookImport(data)
+      if (data.status === 'done' || data.status === 'error' || data.status === 'cancelled') {
+        if (id) fetchEpisodes(id)
+      }
+    })
+    return unsub
   }, [id, fetchEpisodes])
 
   // When any episode in this series finishes transcription, ack + refetch
@@ -101,6 +119,35 @@ export default function SeriesDetailPage() {
     navigate(`/series/${id}/episodes/${episode.id}`)
   }
 
+  const handleImportBook = async () => {
+    if (!id) return
+    const filePath = await window.electronAPI.dialog.openFile({
+      filters: [{ name: 'eBooks', extensions: ['epub', 'pdf'] }],
+    })
+    if (!filePath) return
+
+    // Phase 1: Extract chapters for user review
+    setExtracting(true)
+    try {
+      const result = await window.electronAPI.bookImport.extract(filePath)
+      setExtractedBook(result)
+      setShowBookImport(true)
+    } catch (err) {
+      console.error('Failed to extract book:', err)
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  const handleConfirmBookImport = async (chapters: { title: string; text: string }[]) => {
+    if (!id || !extractedBook) return
+    // Phase 2: User confirmed → start generating
+    const bookImport = await window.electronAPI.bookImport.generate(id, extractedBook.epubPath, chapters)
+    setActiveBookImport(bookImport)
+    // Episodes are created synchronously in startBookImport, so refetch immediately
+    fetchEpisodes(id)
+  }
+
   const handleSplitImport = async () => {
     const filePath = await window.electronAPI.dialog.openFile({
       filters: [MEDIA_FILE_FILTER],
@@ -156,6 +203,9 @@ export default function SeriesDetailPage() {
         onBatchDelete={handleBatchDelete}
         onNewEpisode={handleSelectFileAndShowDialog}
         onSplitImport={handleSplitImport}
+        onImportBook={handleImportBook}
+        importBookLoading={extracting}
+        activeBookImport={activeBookImport}
       />
 
       <EditSeriesDialog
@@ -180,6 +230,13 @@ export default function SeriesDetailPage() {
         selectedFile={selectedFile}
         defaultTitle={newEpTitle}
         onCreate={handleCreateEpisode}
+      />
+
+      <BookImportDialog
+        open={showBookImport}
+        onOpenChange={setShowBookImport}
+        extractedBook={extractedBook}
+        onConfirm={handleConfirmBookImport}
       />
     </div>
   )

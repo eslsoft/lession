@@ -1,11 +1,12 @@
-import Replicate from 'replicate'
+import ReplicateLib from 'replicate'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { spawn } from 'node:child_process'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import type { Segment, WordToken, AppConfig } from '../../shared/types'
+import type { Segment, WordToken, AppConfig } from '../../../shared/types'
+import type { TranscriptionProvider } from './types'
 
 /** Compress audio to 16kHz mono MP3 for upload (WhisperX downsamples to 16kHz anyway). */
 function compressForUpload(filePath: string): Promise<string> {
@@ -64,7 +65,7 @@ async function uploadToS3AndGetUrl(
 const DEFAULT_MODEL = 'victor-upmeet/whisperx'
 
 /** Fetch model info to resolve the latest version and detect the audio input field name. */
-async function resolveModel(replicate: Replicate, owner: string, name: string): Promise<{ version: string; audioField: string }> {
+async function resolveModel(replicate: ReplicateLib, owner: string, name: string): Promise<{ version: string; audioField: string }> {
   const model = await replicate.models.get(owner, name)
   const version = model.latest_version?.id
   if (!version) throw new Error(`Model ${owner}/${name} has no published version on Replicate.`)
@@ -80,79 +81,6 @@ async function resolveModel(replicate: Replicate, owner: string, name: string): 
   }
 
   return { version, audioField }
-}
-
-export async function transcribeWithReplicate(
-  apiToken: string,
-  model: string,
-  filePath: string,
-  language: string,
-  onProgress?: (percent: number) => void,
-  storageConfig?: AppConfig['storage'],
-): Promise<Segment[]> {
-  const replicate = new Replicate({ auth: apiToken })
-  const modelId = model || DEFAULT_MODEL
-  const [owner, name] = modelId.split('/')
-
-  let currentProgress = 0
-  const progressInterval = setInterval(() => {
-    if (currentProgress < 90) {
-      currentProgress = Math.min(90, currentProgress + 2)
-      onProgress?.(currentProgress)
-    }
-  }, 3000)
-
-  let compressedPath: string | null = null
-  let s3Key: string | null = null
-  let s3Client: S3Client | null = null
-  let s3Bucket: string | null = null
-
-  try {
-    onProgress?.(5)
-
-    const { version, audioField } = await resolveModel(replicate, owner, name)
-
-    // Compress to small MP3 before uploading
-    compressedPath = await compressForUpload(filePath)
-
-    // Upload compressed file to S3 and get pre-signed URL
-    if (!storageConfig) throw new Error('S3 storage is required for cloud transcription of large files. Please configure Storage in Settings.')
-
-    const uploaded = await uploadToS3AndGetUrl(
-      storageConfig,
-      compressedPath,
-      path.basename(filePath).replace(/\.[^.]+$/, '.mp3'),
-    )
-    s3Key = uploaded.key
-    s3Client = uploaded.client
-    s3Bucket = storageConfig.bucket
-
-    const output = await replicate.run(`${owner}/${name}:${version}` as `${string}/${string}:${string}`, {
-      input: {
-        [audioField]: uploaded.url,
-        language,
-        align_output: true,
-        batch_size: 32,
-      },
-    })
-
-    clearInterval(progressInterval)
-    onProgress?.(100)
-
-    return parseOutput(output)
-  } catch (err) {
-    clearInterval(progressInterval)
-    throw err
-  } finally {
-    // Clean up temp compressed file
-    if (compressedPath && fs.existsSync(compressedPath)) {
-      fs.unlinkSync(compressedPath)
-    }
-    // Clean up S3 temp object
-    if (s3Client && s3Bucket && s3Key) {
-      s3Client.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: s3Key })).catch(() => {})
-    }
-  }
 }
 
 function parseOutput(output: unknown): Segment[] {
@@ -179,4 +107,76 @@ function parseOutput(output: unknown): Segment[] {
       words,
     }
   })
+}
+
+export const replicateTranscriptionProvider: TranscriptionProvider = {
+  async transcribe(config, filePath, language, onProgress) {
+    const { apiToken, model } = config.transcription.replicate
+    if (!apiToken) throw new Error('Replicate API token is not configured.')
+
+    const replicate = new ReplicateLib({ auth: apiToken })
+    const modelId = model || DEFAULT_MODEL
+    const [owner, name] = modelId.split('/')
+
+    let currentProgress = 0
+    const progressInterval = setInterval(() => {
+      if (currentProgress < 90) {
+        currentProgress = Math.min(90, currentProgress + 2)
+        onProgress?.(currentProgress)
+      }
+    }, 3000)
+
+    let compressedPath: string | null = null
+    let s3Key: string | null = null
+    let s3Client: S3Client | null = null
+    let s3Bucket: string | null = null
+
+    try {
+      onProgress?.(5)
+
+      const { version, audioField } = await resolveModel(replicate, owner, name)
+
+      // Compress to small MP3 before uploading
+      compressedPath = await compressForUpload(filePath)
+
+      // Upload compressed file to S3 and get pre-signed URL
+      const storageConfig = config.storage
+      if (!storageConfig) throw new Error('S3 storage is required for cloud transcription of large files. Please configure Storage in Settings.')
+
+      const uploaded = await uploadToS3AndGetUrl(
+        storageConfig,
+        compressedPath,
+        path.basename(filePath).replace(/\.[^.]+$/, '.mp3'),
+      )
+      s3Key = uploaded.key
+      s3Client = uploaded.client
+      s3Bucket = storageConfig.bucket
+
+      const output = await replicate.run(`${owner}/${name}:${version}` as `${string}/${string}:${string}`, {
+        input: {
+          [audioField]: uploaded.url,
+          language,
+          align_output: true,
+          batch_size: 32,
+        },
+      })
+
+      clearInterval(progressInterval)
+      onProgress?.(100)
+
+      return parseOutput(output)
+    } catch (err) {
+      clearInterval(progressInterval)
+      throw err
+    } finally {
+      // Clean up temp compressed file
+      if (compressedPath && fs.existsSync(compressedPath)) {
+        fs.unlinkSync(compressedPath)
+      }
+      // Clean up S3 temp object
+      if (s3Client && s3Bucket && s3Key) {
+        s3Client.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: s3Key })).catch(() => {})
+      }
+    }
+  },
 }

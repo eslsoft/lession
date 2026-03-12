@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from './shared/ipc-channels'
-import type { ElectronAPI } from './shared/types'
+import type { ElectronAPI, BookImport } from './shared/types'
 
 const api: ElectronAPI = {
   series: {
@@ -77,6 +77,21 @@ const api: ElectronAPI = {
       const handler = (_event: Electron.IpcRendererEvent, data: { episodeId: string; stage: string; percent: number }) => callback(data)
       ipcRenderer.on(IPC.TRANSCRIPTION_PROGRESS, handler)
       return () => ipcRenderer.removeListener(IPC.TRANSCRIPTION_PROGRESS, handler)
+    },
+  },
+  bookImport: {
+    extract: (filePath: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_EXTRACT, filePath),
+    preview: (provider: string, voice: string, speed: number) =>
+      ipcRenderer.invoke(IPC.BOOK_IMPORT_PREVIEW, provider, voice, speed),
+    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[]) =>
+      ipcRenderer.invoke(IPC.BOOK_IMPORT_GENERATE, seriesId, epubPath, chapters),
+    cancel: (id: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_CANCEL, id),
+    retry: (id: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_RETRY, id),
+    list: (seriesId: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_LIST, seriesId),
+    onProgress: (callback: (data: BookImport) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: BookImport) => callback(data)
+      ipcRenderer.on(IPC.BOOK_IMPORT_PROGRESS, handler)
+      return () => ipcRenderer.removeListener(IPC.BOOK_IMPORT_PROGRESS, handler)
     },
   },
   media: {

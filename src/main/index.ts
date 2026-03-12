@@ -16,6 +16,7 @@ import { registerConverterIpc } from './ipc/converter.ipc';
 import { registerPublisherIpc } from './ipc/publisher.ipc';
 import { registerDialogIpc } from './ipc/dialog.ipc';
 import { registerMediaIpc } from './ipc/media.ipc';
+import { registerBookImportIpc } from './ipc/book-import.ipc';
 import { registerMediaScheme, registerMediaProtocol } from './protocol';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -41,6 +42,7 @@ function registerAllIpc(): void {
   registerPublisherIpc();
   registerDialogIpc();
   registerMediaIpc();
+  registerBookImportIpc();
 }
 
 const createWindow = () => {

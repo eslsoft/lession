@@ -59,6 +59,15 @@ export const IPC = {
   TRANSCRIPTION_TRANSCRIBE_FILE: 'transcription:transcribe-file',
   TRANSCRIPTION_FILE_PROGRESS: 'transcription:file-progress',
 
+  // Book Import
+  BOOK_IMPORT_EXTRACT: 'book-import:extract',
+  BOOK_IMPORT_PREVIEW: 'book-import:preview',
+  BOOK_IMPORT_GENERATE: 'book-import:generate',
+  BOOK_IMPORT_CANCEL: 'book-import:cancel',
+  BOOK_IMPORT_RETRY: 'book-import:retry',
+  BOOK_IMPORT_LIST: 'book-import:list',
+  BOOK_IMPORT_PROGRESS: 'book-import:progress',
+
   // Transcription progress (main -> renderer)
   TRANSCRIPTION_PROGRESS: 'transcription:progress',
 } as const

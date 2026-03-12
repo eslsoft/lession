@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { Plus, Scissors, Trash2, Play, Upload } from 'lucide-react'
+import { Plus, Scissors, Trash2, Play, Upload, BookOpen, Loader2 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Progress } from '../../components/ui/progress'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
 import { ConfirmDialog } from './ConfirmDialog'
 import { statusColors, publishColors, formatDuration } from './constants'
-import type { Episode } from '../../../shared/types'
+import type { Episode, BookImport } from '../../../shared/types'
 
 interface TranscriptionProgress {
   stage: string
@@ -23,6 +23,9 @@ interface EpisodeTableProps {
   onBatchDelete: (ids: string[]) => Promise<void>
   onNewEpisode: () => void
   onSplitImport: () => void
+  onImportBook: () => void
+  importBookLoading?: boolean
+  activeBookImport: BookImport | null
 }
 
 export function EpisodeTable({
@@ -36,6 +39,9 @@ export function EpisodeTable({
   onBatchDelete,
   onNewEpisode,
   onSplitImport,
+  onImportBook,
+  importBookLoading,
+  activeBookImport,
 }: EpisodeTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [epToDelete, setEpToDelete] = useState<Episode | null>(null)
@@ -132,6 +138,10 @@ export function EpisodeTable({
               </Button>
             </>
           )}
+          <Button variant="outline" onClick={onImportBook} disabled={importBookLoading}>
+            {importBookLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <BookOpen className="h-4 w-4 mr-2" />}
+            {importBookLoading ? 'Extracting...' : 'Import Book'}
+          </Button>
           <Button variant="outline" onClick={onSplitImport}>
             <Scissors className="h-4 w-4 mr-2" />
             Split & Import
@@ -142,6 +152,46 @@ export function EpisodeTable({
           </Button>
         </div>
       </div>
+
+      {/* Book Import Progress */}
+      {activeBookImport && activeBookImport.status !== 'done' && activeBookImport.status !== 'cancelled' && (
+        <div className="mb-4 rounded-lg border bg-purple-500/5 border-purple-500/20 p-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-purple-400">
+              {activeBookImport.status === 'pending' && 'Preparing book import...'}
+              {activeBookImport.status === 'extracting' && 'Extracting chapters...'}
+              {activeBookImport.status === 'generating' && `Generating audio: ${activeBookImport.completedChapters}/${activeBookImport.totalChapters} chapters`}
+              {activeBookImport.status === 'error' && `Import error: ${activeBookImport.lastError}`}
+            </span>
+            {(activeBookImport.status === 'generating' || activeBookImport.status === 'extracting') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={() => window.electronAPI.bookImport.cancel(activeBookImport.id)}
+              >
+                Cancel
+              </Button>
+            )}
+            {activeBookImport.status === 'error' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={() => window.electronAPI.bookImport.retry(activeBookImport.id)}
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+          {activeBookImport.totalChapters > 0 && (
+            <Progress
+              value={(activeBookImport.completedChapters / activeBookImport.totalChapters) * 100}
+              className="h-1.5"
+            />
+          )}
+        </div>
+      )}
 
       {/* Table */}
       {loading && episodes.length === 0 ? (
@@ -208,6 +258,7 @@ export function EpisodeTable({
                     <div className="space-y-1">
                       <span className="text-xs text-muted-foreground">
                         {progresses[ep.id].stage === 'converting' && 'Converting to M4A...'}
+                        {progresses[ep.id].stage === 'generating' && 'Generating audio...'}
                         {progresses[ep.id].stage === 'transcribing' && 'Transcribing...'}
                         {progresses[ep.id].stage === 'nlp' && 'NLP processing...'}
                         {!progresses[ep.id].stage && 'Starting...'}

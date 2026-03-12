@@ -4,7 +4,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { getTranscript, getTranscriptById, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText, splitSegment } from '../db/repositories/transcript'
 import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositories/episode'
 import { getSeries } from '../db/repositories/series'
-import { dispatchTranscribe, getCachedTranscript } from '../services/transcribe-dispatch'
+import { dispatchTranscribe, getCachedTranscript } from '../services/transcription'
 import { processTranscript } from '../services/nlp'
 import type { AppConfig } from '../../shared/types'
 

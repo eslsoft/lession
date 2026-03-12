@@ -20,6 +20,7 @@ export interface Series {
 export type EpisodeStatus =
   | 'ready'
   | 'converting'
+  | 'generating'
   | 'transcribing'
   | 'transcribed'
 
@@ -119,6 +120,42 @@ export interface Transcript {
   updatedAt: string
 }
 
+// ── Book Import ──
+export interface ExtractedBook {
+  title: string
+  author: string
+  epubPath: string
+  chapters: ExtractedBookChapter[]
+}
+
+export interface ExtractedBookChapter {
+  title: string
+  text: string
+  order: number
+  selected?: boolean
+}
+
+export interface BookImport {
+  id: string
+  seriesId: string
+  filePath: string
+  epubPath?: string
+  status: 'pending' | 'extracting' | 'generating' | 'done' | 'error' | 'cancelled'
+  totalChapters: number
+  completedChapters: number
+  lastError?: string
+  chapters?: BookImportChapter[]
+  createdAt: string
+}
+
+export interface BookImportChapter {
+  title: string
+  textLength: number
+  episodeId?: string
+  status: 'pending' | 'generating' | 'done' | 'error'
+  error?: string
+}
+
 // ── Config ──
 export interface AppConfig {
   storage: {
@@ -143,6 +180,15 @@ export interface AppConfig {
   import: {
     ytdlpPath: string
     downloadDir: string
+  }
+  tts: {
+    provider: 'edge_tts' | 'local_kokoro' | 'replicate'
+    voice: string
+    speed: number
+    replicate: {
+      apiToken: string
+      model: string
+    }
   }
 }
 
@@ -227,6 +273,16 @@ export interface ElectronAPI {
   // Transcription progress (main -> renderer)
   transcription: {
     onProgress: (callback: (data: { episodeId: string; stage: string; percent: number }) => void) => () => void
+  }
+  // Book Import
+  bookImport: {
+    extract: (filePath: string) => Promise<ExtractedBook>
+    preview: (provider: string, voice: string, speed: number) => Promise<string>
+    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[]) => Promise<BookImport>
+    cancel: (id: string) => Promise<void>
+    retry: (id: string) => Promise<void>
+    list: (seriesId: string) => Promise<BookImport[]>
+    onProgress: (callback: (data: BookImport) => void) => () => void
   }
   // Media file reading
   media: {

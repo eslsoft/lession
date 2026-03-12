@@ -6,7 +6,7 @@ import { convertToM4a } from '../services/converter'
 import { detectSilence } from '../services/silence-detect'
 import { createEpisode, getEpisode, getNextOrder, updateEpisode, updateEpisodeStatus } from '../db/repositories/episode'
 import { createTranscript, updateTranscriptSegments } from '../db/repositories/transcript'
-import { getCachedTranscript } from '../services/transcribe-dispatch'
+import { getCachedTranscript } from '../services/transcription'
 import { processTranscript } from '../services/nlp'
 import type { Episode, Segment } from '../../shared/types'
 
