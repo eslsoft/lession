@@ -1,6 +1,6 @@
 import Store from 'electron-store'
 import { getCachedTranscript, saveCachedTranscript, hasCachedTranscript } from './cache'
-import type { ServiceConfig, Segment, ServiceProvider } from '../../../shared/types'
+import type { ServiceConfig, Segment } from '../../../shared/types'
 import { BUILTIN_SERVICES } from '../../../shared/types'
 import type { TranscriptionProvider } from './types'
 import { localWhisperxProvider } from './local-whisperx'

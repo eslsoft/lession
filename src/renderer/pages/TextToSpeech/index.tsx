@@ -8,7 +8,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { Select } from '../../components/ui/select'
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useConfigStore } from '../../stores/configStore'
-import type { ExtractedBook, BookImport, ServiceConfig } from '@shared/types'
+import type { ExtractedBook, BookImport } from '@shared/types'
 import { getVoicesForEngine, getDefaultVoice, getModelsForEngine, getDefaultModel } from '@shared/engines'
 
 type Tab = 'text' | 'book'

@@ -11,7 +11,7 @@ import { Badge } from '../../components/ui/badge'
 import { cn } from '../../lib/utils'
 import type { AppConfig, ServiceConfig, ServiceProvider, TtsEngine, TranscriptionEngine } from '../../../shared/types'
 import { BUILTIN_SERVICES } from '../../../shared/types'
-import { getEngineLabel, getVoicesForEngine, getDefaultVoice, getModelsForEngine, getDefaultModel, PROVIDER_LABELS } from '../../../shared/engines'
+import { getEngineLabel, getVoicesForEngine, getModelsForEngine, getDefaultModel, PROVIDER_LABELS } from '../../../shared/engines'
 import EnvironmentStatus from '../../components/EnvironmentStatus'
 
 const defaultConfig: AppConfig = {
