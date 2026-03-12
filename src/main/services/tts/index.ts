@@ -82,7 +82,7 @@ export async function previewTts(
   model?: string,
 ): Promise<string> {
   const service = withModelOverride(
-    { engine, credentials } as ServiceConfig,
+    { engine, credentials, options: {} } as ServiceConfig,
     model,
   )
   const result = await dispatchTts(service, voice, speed, text, outputPath)
