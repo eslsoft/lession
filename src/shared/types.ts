@@ -181,9 +181,15 @@ export interface AppConfig {
     downloadDir: string
   }
   tts: {
-    provider: 'edge_tts' | 'kokoro'
+    provider: 'edge_tts' | 'kokoro' | 'elevenlabs' | 'openai'
     voice: string
     speed: number
+    elevenlabs?: {
+      apiKey: string
+    }
+    openai?: {
+      apiKey: string
+    }
   }
 }
 

@@ -38,6 +38,8 @@ const defaultConfig: AppConfig = {
     provider: 'edge_tts',
     voice: 'en-US-AndrewMultilingualNeural',
     speed: 1.0,
+    elevenlabs: { apiKey: '' },
+    openai: { apiKey: '' },
   },
 }
 
@@ -389,11 +391,15 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                         // Reset voice to default for the selected provider
                         if (provider === 'edge_tts') updateTts('voice', 'en-US-AndrewMultilingualNeural')
                         else if (provider === 'kokoro') updateTts('voice', 'af_heart')
+                        else if (provider === 'elevenlabs') updateTts('voice', 'JBFqnCBsd6RMkjVDRZzb')
+                        else if (provider === 'openai') updateTts('voice', 'alloy')
                         setPreviewAudioPath(null)
                       }}
                       options={[
-                        { value: 'edge_tts', label: 'Edge TTS (Recommended)' },
+                        { value: 'edge_tts', label: 'Edge TTS' },
                         { value: 'kokoro', label: 'Kokoro-82M' },
+                        { value: 'elevenlabs', label: 'ElevenLabs' },
+                        { value: 'openai', label: 'OpenAI TTS' },
                       ]}
                     />
                   </div>
@@ -403,12 +409,12 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="ttsVoice">Voice</Label>
-                      {form.tts?.provider === 'edge_tts' ? (
-                        <Select
-                          id="ttsVoice"
-                          value={form.tts?.voice ?? 'en-US-AndrewMultilingualNeural'}
-                          onChange={(e) => { updateTts('voice', e.target.value); setPreviewAudioPath(null) }}
-                          options={[
+                      <Select
+                        id="ttsVoice"
+                        value={form.tts?.voice ?? ''}
+                        onChange={(e) => { updateTts('voice', e.target.value); setPreviewAudioPath(null) }}
+                        options={
+                          form.tts?.provider === 'edge_tts' ? [
                             { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
                             { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
                             { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
@@ -416,14 +422,7 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                             { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
                             { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
                             { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
-                          ]}
-                        />
-                      ) : (
-                        <Select
-                          id="ttsVoice"
-                          value={form.tts?.voice ?? 'af_heart'}
-                          onChange={(e) => { updateTts('voice', e.target.value); setPreviewAudioPath(null) }}
-                          options={[
+                          ] : form.tts?.provider === 'kokoro' ? [
                             { value: 'af_heart', label: 'Heart (Female)' },
                             { value: 'af_bella', label: 'Bella (Female)' },
                             { value: 'af_sarah', label: 'Sarah (Female)' },
@@ -431,9 +430,27 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                             { value: 'am_michael', label: 'Michael (Male)' },
                             { value: 'bf_emma', label: 'Emma (British Female)' },
                             { value: 'bm_george', label: 'George (British Male)' },
-                          ]}
-                        />
-                      )}
+                          ] : form.tts?.provider === 'elevenlabs' ? [
+                            { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George (Male, Narrative)' },
+                            { value: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily (Female, Narrative)' },
+                            { value: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel (Male, British)' },
+                            { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah (Female, Soft)' },
+                            { value: 'TX3LPaxmHKxFdv7VOQHJ', label: 'Liam (Male, Articulate)' },
+                            { value: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte (Female, Swedish)' },
+                          ] : [
+                            { value: 'alloy', label: 'Alloy' },
+                            { value: 'ash', label: 'Ash' },
+                            { value: 'ballad', label: 'Ballad' },
+                            { value: 'coral', label: 'Coral' },
+                            { value: 'echo', label: 'Echo' },
+                            { value: 'fable', label: 'Fable' },
+                            { value: 'nova', label: 'Nova' },
+                            { value: 'onyx', label: 'Onyx' },
+                            { value: 'sage', label: 'Sage' },
+                            { value: 'shimmer', label: 'Shimmer' },
+                          ]
+                        }
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ttsSpeed">Speed</Label>
@@ -448,6 +465,43 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                       />
                     </div>
                   </div>
+
+                  {(form.tts?.provider === 'elevenlabs' || form.tts?.provider === 'openai') && (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <Label htmlFor="ttsApiKey">
+                          {form.tts.provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'} API Key
+                        </Label>
+                        <Input
+                          id="ttsApiKey"
+                          type="password"
+                          placeholder={form.tts.provider === 'elevenlabs' ? 'sk_...' : 'sk-...'}
+                          value={
+                            form.tts.provider === 'elevenlabs'
+                              ? (form.tts.elevenlabs?.apiKey ?? '')
+                              : (form.tts.openai?.apiKey ?? '')
+                          }
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              tts: {
+                                ...prev.tts,
+                                ...(prev.tts.provider === 'elevenlabs'
+                                  ? { elevenlabs: { ...prev.tts.elevenlabs, apiKey: e.target.value } }
+                                  : { openai: { ...prev.tts.openai, apiKey: e.target.value } }),
+                              },
+                            }))
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {form.tts.provider === 'elevenlabs'
+                            ? 'Get your key at elevenlabs.io/app/settings/api-keys'
+                            : 'Get your key at platform.openai.com/api-keys'}
+                        </p>
+                      </div>
+                    </>
+                  )}
 
                   <Separator />
 

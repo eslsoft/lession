@@ -12,25 +12,53 @@ import type { ExtractedBook, BookImport, AppConfig } from '@shared/types'
 
 type Tab = 'text' | 'book'
 
-const EDGE_VOICES = [
-  { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
-  { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
-  { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
-  { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
-  { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
-  { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
-  { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
-]
+const VOICES_BY_PROVIDER: Record<string, { value: string; label: string }[]> = {
+  edge_tts: [
+    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
+    { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
+    { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
+    { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
+    { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
+    { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
+    { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
+  ],
+  kokoro: [
+    { value: 'af_heart', label: 'Heart (Female)' },
+    { value: 'af_bella', label: 'Bella (Female)' },
+    { value: 'af_sarah', label: 'Sarah (Female)' },
+    { value: 'am_adam', label: 'Adam (Male)' },
+    { value: 'am_michael', label: 'Michael (Male)' },
+    { value: 'bf_emma', label: 'Emma (British Female)' },
+    { value: 'bm_george', label: 'George (British Male)' },
+  ],
+  elevenlabs: [
+    { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George (Male, Narrative)' },
+    { value: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily (Female, Narrative)' },
+    { value: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel (Male, British)' },
+    { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah (Female, Soft)' },
+    { value: 'TX3LPaxmHKxFdv7VOQHJ', label: 'Liam (Male, Articulate)' },
+    { value: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte (Female, Swedish)' },
+  ],
+  openai: [
+    { value: 'alloy', label: 'Alloy' },
+    { value: 'ash', label: 'Ash' },
+    { value: 'ballad', label: 'Ballad' },
+    { value: 'coral', label: 'Coral' },
+    { value: 'echo', label: 'Echo' },
+    { value: 'fable', label: 'Fable' },
+    { value: 'nova', label: 'Nova' },
+    { value: 'onyx', label: 'Onyx' },
+    { value: 'sage', label: 'Sage' },
+    { value: 'shimmer', label: 'Shimmer' },
+  ],
+}
 
-const KOKORO_VOICES = [
-  { value: 'af_heart', label: 'Heart (Female)' },
-  { value: 'af_bella', label: 'Bella (Female)' },
-  { value: 'af_sarah', label: 'Sarah (Female)' },
-  { value: 'am_adam', label: 'Adam (Male)' },
-  { value: 'am_michael', label: 'Michael (Male)' },
-  { value: 'bf_emma', label: 'Emma (British Female)' },
-  { value: 'bm_george', label: 'George (British Male)' },
-]
+const DEFAULT_VOICES: Record<string, string> = {
+  edge_tts: 'en-US-AndrewMultilingualNeural',
+  kokoro: 'af_heart',
+  elevenlabs: 'JBFqnCBsd6RMkjVDRZzb',
+  openai: 'alloy',
+}
 
 const MAX_PREVIEW_MS = 30_000
 
@@ -204,7 +232,7 @@ export default function TextToSpeechPage() {
 
   const canGenerateText = tab === 'text' && title.trim() && textContent.trim() && !generating
   const canGenerateBook = tab === 'book' && selectedCount > 0 && !generating
-  const voiceOptions = provider === 'edge_tts' ? EDGE_VOICES : KOKORO_VOICES
+  const voiceOptions = VOICES_BY_PROVIDER[provider] ?? []
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -225,12 +253,14 @@ export default function TextToSpeechPage() {
             onChange={(e) => {
               const p = e.target.value as AppConfig['tts']['provider']
               setProvider(p)
-              setVoice(p === 'edge_tts' ? 'en-US-AndrewMultilingualNeural' : 'af_heart')
+              setVoice(DEFAULT_VOICES[p] ?? '')
               disposeAudio()
             }}
             options={[
               { value: 'edge_tts', label: 'Edge TTS' },
               { value: 'kokoro', label: 'Kokoro-82M' },
+              { value: 'elevenlabs', label: 'ElevenLabs' },
+              { value: 'openai', label: 'OpenAI TTS' },
             ]}
             className="w-36"
           />

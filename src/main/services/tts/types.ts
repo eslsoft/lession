@@ -15,6 +15,7 @@ export interface TtsResult {
 export interface TtsProviderCapabilities {
   wordLevelTimestamps: boolean
   audioFormat: '.mp3' | '.wav'
+  requiresApiKey?: 'elevenlabs' | 'openai'
 }
 
 export interface TtsProvider {
