@@ -81,8 +81,8 @@ const api: ElectronAPI = {
   },
   bookImport: {
     extract: (filePath: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_EXTRACT, filePath),
-    preview: (provider: string, voice: string, speed: number) =>
-      ipcRenderer.invoke(IPC.BOOK_IMPORT_PREVIEW, provider, voice, speed),
+    preview: (provider: string, voice: string, speed: number, text?: string) =>
+      ipcRenderer.invoke(IPC.BOOK_IMPORT_PREVIEW, provider, voice, speed, text),
     generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[]) =>
       ipcRenderer.invoke(IPC.BOOK_IMPORT_GENERATE, seriesId, epubPath, chapters),
     cancel: (id: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_CANCEL, id),

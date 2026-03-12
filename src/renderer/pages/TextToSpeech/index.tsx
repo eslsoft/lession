@@ -1,23 +1,53 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Type, BookOpen, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Type, BookOpen, Loader2, Sparkles, Play, Square, Volume2 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Textarea } from '../../components/ui/textarea'
+import { Select } from '../../components/ui/select'
 import { useEpisodeStore } from '../../stores/episodeStore'
-import type { ExtractedBook, BookImport } from '@shared/types'
+import { useConfigStore } from '../../stores/configStore'
+import type { ExtractedBook, BookImport, AppConfig } from '@shared/types'
 
 type Tab = 'text' | 'book'
+
+const EDGE_VOICES = [
+  { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
+  { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
+  { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
+  { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
+  { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
+  { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
+  { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
+]
+
+const KOKORO_VOICES = [
+  { value: 'af_heart', label: 'Heart (Female)' },
+  { value: 'af_bella', label: 'Bella (Female)' },
+  { value: 'af_sarah', label: 'Sarah (Female)' },
+  { value: 'am_adam', label: 'Adam (Male)' },
+  { value: 'am_michael', label: 'Michael (Male)' },
+  { value: 'bf_emma', label: 'Emma (British Female)' },
+  { value: 'bm_george', label: 'George (British Male)' },
+]
+
+const MAX_PREVIEW_MS = 30_000
 
 export default function TextToSpeechPage() {
   const { id: seriesId } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { fetchEpisodes } = useEpisodeStore()
+  const { config } = useConfigStore()
 
   const initialTab = searchParams.get('tab') as Tab | null
   const [tab, setTab] = useState<Tab>(initialTab === 'book' ? 'book' : 'text')
+
+  // Voice settings (local override, initialized from global config)
+  const [provider, setProvider] = useState<AppConfig['tts']['provider']>(config?.tts?.provider ?? 'edge_tts')
+  const [voice, setVoice] = useState(config?.tts?.voice ?? 'en-US-AndrewMultilingualNeural')
+  const [speed, setSpeed] = useState(config?.tts?.speed ?? 1.0)
 
   // Text tab state
   const [title, setTitle] = useState('')
@@ -32,6 +62,54 @@ export default function TextToSpeechPage() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeImport, setActiveImport] = useState<BookImport | null>(null)
+
+  // Preview state
+  const [previewingId, setPreviewingId] = useState<string | null>(null) // 'text' | 'voice' | chapter index as string
+  const [playingId, setPlayingId] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const disposeAudio = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.onended = null
+      audioRef.current.removeAttribute('src')
+      audioRef.current.load()
+      audioRef.current = null
+    }
+    setPlayingId(null)
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => () => disposeAudio(), [disposeAudio])
+
+  const handlePreview = useCallback(async (id: string, text?: string) => {
+    disposeAudio()
+    setPreviewingId(id)
+    try {
+      const audioPath = await window.electronAPI.bookImport.preview(provider, voice, speed, text)
+      const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
+      audio.onended = () => setPlayingId(null)
+      audio.play()
+      audioRef.current = audio
+      setPlayingId(id)
+      // Auto-stop after 30s
+      timerRef.current = setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.pause()
+          setPlayingId(null)
+        }
+      }, MAX_PREVIEW_MS)
+    } catch (err) {
+      console.error('TTS preview failed:', err)
+    } finally {
+      setPreviewingId(null)
+    }
+  }, [provider, voice, speed, disposeAudio])
 
   // Subscribe to book import progress
   useEffect(() => {
@@ -110,13 +188,10 @@ export default function TextToSpeechPage() {
 
   const handleGenerateFromText = async () => {
     if (!seriesId || !title.trim() || !textContent.trim()) return
-    // Use the bookImport.generate API with a synthetic chapter
-    // For now, we generate a single episode from the pasted text
     setGenerating(true)
     setError(null)
     try {
       const chaptersToGenerate = [{ title: title.trim(), text: textContent.trim() }]
-      // We need an epubPath — pass empty string since it's raw text
       const bookImport = await window.electronAPI.bookImport.generate(seriesId, '', chaptersToGenerate)
       setActiveImport(bookImport)
       fetchEpisodes(seriesId)
@@ -129,6 +204,7 @@ export default function TextToSpeechPage() {
 
   const canGenerateText = tab === 'text' && title.trim() && textContent.trim() && !generating
   const canGenerateBook = tab === 'book' && selectedCount > 0 && !generating
+  const voiceOptions = provider === 'edge_tts' ? EDGE_VOICES : KOKORO_VOICES
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -138,6 +214,55 @@ export default function TextToSpeechPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-xl font-semibold">Text to Speech</h1>
+      </div>
+
+      {/* Voice Settings */}
+      <div className="flex items-end gap-3 rounded-lg border border-border bg-muted/30 p-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Provider</Label>
+          <Select
+            value={provider}
+            onChange={(e) => {
+              const p = e.target.value as AppConfig['tts']['provider']
+              setProvider(p)
+              setVoice(p === 'edge_tts' ? 'en-US-AndrewMultilingualNeural' : 'af_heart')
+              disposeAudio()
+            }}
+            options={[
+              { value: 'edge_tts', label: 'Edge TTS' },
+              { value: 'kokoro', label: 'Kokoro-82M' },
+            ]}
+            className="w-36"
+          />
+        </div>
+        <div className="space-y-1 flex-1">
+          <Label className="text-xs text-muted-foreground">Voice</Label>
+          <Select
+            value={voice}
+            onChange={(e) => { setVoice(e.target.value); disposeAudio() }}
+            options={voiceOptions}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Speed</Label>
+          <Input
+            type="number"
+            min={0.5}
+            max={2.0}
+            step={0.1}
+            value={speed}
+            onChange={(e) => setSpeed(parseFloat(e.target.value) || 1.0)}
+            className="w-20"
+          />
+        </div>
+        <PreviewButton
+          id="voice"
+          previewingId={previewingId}
+          playingId={playingId}
+          onPreview={() => handlePreview('voice')}
+          onStop={disposeAudio}
+          label="Try Voice"
+        />
       </div>
 
       {/* Tab Bar */}
@@ -193,13 +318,23 @@ export default function TextToSpeechPage() {
       {/* Paste Text Tab */}
       {tab === 'text' && (
         <div className="flex flex-col gap-4 flex-1 min-h-0">
-          <div className="space-y-2">
-            <Label htmlFor="tts-title">Episode Title</Label>
-            <Input
-              id="tts-title"
-              placeholder="Enter episode title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+          <div className="flex items-end gap-3">
+            <div className="space-y-2 flex-1">
+              <Label htmlFor="tts-title">Episode Title</Label>
+              <Input
+                id="tts-title"
+                placeholder="Enter episode title..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <PreviewButton
+              id="text"
+              previewingId={previewingId}
+              playingId={playingId}
+              onPreview={() => handlePreview('text', textContent)}
+              onStop={disposeAudio}
+              disabled={!textContent.trim()}
             />
           </div>
 
@@ -280,27 +415,41 @@ export default function TextToSpeechPage() {
                   />
                   <span className="flex-1">Chapter</span>
                   <span className="w-20 text-right">Length</span>
+                  <span className="w-16 text-center">Preview</span>
                 </div>
 
-                {chapters.map((ch, i) => (
-                  <div key={`${i}-${ch.title}`} className={`flex items-center gap-3 px-3 py-2 ${ch.selected ? '' : 'opacity-50'}`}>
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-input accent-primary cursor-pointer flex-shrink-0"
-                      checked={ch.selected}
-                      onChange={() => toggleChapter(i)}
-                    />
-                    <Input
-                      value={ch.title}
-                      onChange={(e) => updateChapterTitle(i, e.target.value)}
-                      className="flex-1 h-8 text-sm"
-                      disabled={!ch.selected}
-                    />
-                    <span className="w-20 text-right text-xs text-muted-foreground flex-shrink-0">
-                      {ch.text.length > 1000 ? `${(ch.text.length / 1000).toFixed(1)}k` : ch.text.length} chars
-                    </span>
-                  </div>
-                ))}
+                {chapters.map((ch, i) => {
+                  const chId = String(i)
+                  return (
+                    <div key={`${i}-${ch.title}`} className={`flex items-center gap-3 px-3 py-2 ${ch.selected ? '' : 'opacity-50'}`}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-input accent-primary cursor-pointer flex-shrink-0"
+                        checked={ch.selected}
+                        onChange={() => toggleChapter(i)}
+                      />
+                      <Input
+                        value={ch.title}
+                        onChange={(e) => updateChapterTitle(i, e.target.value)}
+                        className="flex-1 h-8 text-sm"
+                        disabled={!ch.selected}
+                      />
+                      <span className="w-20 text-right text-xs text-muted-foreground flex-shrink-0">
+                        {ch.text.length > 1000 ? `${(ch.text.length / 1000).toFixed(1)}k` : ch.text.length} chars
+                      </span>
+                      <div className="w-16 flex justify-center flex-shrink-0">
+                        <PreviewButton
+                          id={chId}
+                          previewingId={previewingId}
+                          playingId={playingId}
+                          onPreview={() => handlePreview(chId, ch.text)}
+                          onStop={disposeAudio}
+                          compact
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -340,5 +489,71 @@ export default function TextToSpeechPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// ── Preview Button Component ──
+
+function PreviewButton({
+  id,
+  previewingId,
+  playingId,
+  onPreview,
+  onStop,
+  label,
+  compact,
+  disabled,
+}: {
+  id: string
+  previewingId: string | null
+  playingId: string | null
+  onPreview: () => void
+  onStop: () => void
+  label?: string
+  compact?: boolean
+  disabled?: boolean
+}) {
+  const isPreviewing = previewingId === id
+  const isPlaying = playingId === id
+
+  if (compact) {
+    if (isPreviewing) {
+      return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+    }
+    if (isPlaying) {
+      return (
+        <button onClick={onStop} className="text-muted-foreground hover:text-foreground transition-colors">
+          <Square className="h-3.5 w-3.5" />
+        </button>
+      )
+    }
+    return (
+      <button
+        onClick={onPreview}
+        disabled={disabled}
+        className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+      >
+        <Play className="h-3.5 w-3.5" />
+      </button>
+    )
+  }
+
+  if (isPlaying) {
+    return (
+      <Button variant="outline" size="sm" onClick={onStop}>
+        <Square className="mr-1 h-3 w-3" /> Stop
+      </Button>
+    )
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={onPreview} disabled={isPreviewing || disabled}>
+      {isPreviewing ? (
+        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+      ) : (
+        <Volume2 className="mr-1 h-3 w-3" />
+      )}
+      {label ?? 'Preview'}
+    </Button>
   )
 }

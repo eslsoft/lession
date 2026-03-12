@@ -282,7 +282,7 @@ export interface ElectronAPI {
   // Book Import
   bookImport: {
     extract: (filePath: string) => Promise<ExtractedBook>
-    preview: (provider: string, voice: string, speed: number) => Promise<string>
+    preview: (provider: string, voice: string, speed: number, text?: string) => Promise<string>
     generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[]) => Promise<BookImport>
     cancel: (id: string) => Promise<void>
     retry: (id: string) => Promise<void>

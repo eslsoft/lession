@@ -10,8 +10,10 @@ export function registerBookImportIpc(): void {
     return extractBook(filePath)
   })
 
-  ipcMain.handle(IPC.BOOK_IMPORT_PREVIEW, async (_event, provider: string, voice: string, speed: number) => {
-    const previewText = 'The quick brown fox jumps over the lazy dog. This is a preview of the selected voice.'
+  ipcMain.handle(IPC.BOOK_IMPORT_PREVIEW, async (_event, provider: string, voice: string, speed: number, text?: string) => {
+    const MAX_PREVIEW_CHARS = 500
+    const defaultText = 'The quick brown fox jumps over the lazy dog. This is a preview of the selected voice.'
+    const previewText = text ? text.slice(0, MAX_PREVIEW_CHARS) : defaultText
     const ext = provider === 'edge_tts' ? '.mp3' : '.wav'
     const outputPath = path.join(app.getPath('temp'), `tts-preview-${Date.now()}${ext}`)
     return previewTts(provider, voice, speed, previewText, outputPath)
