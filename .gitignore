@@ -89,6 +89,9 @@ typings/
 # Vite
 .vite/
 
+# Prepared binaries (ffmpeg, ffprobe, yt-dlp)
+/bin/
+
 # Electron-Forge
 out/
 

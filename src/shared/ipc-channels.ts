@@ -70,4 +70,7 @@ export const IPC = {
 
   // Transcription progress (main -> renderer)
   TRANSCRIPTION_PROGRESS: 'transcription:progress',
+
+  // Environment
+  ENV_CHECK_ALL: 'env:check-all',
 } as const

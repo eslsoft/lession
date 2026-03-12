@@ -7,8 +7,9 @@
   "private": true,
   "scripts": {
     "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
+    "prepare-binaries": "node build/prepare-binaries.js",
+    "package": "node build/prepare-binaries.js && electron-forge package",
+    "make": "node build/prepare-binaries.js && electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
     "prepare": "husky"
@@ -56,6 +57,8 @@
     "@aws-sdk/s3-request-presigner": "^3.997.0",
     "@radix-ui/react-switch": "^1.2.6",
     "@tailwindcss/vite": "^4.2.1",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.0",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

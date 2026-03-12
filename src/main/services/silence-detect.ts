@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { getFfmpegPath } from './bin-paths'
 
 export interface SilenceGap {
   start: number
@@ -18,7 +19,7 @@ export function detectSilence(
   return new Promise((resolve, reject) => {
     let stderr = ''
 
-    const proc = spawn('ffmpeg', [
+    const proc = spawn(getFfmpegPath(), [
       '-vn',              // skip video decoding
       '-hide_banner',
       '-i', filePath,

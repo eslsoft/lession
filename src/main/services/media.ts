@@ -3,6 +3,7 @@ import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { getFfmpegPath } from './bin-paths';
 
 function getPeaksCachePath(filePath: string): string {
   const dir = path.join(app.getPath('userData'), 'peaks-cache');
@@ -24,7 +25,7 @@ export function extractPeaks(filePath: string): Promise<{ peaks: number[]; durat
   }
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('ffmpeg', [
+    const proc = spawn(getFfmpegPath(), [
       '-i', filePath,
       '-f', 'f32le',
       '-ac', '1',

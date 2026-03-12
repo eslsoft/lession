@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { mkdir } from 'node:fs/promises'
+import { getFfmpegPath } from './bin-paths'
 
 // Extensions that are already AAC-in-MP4 container and can be stream-copied to .m4a
 const AAC_COMPATIBLE_EXTS = new Set(['.m4a', '.m4b', '.mp4', '.aac'])
@@ -33,7 +34,7 @@ export async function convertToM4a(
       ? ['-c', 'copy']
       : ['-vn', '-c:a', 'aac', '-b:a', '128k']
 
-    const proc = spawn('ffmpeg', [
+    const proc = spawn(getFfmpegPath(), [
       '-y',
       '-i', filePath,
       ...codecArgs,

@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { mkdir } from 'node:fs/promises'
+import { getFfmpegPath, getFfprobePath } from './bin-paths'
 
 export async function getMediaMetadata(filePath: string): Promise<{ duration: number; format: string; hasVideo: boolean }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('ffprobe', [
+    const proc = spawn(getFfprobePath(), [
       '-v', 'quiet',
       '-print_format', 'json',
       '-show_format',
@@ -71,7 +72,7 @@ export async function splitFile(
 
 function splitSegment(inputPath: string, outputPath: string, start: number, end: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('ffmpeg', [
+    const proc = spawn(getFfmpegPath(), [
       '-y',
       '-i', inputPath,
       '-ss', String(start),

@@ -198,6 +198,16 @@ export interface PublishPreviewFile extends PublishFileInfo {
   content: string | object
 }
 
+// ── Environment Check ──
+export interface ToolStatus {
+  name: string
+  available: boolean
+  version?: string
+  bundled: boolean
+  installUrl?: string
+  installHint?: string
+}
+
 // ── IPC API Types ──
 export interface ElectronAPI {
   // Series
@@ -278,6 +288,10 @@ export interface ElectronAPI {
     retry: (id: string) => Promise<void>
     list: (seriesId: string) => Promise<BookImport[]>
     onProgress: (callback: (data: BookImport) => void) => () => void
+  }
+  // Environment
+  env: {
+    checkAll: () => Promise<ToolStatus[]>
   }
   // Media file reading
   media: {

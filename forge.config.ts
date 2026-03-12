@@ -17,6 +17,7 @@ const config: ForgeConfig = {
     icon: './assets/icon',
     extraResource: [
       'scripts',
+      'bin',
     ],
     osxSign: process.env.APPLE_ID ? {} : undefined,
     osxNotarize: process.env.APPLE_ID ? {

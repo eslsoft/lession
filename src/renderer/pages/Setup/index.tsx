@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { FolderOpen, CheckCircle, XCircle, Loader2, HardDrive, Mic, Download, X, Volume2, Play, Square } from 'lucide-react'
+import { FolderOpen, CheckCircle, XCircle, Loader2, HardDrive, Mic, Download, X, Volume2, Play, Square, Terminal } from 'lucide-react'
 import { useConfigStore } from '../../stores/configStore'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -9,6 +9,7 @@ import { Separator } from '../../components/ui/separator'
 import { Dialog, DialogContent } from '../../components/ui/dialog'
 import { cn } from '../../lib/utils'
 import type { AppConfig } from '../../../shared/types'
+import EnvironmentStatus from '../../components/EnvironmentStatus'
 
 const defaultConfig: AppConfig = {
   storage: {
@@ -40,13 +41,14 @@ const defaultConfig: AppConfig = {
   },
 }
 
-type Section = 'storage' | 'transcription' | 'tts' | 'import'
+type Section = 'storage' | 'transcription' | 'tts' | 'import' | 'environment'
 
 const sections = [
   { id: 'storage' as Section, label: 'Storage', icon: HardDrive },
   { id: 'transcription' as Section, label: 'Transcription', icon: Mic },
   { id: 'tts' as Section, label: 'TTS', icon: Volume2 },
   { id: 'import' as Section, label: 'Import', icon: Download },
+  { id: 'environment' as Section, label: 'Environment', icon: Terminal },
 ]
 
 interface Props {
@@ -123,11 +125,10 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
     }
   }
 
-  async function handleSelectFile(field: 'whisperxPath' | 'ytdlpPath') {
+  async function handleSelectFile() {
     const result = await window.electronAPI.dialog.openFile()
     if (result) {
-      if (field === 'whisperxPath') updateTranscription('whisperxPath', result)
-      else updateImport('ytdlpPath', result)
+      updateTranscription('whisperxPath', result)
     }
   }
 
@@ -298,7 +299,7 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                             onChange={(e) => updateTranscription('whisperxPath', e.target.value)}
                             className="flex-1"
                           />
-                          <Button variant="outline" size="icon" onClick={() => handleSelectFile('whisperxPath')}>
+                          <Button variant="outline" size="icon" onClick={handleSelectFile}>
                             <FolderOpen className="h-4 w-4" />
                           </Button>
                         </div>
@@ -521,22 +522,6 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
               {activeSection === 'import' && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="ytdlpPath">yt-dlp Path</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="ytdlpPath"
-                        placeholder="/usr/local/bin/yt-dlp"
-                        value={form.import.ytdlpPath}
-                        onChange={(e) => updateImport('ytdlpPath', e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button variant="outline" size="icon" onClick={() => handleSelectFile('ytdlpPath')}>
-                        <FolderOpen className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="downloadDir">Download Directory</Label>
                     <div className="flex gap-2">
                       <Input
@@ -552,6 +537,10 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {activeSection === 'environment' && (
+                <EnvironmentStatus />
               )}
             </div>
 

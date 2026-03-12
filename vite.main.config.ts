@@ -11,6 +11,8 @@ export default defineConfig({
     rollupOptions: {
       external: [
         'better-sqlite3',
+        '@ffmpeg-installer/ffmpeg',
+        '@ffprobe-installer/ffprobe',
       ],
       output: {
         entryFileNames: 'main.js',

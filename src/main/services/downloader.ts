@@ -5,6 +5,7 @@ import { BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
 import type { Download, AppConfig } from '../../shared/types'
+import { getYtdlpPath } from './bin-paths'
 import {
   createDownload,
   updateDownload,
@@ -30,7 +31,7 @@ function sendProgress(downloadId: string, progress: number): void {
 
 export function startDownload(url: string): Download {
   const config = getConfig()
-  const { ytdlpPath, downloadDir } = config.import
+  const { ytdlpPath: configYtdlpPath, downloadDir } = config.import
 
   // Create DB record immediately with pending status
   const download = createDownload({
@@ -41,7 +42,8 @@ export function startDownload(url: string): Download {
   })
 
   // Kick off the yt-dlp process asynchronously
-  runYtdlp(download.id, url, downloadDir, ytdlpPath)
+  const resolvedPath = getYtdlpPath(configYtdlpPath || undefined)
+  runYtdlp(download.id, url, downloadDir, resolvedPath)
 
   return download
 }
@@ -193,7 +195,7 @@ export function retryDownload(id: string): Download {
   if (!existing) throw new Error(`Download ${id} not found`)
 
   const config = getConfig()
-  const { ytdlpPath, downloadDir } = config.import
+  const { ytdlpPath: configYtdlpPath, downloadDir } = config.import
 
   // Reset state
   updateDownload(id, {
@@ -203,7 +205,8 @@ export function retryDownload(id: string): Download {
   })
 
   // Re-run the download
-  runYtdlp(id, existing.url, downloadDir, ytdlpPath)
+  const resolvedPath = getYtdlpPath(configYtdlpPath || undefined)
+  runYtdlp(id, existing.url, downloadDir, resolvedPath)
 
   return getDownload(id)!
 }

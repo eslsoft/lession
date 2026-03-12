@@ -94,6 +94,9 @@ const api: ElectronAPI = {
       return () => ipcRenderer.removeListener(IPC.BOOK_IMPORT_PROGRESS, handler)
     },
   },
+  env: {
+    checkAll: () => ipcRenderer.invoke(IPC.ENV_CHECK_ALL),
+  },
   media: {
     readFile: (filePath: string) => ipcRenderer.invoke('media:read-file', filePath),
     extractPeaks: (filePath: string) => ipcRenderer.invoke('media:extract-peaks', filePath),
