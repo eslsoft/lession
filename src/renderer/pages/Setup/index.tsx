@@ -100,7 +100,10 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
       } else {
         services.push(service)
       }
-      return { ...prev, services }
+      const updated = { ...prev, services }
+      // Persist immediately so changes survive app restart
+      saveConfig(updated)
+      return updated
     })
     setEditingService(null)
     setAddingCategory(null)
@@ -110,10 +113,14 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
     // Prevent removing builtin services
     const service = form.services.find((s) => s.id === id)
     if (service?.builtin) return
-    setForm((prev) => ({
-      ...prev,
-      services: prev.services.filter((s) => s.id !== id),
-    }))
+    setForm((prev) => {
+      const updated = {
+        ...prev,
+        services: prev.services.filter((s) => s.id !== id),
+      }
+      saveConfig(updated)
+      return updated
+    })
   }
 
   async function handleTestConnection() {
