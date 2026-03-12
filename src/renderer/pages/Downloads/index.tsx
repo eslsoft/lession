@@ -1,55 +1,28 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useDownloadStore } from '../../stores/downloadStore'
-import { useSeriesStore } from '../../stores/seriesStore'
-import type { Download } from '../../../shared/types'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Badge } from '../../components/ui/badge'
-import { Progress } from '../../components/ui/progress'
-import { Tooltip } from '../../components/ui/tooltip'
-import { Select } from '../../components/ui/select'
+import { useDownloadStore } from '@renderer/stores/downloadStore'
+import { useSeriesStore } from '@renderer/stores/seriesStore'
+import type { Download } from '@shared/types'
+import { Button } from '@renderer/components/ui/button'
+import { Input } from '@renderer/components/ui/input'
+import { Select } from '@renderer/components/ui/select'
+import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '../../components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../../components/ui/dialog'
-
-function formatDuration(seconds?: number): string {
-  if (!seconds) return '--'
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = Math.floor(seconds % 60)
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
-function StatusBadge({ status }: { status: Download['status'] }) {
-  switch (status) {
-    case 'pending':
-      return <Badge variant="secondary">Pending</Badge>
-    case 'downloading':
-      return <Badge variant="default">Downloading</Badge>
-    case 'converting':
-      return <Badge variant="default" className="bg-orange-500">Converting</Badge>
-    case 'paused':
-      return <Badge variant="secondary" className="border-yellow-500 text-yellow-500">Paused</Badge>
-    case 'done':
-      return <Badge variant="outline" className="border-green-500 text-green-500">Done</Badge>
-    case 'error':
-      return <Badge variant="destructive">Error</Badge>
-  }
-}
+  Download as DownloadIcon,
+  Pause,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  ArrowDownToLine,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react'
+import { STATUS_FILTER_OPTIONS, type StatusFilter } from './utils'
+import DownloadItem from './DownloadItem'
+import NewDownloadDialog from './NewDownloadDialog'
+import ImportDialog from './ImportDialog'
 
 export default function DownloadsPage() {
   const navigate = useNavigate()
@@ -71,9 +44,12 @@ export default function DownloadsPage() {
   } = useDownloadStore()
   const { series, fetchSeries } = useSeriesStore()
 
-  const [url, setUrl] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [batchMode, setBatchMode] = useState(false)
+  // Filters
+  const [keyword, setKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  // New download dialog
+  const [newDialogOpen, setNewDialogOpen] = useState(false)
 
   // Import dialog state
   const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -92,28 +68,11 @@ export default function DownloadsPage() {
     return unsubscribe
   }, [updateProgress])
 
-  const handleStartDownload = async () => {
-    const trimmed = url.trim()
-    if (!trimmed) return
-    setSubmitting(true)
-    try {
-      if (batchMode) {
-        const urls = trimmed.split('\n').map(u => u.trim()).filter(Boolean)
-        if (urls.length > 0) {
-          await startBatchDownload(urls)
-        }
-      } else {
-        await startDownload(trimmed)
-      }
-      setUrl('')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !batchMode) {
-      handleStartDownload()
+  const handleNewDownload = async (urls: string[]) => {
+    if (urls.length === 1) {
+      await startDownload(urls[0])
+    } else {
+      await startBatchDownload(urls)
     }
   }
 
@@ -131,279 +90,186 @@ export default function DownloadsPage() {
     setImportDownload(null)
   }
 
-  const sorted = [...downloads].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  )
+  // Filter & sort
+  const filtered = useMemo(() => {
+    let list = downloads
+    if (statusFilter !== 'all') {
+      list = list.filter(d => d.status === statusFilter)
+    }
+    if (keyword.trim()) {
+      const kw = keyword.trim().toLowerCase()
+      list = list.filter(d =>
+        (d.title && d.title.toLowerCase().includes(kw)) ||
+        (d.filename && d.filename.toLowerCase().includes(kw)) ||
+        d.url.toLowerCase().includes(kw)
+      )
+    }
+    return [...list].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [downloads, statusFilter, keyword])
 
   const seriesOptions = series.map((s) => ({ value: s.id, label: s.title }))
 
-  const hasCompleted = downloads.some((d) => d.status === 'done')
-  const hasFailed = downloads.some((d) => d.status === 'error')
+  // Stats
+  const stats = useMemo(() => {
+    const active = downloads.filter(d => d.status === 'downloading' || d.status === 'converting').length
+    const queued = downloads.filter(d => d.status === 'pending').length
+    const paused = downloads.filter(d => d.status === 'paused').length
+    const completed = downloads.filter(d => d.status === 'done').length
+    const failed = downloads.filter(d => d.status === 'error').length
+    return { active, queued, paused, completed, failed, total: downloads.length }
+  }, [downloads])
+
+  const statusFilterOptions = STATUS_FILTER_OPTIONS.map(o => ({ value: o.value, label: o.label }))
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Downloads</h1>
-
-      {/* URL Input Bar */}
-      <div className="flex flex-col gap-2 mb-6">
-        <div className="flex gap-2">
-          {batchMode ? (
-            <textarea
-              className="flex-1 min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="Paste one URL per line..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={submitting}
-            />
-          ) : (
-            <Input
-              className="flex-1"
-              placeholder="Paste video URL here..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={submitting}
-            />
-          )}
-          <div className="flex flex-col gap-1">
-            <Button onClick={handleStartDownload} disabled={submitting || !url.trim()}>
-              {batchMode ? 'Download All' : 'Download'}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { setBatchMode(!batchMode); setUrl('') }}
-              className="text-xs"
-            >
-              {batchMode ? 'Single URL' : 'Batch Mode'}
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex-shrink-0 space-y-3 mb-4">
+        {/* Title row */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Downloads</h1>
+          <div className="flex items-center gap-2">
+            {stats.completed > 0 && (
+              <Button variant="outline" size="sm" onClick={clearCompleted}>
+                Clear Completed
+              </Button>
+            )}
+            {stats.failed > 0 && (
+              <Button variant="outline" size="sm" onClick={retryAllFailed}>
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                Retry All Failed
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setNewDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              New Download
             </Button>
           </div>
         </div>
+
+        {/* Filter bar */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9 h-9"
+              placeholder="Search by title or URL..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+            {keyword && (
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setKeyword('')}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Select
+            className="w-[140px] flex-shrink-0"
+            options={statusFilterOptions}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          />
+        </div>
+
+        {/* Stats bar */}
+        {stats.total > 0 && (
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span>{stats.total} total</span>
+            {stats.active > 0 && (
+              <span className="flex items-center gap-1 text-blue-500">
+                <ArrowDownToLine className="h-3 w-3" />
+                {stats.active} active
+              </span>
+            )}
+            {stats.queued > 0 && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {stats.queued} queued
+              </span>
+            )}
+            {stats.paused > 0 && (
+              <span className="flex items-center gap-1 text-yellow-500">
+                <Pause className="h-3 w-3" />
+                {stats.paused} paused
+              </span>
+            )}
+            {stats.completed > 0 && (
+              <span className="flex items-center gap-1 text-green-500">
+                <CheckCircle2 className="h-3 w-3" />
+                {stats.completed} completed
+              </span>
+            )}
+            {stats.failed > 0 && (
+              <span className="flex items-center gap-1 text-destructive">
+                <AlertCircle className="h-3 w-3" />
+                {stats.failed} failed
+              </span>
+            )}
+            {filtered.length !== stats.total && (
+              <span className="ml-auto">{filtered.length} shown</span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Bulk Actions */}
-      {(hasCompleted || hasFailed) && (
-        <div className="flex gap-2 mb-4">
-          {hasCompleted && (
-            <Button variant="outline" size="sm" onClick={clearCompleted}>
-              Clear Completed
-            </Button>
-          )}
-          {hasFailed && (
-            <Button variant="outline" size="sm" onClick={retryAllFailed}>
-              Retry All Failed
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Download List */}
-      {sorted.length === 0 ? (
-        <p className="text-muted-foreground text-center py-12">
-          No downloads yet. Paste a URL above to start downloading.
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[35%]">Title / URL</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sorted.map((dl) => (
-              <TableRow key={dl.id}>
-                <TableCell className="font-medium max-w-0">
-                  <div className="truncate" title={dl.url}>
-                    {dl.title || dl.url}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={dl.status} />
-                </TableCell>
-                <TableCell>
-                  <div className="min-w-[160px]">
-                    <div className="flex items-center gap-2">
-                      <Progress value={dl.progress} className="flex-1" />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap w-[36px] text-right">
-                        {Math.round(dl.progress)}%
-                      </span>
-                    </div>
-                    <div className="flex gap-2 mt-0.5 h-4">
-                      {dl.status === 'downloading' && (
-                        <>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap w-[80px]">
-                            {dl.speed || ''}
-                          </span>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {dl.eta ? `ETA ${dl.eta}` : ''}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm">{dl.fileSize || '--'}</span>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm">{formatDuration(dl.duration)}</span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    {(dl.status === 'downloading' || dl.status === 'converting') && (
-                      <>
-                        {dl.status === 'downloading' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => pauseDownload(dl.id)}
-                          >
-                            Pause
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => cancelDownload(dl.id)}
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    )}
-                    {dl.status === 'pending' && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => pauseDownload(dl.id)}
-                        >
-                          Pause
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => cancelDownload(dl.id)}
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    )}
-                    {dl.status === 'paused' && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => resumeDownload(dl.id)}
-                        >
-                          Resume
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteDownload(dl.id)}
-                        >
-                          Delete
-                        </Button>
-                      </>
-                    )}
-                    {dl.status === 'done' && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openFile(dl.id)}
-                        >
-                          Open
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => showInFolder(dl.id)}
-                        >
-                          Folder
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openImportDialog(dl)}
-                        >
-                          Import
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteDownload(dl.id)}
-                        >
-                          Delete
-                        </Button>
-                      </>
-                    )}
-                    {dl.status === 'error' && (
-                      <>
-                        <Tooltip content={dl.lastError || 'Unknown error'}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => retryDownload(dl.id)}
-                          >
-                            Retry
-                          </Button>
-                        </Tooltip>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteDownload(dl.id)}
-                        >
-                          Delete
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-
-      {/* Import Dialog — select target series */}
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent onClose={() => setImportDialogOpen(false)}>
-          <DialogHeader>
-            <DialogTitle>Import as Episode</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Import "{importDownload?.title || importDownload?.filename}" — you can choose to create a single episode or split into multiple on the next page.
-            </p>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Target Series</label>
-              {seriesOptions.length > 0 ? (
-                <Select
-                  options={seriesOptions}
-                  value={importSeriesId}
-                  onChange={(e) => setImportSeriesId(e.target.value)}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">No series available. Create a series first.</p>
-              )}
-            </div>
+      {/* Download list */}
+      <div className="flex-1 min-h-0">
+        {downloads.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <DownloadIcon className="h-12 w-12 mb-4 opacity-20" />
+            <p className="text-sm">No downloads yet</p>
+            <p className="text-xs mt-1">Click "New Download" to get started</p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleImport} disabled={!importSeriesId}>
-              Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <Search className="h-10 w-10 mb-3 opacity-20" />
+            <p className="text-sm">No matching downloads</p>
+            <p className="text-xs mt-1">Try adjusting your search or filter</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-full">
+            <div className="space-y-2 pb-4">
+              {filtered.map((dl) => (
+                <DownloadItem
+                  key={dl.id}
+                  dl={dl}
+                  onPause={() => pauseDownload(dl.id)}
+                  onResume={() => resumeDownload(dl.id)}
+                  onCancel={() => cancelDownload(dl.id)}
+                  onRetry={() => retryDownload(dl.id)}
+                  onDelete={() => deleteDownload(dl.id)}
+                  onOpen={() => openFile(dl.id)}
+                  onShowInFolder={() => showInFolder(dl.id)}
+                  onImport={() => openImportDialog(dl)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+
+      {/* New Download Dialog */}
+      <NewDownloadDialog
+        open={newDialogOpen}
+        onOpenChange={setNewDialogOpen}
+        onSubmit={handleNewDownload}
+      />
+
+      {/* Import Dialog */}
+      <ImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        download={importDownload}
+        seriesOptions={seriesOptions}
+        seriesId={importSeriesId}
+        onSeriesChange={setImportSeriesId}
+        onImport={handleImport}
+      />
     </div>
   )
 }

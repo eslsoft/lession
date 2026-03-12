@@ -48,6 +48,14 @@
   --ring: #18181b;
 }
 
+*,
+::after,
+::before,
+::backdrop,
+::file-selector-button {
+  border-color: var(--color-border);
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
