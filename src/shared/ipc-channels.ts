@@ -60,6 +60,10 @@ export const IPC = {
   TRANSCRIPTION_TRANSCRIBE_FILE: 'transcription:transcribe-file',
   TRANSCRIPTION_FILE_PROGRESS: 'transcription:file-progress',
 
+  // TTS
+  TTS_LIST_MODELS: 'tts:list-models',
+  TTS_LIST_VOICES: 'tts:list-voices',
+
   // Book Import
   BOOK_IMPORT_EXTRACT: 'book-import:extract',
   BOOK_IMPORT_PREVIEW: 'book-import:preview',

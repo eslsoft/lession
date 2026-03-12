@@ -289,6 +289,11 @@ export interface ElectronAPI {
   transcription: {
     onProgress: (callback: (data: { episodeId: string; stage: string; percent: number }) => void) => () => void
   }
+  // TTS
+  tts: {
+    listModels: (engine: TtsEngine, credentials: Record<string, string>) => Promise<{ options: { value: string; label: string }[]; default: string }>
+    listVoices: (engine: TtsEngine, credentials: Record<string, string>) => Promise<{ options: { value: string; label: string }[]; default: string }>
+  }
   // Book Import
   bookImport: {
     extract: (filePath: string) => Promise<ExtractedBook>

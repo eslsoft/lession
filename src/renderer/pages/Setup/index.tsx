@@ -11,7 +11,8 @@ import { Badge } from '../../components/ui/badge'
 import { cn } from '../../lib/utils'
 import type { AppConfig, ServiceConfig, ServiceProvider, TtsEngine, TranscriptionEngine } from '../../../shared/types'
 import { BUILTIN_SERVICES } from '../../../shared/types'
-import { getEngineLabel, getVoicesForEngine, getModelsForEngine, getDefaultModel, PROVIDER_LABELS } from '../../../shared/engines'
+import { getEngineLabel, PROVIDER_LABELS } from '../../../shared/engines'
+import type { SelectOption } from '../../../shared/engines'
 import EnvironmentStatus from '../../components/EnvironmentStatus'
 
 const defaultConfig: AppConfig = {
@@ -453,9 +454,56 @@ function ServiceEditor({
   const [verifying, setVerifying] = useState(false)
   const [verifyResult, setVerifyResult] = useState<{ ok: boolean; error?: string } | null>(null)
 
+  // Models & voices (fetched from provider)
+  const [modelOptions, setModelOptions] = useState<SelectOption[]>([])
+  const [voiceOptions, setVoiceOptions] = useState<SelectOption[]>([])
+  const [defaultModel, setDefaultModel] = useState('')
+
+  function fetchModelsAndVoices() {
+    if (category !== 'tts') return
+    Promise.all([
+      window.electronAPI.tts.listModels(engine as TtsEngine, credentials),
+      window.electronAPI.tts.listVoices(engine as TtsEngine, credentials),
+    ]).then(([modelsResult, voicesResult]) => {
+      setModelOptions(modelsResult.options)
+      setDefaultModel(modelsResult.default)
+      setVoiceOptions(voicesResult.options)
+      setPreviewVoice((prev) => prev || voicesResult.default)
+    })
+  }
+
+  // Load models/voices on mount for existing services
+  useEffect(() => {
+    if (category !== 'tts' || !service) return
+    fetchModelsAndVoices()
+  }, [service?.id])
+
+  async function handleVerify() {
+    setVerifying(true)
+    setVerifyResult(null)
+    try {
+      const result = await window.electronAPI.config.verifyService({
+        id: service?.id ?? '',
+        name: '',
+        category,
+        provider,
+        engine,
+        credentials,
+        options,
+      })
+      setVerifyResult(result)
+      if (result.ok) {
+        fetchModelsAndVoices()
+      }
+    } catch (err) {
+      setVerifyResult({ ok: false, error: (err as Error).message })
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   // Preview state (TTS only)
-  const voiceOptions = getVoicesForEngine(engine, options.voices)
-  const [previewVoice, setPreviewVoice] = useState(voiceOptions[0]?.value ?? '')
+  const [previewVoice, setPreviewVoice] = useState('')
   const [previewSpeed, setPreviewSpeed] = useState(1.0)
   const [previewing, setPreviewing] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -538,20 +586,32 @@ function ServiceEditor({
         <>
           <div className="space-y-2">
             <Label>API Key</Label>
-            <Input
-              type="password"
-              placeholder="sk_..."
-              value={credentials.apiKey ?? ''}
-              onChange={(e) => updateCredential('apiKey', e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="sk_..."
+                value={credentials.apiKey ?? ''}
+                onChange={(e) => updateCredential('apiKey', e.target.value)}
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={handleVerify} disabled={verifying || !credentials.apiKey}>
+                {verifying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                Verify
+              </Button>
+              {verifyResult?.ok === true && <CheckCircle className="h-4 w-4 text-green-500 self-center" />}
+              {verifyResult?.ok === false && <XCircle className="h-4 w-4 text-red-500 self-center" />}
+            </div>
+            {verifyResult?.ok === false && (
+              <p className="text-xs text-red-500">{verifyResult.error}</p>
+            )}
           </div>
-          {getModelsForEngine(engine).length > 0 && (
+          {modelOptions.length > 0 && (
             <div className="space-y-2">
               <Label>Default Model</Label>
               <Select
-                value={options.model ?? getDefaultModel(engine)}
+                value={options.model ?? defaultModel}
                 onChange={(e) => updateOption('model', e.target.value)}
-                options={getModelsForEngine(engine)}
+                options={modelOptions}
               />
             </div>
           )}
@@ -562,20 +622,32 @@ function ServiceEditor({
         <>
           <div className="space-y-2">
             <Label>API Key</Label>
-            <Input
-              type="password"
-              placeholder="sk-..."
-              value={credentials.apiKey ?? ''}
-              onChange={(e) => updateCredential('apiKey', e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={credentials.apiKey ?? ''}
+                onChange={(e) => updateCredential('apiKey', e.target.value)}
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={handleVerify} disabled={verifying || !credentials.apiKey}>
+                {verifying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                Verify
+              </Button>
+              {verifyResult?.ok === true && <CheckCircle className="h-4 w-4 text-green-500 self-center" />}
+              {verifyResult?.ok === false && <XCircle className="h-4 w-4 text-red-500 self-center" />}
+            </div>
+            {verifyResult?.ok === false && (
+              <p className="text-xs text-red-500">{verifyResult.error}</p>
+            )}
           </div>
-          {getModelsForEngine(engine).length > 0 && (
+          {modelOptions.length > 0 && (
             <div className="space-y-2">
               <Label>Default Model</Label>
               <Select
-                value={options.model ?? getDefaultModel(engine)}
+                value={options.model ?? defaultModel}
                 onChange={(e) => updateOption('model', e.target.value)}
-                options={getModelsForEngine(engine)}
+                options={modelOptions}
               />
             </div>
           )}
@@ -602,12 +674,24 @@ function ServiceEditor({
           </div>
           <div className="space-y-2">
             <Label>API Key (optional)</Label>
-            <Input
-              type="password"
-              placeholder="sk-..."
-              value={credentials.apiKey ?? ''}
-              onChange={(e) => updateCredential('apiKey', e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={credentials.apiKey ?? ''}
+                onChange={(e) => updateCredential('apiKey', e.target.value)}
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={handleVerify} disabled={verifying}>
+                {verifying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                Verify
+              </Button>
+              {verifyResult?.ok === true && <CheckCircle className="h-4 w-4 text-green-500 self-center" />}
+              {verifyResult?.ok === false && <XCircle className="h-4 w-4 text-red-500 self-center" />}
+            </div>
+            {verifyResult?.ok === false && (
+              <p className="text-xs text-red-500">{verifyResult.error}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Voices (comma-separated: value:label,...)</Label>
@@ -683,71 +767,38 @@ function ServiceEditor({
       {provider === 'replicate' && (
         <div className="space-y-2">
           <Label>API Token</Label>
-          <Input
-            type="password"
-            placeholder="r8_..."
-            value={credentials.apiToken ?? ''}
-            onChange={(e) => updateCredential('apiToken', e.target.value)}
-          />
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              placeholder="r8_..."
+              value={credentials.apiToken ?? ''}
+              onChange={(e) => updateCredential('apiToken', e.target.value)}
+              className="flex-1"
+            />
+            <Button variant="outline" size="sm" onClick={handleVerify} disabled={verifying || !credentials.apiToken}>
+              {verifying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              Verify
+            </Button>
+            {verifyResult?.ok === true && <CheckCircle className="h-4 w-4 text-green-500 self-center" />}
+            {verifyResult?.ok === false && <XCircle className="h-4 w-4 text-red-500 self-center" />}
+          </div>
+          {verifyResult?.ok === false && (
+            <p className="text-xs text-red-500">{verifyResult.error}</p>
+          )}
           <p className="text-xs text-muted-foreground">
             Get your token at replicate.com/account/api-tokens
           </p>
         </div>
       )}
 
-      {/* Verify credentials */}
-      {provider !== 'local' && (
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              setVerifying(true)
-              setVerifyResult(null)
-              try {
-                const result = await window.electronAPI.config.verifyService({
-                  id: service?.id ?? '',
-                  name: '',
-                  category,
-                  provider,
-                  engine,
-                  credentials,
-                  options,
-                })
-                setVerifyResult(result)
-              } catch (err) {
-                setVerifyResult({ ok: false, error: (err as Error).message })
-              } finally {
-                setVerifying(false)
-              }
-            }}
-            disabled={verifying}
-          >
-            {verifying && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-            Verify
-          </Button>
-          {verifyResult?.ok === true && (
-            <span className="flex items-center gap-1 text-sm text-green-500">
-              <CheckCircle className="h-4 w-4" /> Verified
-            </span>
-          )}
-          {verifyResult?.ok === false && (
-            <span className="flex items-center gap-1 text-sm text-red-500">
-              <XCircle className="h-4 w-4" /> {verifyResult.error}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Voice Preview (TTS services only, existing services) */}
-      {category === 'tts' && !isNew && voiceOptions.length > 0 && (
+      {/* Default Voice (TTS services only) */}
+      {category === 'tts' && voiceOptions.length > 0 && (
         <>
           <Separator />
           <div className="space-y-3">
-            <Label>Voice Preview</Label>
             <div className="flex items-end gap-3">
               <div className="space-y-1 flex-1">
-                <Label className="text-xs text-muted-foreground">Voice</Label>
+                <Label>Default Voice</Label>
                 <Select
                   value={previewVoice}
                   onChange={(e) => { setPreviewVoice(e.target.value); disposeAudio(); setPreviewAudioPath(null) }}
@@ -767,63 +818,67 @@ function ServiceEditor({
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              &ldquo;The quick brown fox jumps over the lazy dog. This is a preview of the selected voice.&rdquo;
-            </p>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  disposeAudio()
-                  setPreviewing(true)
-                  setPreviewAudioPath(null)
-                  try {
-                    const audioPath = await window.electronAPI.bookImport.preview(
-                      service!.id,
-                      previewVoice,
-                      previewSpeed,
-                      options.model || undefined,
-                    )
-                    setPreviewAudioPath(audioPath)
-                    const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
-                    audio.onended = () => setIsPlaying(false)
-                    audio.play()
-                    audioRef.current = audio
-                    setIsPlaying(true)
-                  } catch (err) {
-                    console.error('TTS preview failed:', err)
-                  } finally {
-                    setPreviewing(false)
-                  }
-                }}
-                disabled={previewing || !previewVoice}
-              >
-                {previewing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Volume2 className="mr-1 h-3 w-3" />}
-                Try Voice
-              </Button>
-              {isPlaying && (
-                <Button variant="ghost" size="sm" onClick={disposeAudio}>
-                  <Square className="mr-1 h-3 w-3" /> Stop
-                </Button>
-              )}
-              {previewAudioPath && !isPlaying && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    disposeAudio()
-                    const audio = new Audio(`local-media://localhost${encodeURI(previewAudioPath)}`)
-                    audio.onended = () => setIsPlaying(false)
-                    audio.play()
-                    audioRef.current = audio
-                    setIsPlaying(true)
-                  }}
-                >
-                  <Play className="mr-1 h-3 w-3" /> Replay
-                </Button>
-              )}
-            </div>
+            {service && (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  &ldquo;The quick brown fox jumps over the lazy dog. This is a preview of the selected voice.&rdquo;
+                </p>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      disposeAudio()
+                      setPreviewing(true)
+                      setPreviewAudioPath(null)
+                      try {
+                        const audioPath = await window.electronAPI.bookImport.preview(
+                          service.id,
+                          previewVoice,
+                          previewSpeed,
+                          options.model || undefined,
+                        )
+                        setPreviewAudioPath(audioPath)
+                        const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
+                        audio.onended = () => setIsPlaying(false)
+                        audio.play()
+                        audioRef.current = audio
+                        setIsPlaying(true)
+                      } catch (err) {
+                        console.error('TTS preview failed:', err)
+                      } finally {
+                        setPreviewing(false)
+                      }
+                    }}
+                    disabled={previewing || !previewVoice}
+                  >
+                    {previewing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Volume2 className="mr-1 h-3 w-3" />}
+                    Try Voice
+                  </Button>
+                  {isPlaying && (
+                    <Button variant="ghost" size="sm" onClick={disposeAudio}>
+                      <Square className="mr-1 h-3 w-3" /> Stop
+                    </Button>
+                  )}
+                  {previewAudioPath && !isPlaying && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        disposeAudio()
+                        const audio = new Audio(`local-media://localhost${encodeURI(previewAudioPath)}`)
+                        audio.onended = () => setIsPlaying(false)
+                        audio.play()
+                        audioRef.current = audio
+                        setIsPlaying(true)
+                      }}
+                    >
+                      <Play className="mr-1 h-3 w-3" /> Replay
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </>
       )}

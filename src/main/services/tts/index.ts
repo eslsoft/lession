@@ -1,7 +1,7 @@
 import Store from 'electron-store'
 import type { ServiceConfig, TtsEngine } from '../../../shared/types'
 import { BUILTIN_SERVICES } from '../../../shared/types'
-import type { TtsProvider, TtsResult, TtsProviderCapabilities } from './types'
+import type { TtsProvider, TtsResult, TtsProviderCapabilities, TtsOptionList } from './types'
 import { edgeTtsProvider } from './edge-tts'
 import { kokoroProvider } from './kokoro'
 import { elevenlabsProvider } from './elevenlabs'
@@ -9,7 +9,7 @@ import { openaiProvider } from './openai'
 import { openaiCompatibleProvider } from './openai-compatible'
 
 // Re-export public types
-export type { TtsSegment, TtsResult, TtsProviderCapabilities } from './types'
+export type { TtsSegment, TtsResult, TtsProviderCapabilities, TtsOptionList } from './types'
 
 // ── Provider registry ──
 
@@ -43,6 +43,14 @@ export function resolveService(serviceId: string): ServiceConfig {
 
 export function getProviderCapabilities(engine: TtsEngine): TtsProviderCapabilities {
   return getProvider(engine).capabilities
+}
+
+export async function listTtsModels(engine: TtsEngine, credentials: Record<string, string>): Promise<TtsOptionList> {
+  return getProvider(engine).listModels({ engine, credentials } as ServiceConfig)
+}
+
+export async function listTtsVoices(engine: TtsEngine, credentials: Record<string, string>): Promise<TtsOptionList> {
+  return getProvider(engine).listVoices({ engine, credentials } as ServiceConfig)
 }
 
 /** Apply a runtime model override to a service config (non-mutating). */

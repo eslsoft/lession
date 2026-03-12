@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import OpenAI from 'openai'
-import type { TtsProvider } from './types'
+import type { TtsProvider, TtsOptionList } from './types'
 
 export const openaiCompatibleProvider: TtsProvider = {
   capabilities: {
@@ -101,5 +101,21 @@ export const openaiCompatibleProvider: TtsProvider = {
     onProgress?.(100)
 
     return { duration, audioPath: outputPath, segments: [] }
+  },
+
+  async listModels(service): Promise<TtsOptionList> {
+    const model = service.options.model
+    if (!model) return { options: [], default: '' }
+    return { options: [{ value: model, label: model }], default: model }
+  },
+
+  async listVoices(service): Promise<TtsOptionList> {
+    const voicesStr = service.options.voices
+    if (!voicesStr) return { options: [], default: '' }
+    const voices = voicesStr.split(',').map((pair) => {
+      const [value, label] = pair.trim().split(':')
+      return { value: value.trim(), label: label?.trim() || value.trim() }
+    }).filter((v) => v.value)
+    return { options: voices, default: voices[0]?.value ?? '' }
   },
 }

@@ -1,8 +1,30 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import OpenAI from 'openai'
-import type { TtsProvider } from './types'
-import { getDefaultModel } from '../../../shared/engines'
+import type { TtsProvider, TtsOptionList } from './types'
+import type { SelectOption } from '../../../shared/engines'
+
+const MODELS: SelectOption[] = [
+  { value: 'tts-1-hd', label: 'TTS-1 HD' },
+  { value: 'tts-1', label: 'TTS-1' },
+  { value: 'gpt-4o-mini-tts', label: 'GPT-4o Mini TTS' },
+]
+
+const VOICES: SelectOption[] = [
+  { value: 'alloy', label: 'Alloy' },
+  { value: 'ash', label: 'Ash' },
+  { value: 'ballad', label: 'Ballad' },
+  { value: 'coral', label: 'Coral' },
+  { value: 'echo', label: 'Echo' },
+  { value: 'fable', label: 'Fable' },
+  { value: 'nova', label: 'Nova' },
+  { value: 'onyx', label: 'Onyx' },
+  { value: 'sage', label: 'Sage' },
+  { value: 'shimmer', label: 'Shimmer' },
+]
+
+const DEFAULT_MODEL = 'tts-1-hd'
+const DEFAULT_VOICE = 'alloy'
 
 export const openaiProvider: TtsProvider = {
   capabilities: {
@@ -45,7 +67,7 @@ export const openaiProvider: TtsProvider = {
       onProgress?.(10 + Math.round((i / chunks.length) * 70))
 
       const response = await client.audio.speech.create({
-        model: service.options.model || getDefaultModel('openai'),
+        model: service.options.model || DEFAULT_MODEL,
         voice: voice as 'alloy' | 'ash' | 'ballad' | 'coral' | 'echo' | 'fable' | 'nova' | 'onyx' | 'sage' | 'shimmer',
         input: chunks[i],
         response_format: 'mp3',
@@ -102,5 +124,13 @@ export const openaiProvider: TtsProvider = {
 
     // OpenAI TTS does not provide word-level timestamps
     return { duration, audioPath: outputPath, segments: [] }
+  },
+
+  async listModels(): Promise<TtsOptionList> {
+    return { options: MODELS, default: DEFAULT_MODEL }
+  },
+
+  async listVoices(): Promise<TtsOptionList> {
+    return { options: VOICES, default: DEFAULT_VOICE }
   },
 }

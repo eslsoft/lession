@@ -17,6 +17,11 @@ export interface TtsProviderCapabilities {
   audioFormat: '.mp3' | '.wav'
 }
 
+export interface TtsOptionList {
+  options: { value: string; label: string }[]
+  default: string
+}
+
 export interface TtsProvider {
   capabilities: TtsProviderCapabilities
   synthesize(
@@ -27,4 +32,6 @@ export interface TtsProvider {
     outputPath: string,
     onProgress?: (percent: number) => void,
   ): Promise<TtsResult>
+  listModels(service: ServiceConfig): Promise<TtsOptionList>
+  listVoices(service: ServiceConfig): Promise<TtsOptionList>
 }

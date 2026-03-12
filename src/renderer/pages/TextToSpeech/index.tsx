@@ -8,8 +8,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { Select } from '../../components/ui/select'
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useConfigStore } from '../../stores/configStore'
-import type { ExtractedBook, BookImport } from '@shared/types'
-import { getVoicesForEngine, getDefaultVoice, getModelsForEngine, getDefaultModel } from '@shared/engines'
+import type { ExtractedBook, BookImport, TtsEngine } from '@shared/types'
 
 type Tab = 'text' | 'book'
 
@@ -31,10 +30,29 @@ export default function TextToSpeechPage() {
   // Voice settings — service-based
   const [serviceId, setServiceId] = useState(ttsServices[0]?.id ?? '')
   const selectedService = ttsServices.find((s) => s.id === serviceId) ?? ttsServices[0]
-  const [voice, setVoice] = useState(selectedService ? getDefaultVoice(selectedService.engine, selectedService.options.voices) : '')
+  const [voice, setVoice] = useState('')
   const [speed, setSpeed] = useState(1.0)
-  const modelOptions = selectedService ? getModelsForEngine(selectedService.engine) : []
-  const [model, setModel] = useState(selectedService?.options.model ?? getDefaultModel(selectedService?.engine ?? ''))
+  const [modelOptions, setModelOptions] = useState<{ value: string; label: string }[]>([])
+  const [voiceOptions, setVoiceOptions] = useState<{ value: string; label: string }[]>([])
+  const [model, setModel] = useState('')
+
+  // Fetch models and voices when service changes
+  useEffect(() => {
+    if (!selectedService) return
+    let cancelled = false
+    const svc = selectedService
+    Promise.all([
+      window.electronAPI.tts.listModels(svc.engine as TtsEngine, svc.credentials),
+      window.electronAPI.tts.listVoices(svc.engine as TtsEngine, svc.credentials),
+    ]).then(([modelsResult, voicesResult]) => {
+      if (cancelled) return
+      setModelOptions(modelsResult.options)
+      setVoiceOptions(voicesResult.options)
+      setModel((prev) => prev || svc.options.model || modelsResult.default)
+      setVoice((prev) => prev || voicesResult.default)
+    })
+    return () => { cancelled = true }
+  }, [serviceId])
 
   // Text tab state
   const [title, setTitle] = useState('')
@@ -191,7 +209,6 @@ export default function TextToSpeechPage() {
 
   const canGenerateText = tab === 'text' && title.trim() && textContent.trim() && !generating && !!serviceId
   const canGenerateBook = tab === 'book' && selectedCount > 0 && !generating && !!serviceId
-  const voiceOptions = selectedService ? getVoicesForEngine(selectedService.engine, selectedService.options.voices) : []
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -212,11 +229,10 @@ export default function TextToSpeechPage() {
             onChange={(e) => {
               const id = e.target.value
               setServiceId(id)
-              const svc = ttsServices.find((s) => s.id === id)
-              if (svc) {
-                setVoice(getDefaultVoice(svc.engine, svc.options.voices))
-                setModel(svc.options.model ?? getDefaultModel(svc.engine))
-              }
+              setVoice('')
+              setModel('')
+              setModelOptions([])
+              setVoiceOptions([])
               disposeAudio()
             }}
             options={ttsServices.map((s) => ({ value: s.id, label: s.name }))}

@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import { ElevenLabsClient } from 'elevenlabs'
-import type { TtsProvider } from './types'
-import { getDefaultModel } from '../../../shared/engines'
+import type { TtsProvider, TtsOptionList } from './types'
+
+const EMPTY: TtsOptionList = { options: [], default: '' }
 
 export const elevenlabsProvider: TtsProvider = {
   capabilities: {
@@ -21,7 +22,7 @@ export const elevenlabsProvider: TtsProvider = {
       voice,
       {
         text,
-        model_id: service.options.model || getDefaultModel('elevenlabs'),
+        model_id: service.options.model,
         output_format: 'mp3_44100_128',
       },
     )
@@ -80,5 +81,40 @@ export const elevenlabsProvider: TtsProvider = {
     onProgress?.(100)
 
     return { duration, audioPath: outputPath, segments }
+  },
+
+  async listModels(service): Promise<TtsOptionList> {
+    const apiKey = service.credentials.apiKey
+    if (!apiKey) return EMPTY
+
+    try {
+      const client = new ElevenLabsClient({ apiKey })
+      const models = await client.models.getAll()
+      const ttsModels = models
+        .filter((m) => m.can_do_text_to_speech)
+        .map((m) => ({ value: m.model_id, label: m.name ?? m.model_id }))
+      if (ttsModels.length === 0) return EMPTY
+      return { options: ttsModels, default: ttsModels[0].value }
+    } catch {
+      return EMPTY
+    }
+  },
+
+  async listVoices(service): Promise<TtsOptionList> {
+    const apiKey = service.credentials.apiKey
+    if (!apiKey) return EMPTY
+
+    try {
+      const client = new ElevenLabsClient({ apiKey })
+      const response = await client.voices.getAll()
+      const voices = response.voices.map((v) => ({
+        value: v.voice_id,
+        label: v.name ?? v.voice_id,
+      }))
+      if (voices.length === 0) return EMPTY
+      return { options: voices, default: voices[0].value }
+    } catch {
+      return EMPTY
+    }
   },
 }

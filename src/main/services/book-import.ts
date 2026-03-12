@@ -6,7 +6,6 @@ import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
 import type { AppConfig, BookImport, ExtractedBook, Segment, ServiceConfig, TtsEngine } from '../../shared/types'
 import { BUILTIN_SERVICES } from '../../shared/types'
-import { getDefaultVoice } from '../../shared/engines'
 import {
   createBookImport,
   getBookImport,
@@ -14,7 +13,7 @@ import {
 } from '../db/repositories/book-import'
 import { createEpisode, updateEpisode, updateEpisodeStatus, getNextOrder } from '../db/repositories/episode'
 import { getTranscript, createTranscript, updateTranscript, updateTranscriptSegments } from '../db/repositories/transcript'
-import { dispatchTts, getProviderCapabilities } from './tts'
+import { dispatchTts, getProviderCapabilities, listTtsVoices } from './tts'
 import type { TtsSegment } from './tts'
 import { convertToM4a } from './converter'
 import { getMediaMetadata } from './splitter'
@@ -495,7 +494,7 @@ async function retryPipeline(
       const rawAudioPath = path.join(outputDir, `${episodeId}${capabilities.audioFormat}`)
       const ttsResult = await dispatchTts(
         ttsService,
-        ttsService.options.voice || getDefaultVoice(ttsService.engine),
+        ttsService.options.voice || (await listTtsVoices(ttsService.engine as TtsEngine, ttsService.credentials)).default,
         parseFloat(ttsService.options.speed || '1.0'),
         extractedChapter.text,
         rawAudioPath,
