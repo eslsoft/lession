@@ -3,7 +3,12 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
+import fixPath from 'fix-path';
 import started from 'electron-squirrel-startup';
+
+// Fix PATH for packaged app — ensures tools like uv, ffmpeg, etc.
+// installed in user-specific directories (e.g. ~/.cargo/bin) are found.
+fixPath();
 import { updateElectronApp } from 'update-electron-app';
 import { getDatabase, closeDatabase } from './db';
 import { registerSeriesIpc } from './ipc/series.ipc';
