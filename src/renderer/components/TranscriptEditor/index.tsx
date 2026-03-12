@@ -34,30 +34,33 @@ function NlpAnnotatedSegment({
   phrases,
   activeWordIndex,
   isActive,
+  text,
 }: {
   words: WordToken[]
   phrases: Segment['phrases']
   activeWordIndex: number
   isActive: boolean
+  text: string
 }) {
   const phraseMap = buildPhraseMap(phrases)
+  const textWords = text.split(/\s+/)
 
   const elements: React.ReactNode[] = []
   let i = 0
   while (i < words.length) {
+    const displayWord = (idx: number) => idx < textWords.length ? textWords[idx] : words[idx].word
     const phrase = phraseMap.get(i)
     if (phrase && i === phrase.startIdx) {
       // Render a phrase group
       const config = PHRASE_CONFIG[phrase.type]
-      const phraseWords = words.slice(phrase.startIdx, phrase.endIdx + 1)
+      const phraseIndices = Array.from({ length: phrase.endIdx - phrase.startIdx + 1 }, (_, wi) => phrase.startIdx + wi)
       elements.push(
         <span
           key={`phrase-${i}`}
           className="inline-flex flex-col items-center mx-0.5"
         >
           <span className="flex flex-wrap gap-x-1">
-            {phraseWords.map((word, wi) => {
-              const wordIdx = phrase.startIdx + wi
+            {phraseIndices.map((wordIdx, wi) => {
               const isActiveWord = wordIdx === activeWordIndex && isActive
               return (
                 <span
@@ -67,7 +70,7 @@ function NlpAnnotatedSegment({
                     isActiveWord && 'text-red-500',
                   )}
                 >
-                  {word.word}
+                  {displayWord(wordIdx)}
                 </span>
               )
             })}
@@ -92,7 +95,7 @@ function NlpAnnotatedSegment({
               isActiveWord && 'text-red-500',
             )}
           >
-            {words[i].word}
+            {displayWord(i)}
           </span>
           <span className="h-[2px] w-full mt-0.5" />
         </span>,
@@ -108,45 +111,51 @@ function NlpAnnotatedSegment({
 
 function SplitModeSegment({
   words,
+  text,
   onWordClick,
 }: {
   words: WordToken[]
+  text: string
   onWordClick: (wordIndex: number) => void
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const textWords = text.split(/\s+/)
 
   return (
     <div className="flex flex-wrap items-center gap-y-1">
-      {words.map((word, wi) => (
-        <React.Fragment key={wi}>
-          {/* Divider before each word (except the first) */}
-          {wi > 0 && (
+      {words.map((word, wi) => {
+        const display = wi < textWords.length ? textWords[wi] : word.word
+        return (
+          <React.Fragment key={wi}>
+            {/* Divider before each word (except the first) */}
+            {wi > 0 && (
+              <span
+                className={cn(
+                  'inline-block w-0.5 h-5 mx-0.5 rounded-full transition-colors',
+                  hoverIndex === wi ? 'bg-red-500' : 'bg-border',
+                )}
+              />
+            )}
             <span
               className={cn(
-                'inline-block w-0.5 h-5 mx-0.5 rounded-full transition-colors',
-                hoverIndex === wi ? 'bg-red-500' : 'bg-border',
+                'text-sm leading-snug px-0.5 py-0.5 rounded cursor-pointer transition-colors',
+                hoverIndex === wi
+                  ? 'bg-red-100 text-red-700'
+                  : 'hover:bg-accent',
               )}
-            />
-          )}
-          <span
-            className={cn(
-              'text-sm leading-snug px-0.5 py-0.5 rounded cursor-pointer transition-colors',
-              hoverIndex === wi
-                ? 'bg-red-100 text-red-700'
-                : 'hover:bg-accent',
-            )}
-            onMouseEnter={() => setHoverIndex(wi)}
-            onMouseLeave={() => setHoverIndex(null)}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (wi > 0) onWordClick(wi)
-            }}
-            title={wi > 0 ? `Split here: "${words.slice(wi).map(w => w.word).join(' ')}" becomes new segment` : 'Cannot split before first word'}
-          >
-            {word.word}
-          </span>
-        </React.Fragment>
-      ))}
+              onMouseEnter={() => setHoverIndex(wi)}
+              onMouseLeave={() => setHoverIndex(null)}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (wi > 0) onWordClick(wi)
+              }}
+              title={wi > 0 ? `Split here: "${textWords.slice(wi).join(' ')}" becomes new segment` : 'Cannot split before first word'}
+            >
+              {display}
+            </span>
+          </React.Fragment>
+        )
+      })}
     </div>
   )
 }
@@ -401,6 +410,7 @@ export default function TranscriptEditor({
                   <div onClick={(e) => e.stopPropagation()}>
                     <SplitModeSegment
                       words={segment.words}
+                      text={segment.text}
                       onWordClick={(wordIndex) => handleSplitWordClick(index, wordIndex)}
                     />
                     <p className="text-xs text-muted-foreground mt-1.5">
@@ -414,19 +424,26 @@ export default function TranscriptEditor({
                     phrases={segment.phrases}
                     activeWordIndex={activeWordIndex}
                     isActive={isActive}
+                    text={segment.text}
                   />
                 ) : isActive && segment.words.length > 0 ? (
                   // Word-level highlight for active segment
-                  <p className="text-sm leading-relaxed">
-                    {segment.words.map((word, wi) => (
-                      <span
-                        key={wi}
-                        className={cn(wi === activeWordIndex && 'text-red-500')}
-                      >
-                        {word.word}{wi < segment.words.length - 1 ? ' ' : ''}
-                      </span>
-                    ))}
-                  </p>
+                  // Use segment.text split by spaces so punctuation is preserved
+                  (() => {
+                    const textWords = segment.text.split(/\s+/)
+                    return (
+                      <p className="text-sm leading-relaxed">
+                        {textWords.map((token, wi) => (
+                          <span
+                            key={wi}
+                            className={cn(wi === activeWordIndex && 'text-red-500')}
+                          >
+                            {token}{wi < textWords.length - 1 ? ' ' : ''}
+                          </span>
+                        ))}
+                      </p>
+                    )
+                  })()
                 ) : (
                   // Plain text
                   <p className="text-sm leading-relaxed">{segment.text}</p>
