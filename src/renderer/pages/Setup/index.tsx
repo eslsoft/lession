@@ -27,7 +27,6 @@ const defaultConfig: AppConfig = {
     defaultLanguage: 'en',
     replicate: {
       apiToken: '',
-      model: 'victor-upmeet/whisperx',
     },
   },
   import: {
@@ -280,7 +279,7 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                       onChange={(e) => updateTranscription('provider', e.target.value as 'local_whisperx' | 'replicate')}
                       options={[
                         { value: 'local_whisperx', label: 'Local WhisperX' },
-                        { value: 'replicate', label: 'Replicate (Cloud)' },
+                        { value: 'replicate', label: 'Replicate WhisperX' },
                       ]}
                     />
                   </div>
@@ -360,23 +359,6 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                         </p>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="replicateModel">Model</Label>
-                        <Input
-                          id="replicateModel"
-                          placeholder="owner/model:version"
-                          value={form.transcription.replicate?.model ?? ''}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              transcription: {
-                                ...prev.transcription,
-                                replicate: { ...prev.transcription.replicate, model: e.target.value },
-                              },
-                            }))
-                          }
-                        />
-                      </div>
                     </>
                   )}
 

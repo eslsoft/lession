@@ -62,7 +62,7 @@ async function uploadToS3AndGetUrl(
   return { url, key, client }
 }
 
-const DEFAULT_MODEL = 'victor-upmeet/whisperx'
+const DEFAULT_MODEL = 'saltbo/whisperx'
 
 /** Fetch model info to resolve the latest version and detect the audio input field name. */
 async function resolveModel(replicate: ReplicateLib, owner: string, name: string): Promise<{ version: string; audioField: string }> {
@@ -111,12 +111,11 @@ function parseOutput(output: unknown): Segment[] {
 
 export const replicateTranscriptionProvider: TranscriptionProvider = {
   async transcribe(config, filePath, language, onProgress) {
-    const { apiToken, model } = config.transcription.replicate
+    const { apiToken } = config.transcription.replicate
     if (!apiToken) throw new Error('Replicate API token is not configured.')
 
     const replicate = new ReplicateLib({ auth: apiToken })
-    const modelId = model || DEFAULT_MODEL
-    const [owner, name] = modelId.split('/')
+    const [owner, name] = DEFAULT_MODEL.split('/')
 
     let currentProgress = 0
     const progressInterval = setInterval(() => {

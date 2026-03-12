@@ -174,7 +174,6 @@ export interface AppConfig {
     defaultLanguage: string
     replicate: {
       apiToken: string
-      model: string
     }
   }
   import: {

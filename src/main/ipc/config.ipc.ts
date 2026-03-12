@@ -12,7 +12,7 @@ export function registerConfigIpc(): void {
     if (!config) return null
     // Ensure replicate config exists for older configs
     if (!config.transcription.replicate) {
-      config.transcription.replicate = { apiToken: '', model: 'victor-upmeet/whisperx' }
+      config.transcription.replicate = { apiToken: '' }
     }
     return config
   })
