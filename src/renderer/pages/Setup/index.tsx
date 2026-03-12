@@ -137,7 +137,7 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={isFirstTime ? () => {} : onOpenChange}>
+    <Dialog open={open} onOpenChange={isFirstTime ? () => { /* noop */ } : onOpenChange}>
       <DialogContent className="max-w-3xl p-0 overflow-hidden">
         {/* Header */}
         <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-border px-4">

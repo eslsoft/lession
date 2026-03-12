@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { statSync } from 'node:fs'
 import { listEpisodes, getEpisode, updateEpisode } from '../db/repositories/episode'
 import { getSeries, listSeries } from '../db/repositories/series'
 import { getTranscript } from '../db/repositories/transcript'
@@ -162,7 +163,7 @@ export function generateIndexJson(
   }
 }
 
-export function previewPublishFiles(episodeId: string, mode: PublishStatus): PublishFileInfo[] | null {
+export function previewPublishFiles(episodeId: string, _mode: PublishStatus): PublishFileInfo[] | null {
   const episode = getEpisode(episodeId)
   if (!episode) return null
   if (!getSeries(episode.seriesId)) return null
@@ -249,7 +250,6 @@ export function previewPublishFile(episodeId: string, fileKey: string, mode: Pub
 
 function getFileSize(filePath: string): string {
   try {
-    const { statSync } = require('node:fs')
     const stats = statSync(filePath)
     const bytes = stats.size
     if (bytes < 1024) return `${bytes} B`

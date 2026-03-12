@@ -174,7 +174,7 @@ export const replicateTranscriptionProvider: TranscriptionProvider = {
       }
       // Clean up S3 temp object
       if (s3Client && s3Bucket && s3Key) {
-        s3Client.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: s3Key })).catch(() => {})
+        s3Client.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: s3Key })).catch(() => { /* ignore cleanup errors */ })
       }
     }
   },
