@@ -56,8 +56,11 @@ export interface Download {
   url: string
   filename: string
   localPath?: string
-  status: 'pending' | 'downloading' | 'done' | 'error'
+  status: 'pending' | 'downloading' | 'converting' | 'paused' | 'done' | 'error'
   progress: number
+  speed?: string
+  eta?: string
+  fileSize?: string
   title?: string
   thumbnailUrl?: string
   duration?: number
@@ -68,6 +71,17 @@ export interface Download {
   }[]
   lastError?: string
   createdAt: string
+}
+
+export interface DownloadProgressInfo {
+  id: string
+  progress: number
+  status?: Download['status']
+  speed?: string
+  eta?: string
+  fileSize?: string
+  title?: string
+  duration?: number
 }
 
 // ── Transcript ──
@@ -252,9 +266,17 @@ export interface ElectronAPI {
   download: {
     list: () => Promise<Download[]>
     start: (url: string) => Promise<Download>
+    startBatch: (urls: string[]) => Promise<Download[]>
     cancel: (id: string) => Promise<void>
+    pause: (id: string) => Promise<void>
+    resume: (id: string) => Promise<void>
     retry: (id: string) => Promise<void>
-    onProgress: (callback: (id: string, progress: number) => void) => () => void
+    delete: (id: string) => Promise<void>
+    clearCompleted: () => Promise<void>
+    retryAllFailed: () => Promise<void>
+    openFile: (id: string) => Promise<void>
+    showInFolder: (id: string) => Promise<void>
+    onProgress: (callback: (info: DownloadProgressInfo) => void) => () => void
   }
   // Config
   config: {

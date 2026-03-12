@@ -9,6 +9,9 @@ interface DownloadRow {
   localPath: string | null
   status: Download['status']
   progress: number
+  speed: string | null
+  eta: string | null
+  fileSize: string | null
   title: string | null
   thumbnailUrl: string | null
   duration: number | null
@@ -25,6 +28,9 @@ function rowToDownload(row: DownloadRow): Download {
     localPath: row.localPath ?? undefined,
     status: row.status,
     progress: row.progress,
+    speed: row.speed ?? undefined,
+    eta: row.eta ?? undefined,
+    fileSize: row.fileSize ?? undefined,
     title: row.title ?? undefined,
     thumbnailUrl: row.thumbnailUrl ?? undefined,
     duration: row.duration ?? undefined,
@@ -54,8 +60,8 @@ export function createDownload(data: Omit<Download, 'id' | 'createdAt'>): Downlo
   const id = crypto.randomUUID()
 
   const stmt = db.prepare(`
-    INSERT INTO downloads (id, url, filename, localPath, status, progress, title, thumbnailUrl, duration, chapters, lastError, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO downloads (id, url, filename, localPath, status, progress, speed, eta, fileSize, title, thumbnailUrl, duration, chapters, lastError, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   stmt.run(
     id,
@@ -64,6 +70,9 @@ export function createDownload(data: Omit<Download, 'id' | 'createdAt'>): Downlo
     data.localPath ?? null,
     data.status,
     data.progress,
+    data.speed ?? null,
+    data.eta ?? null,
+    data.fileSize ?? null,
     data.title ?? null,
     data.thumbnailUrl ?? null,
     data.duration ?? null,
@@ -81,7 +90,7 @@ export function updateDownload(id: string, data: Partial<Download>): Download {
   const sets: string[] = []
   const values: unknown[] = []
 
-  const simpleFields = ['url', 'filename', 'localPath', 'status', 'progress', 'title', 'thumbnailUrl', 'duration', 'lastError'] as const
+  const simpleFields = ['url', 'filename', 'localPath', 'status', 'progress', 'speed', 'eta', 'fileSize', 'title', 'thumbnailUrl', 'duration', 'lastError'] as const
   for (const field of simpleFields) {
     if (field in data) {
       sets.push(`${field} = ?`)
@@ -105,7 +114,7 @@ export function updateDownload(id: string, data: Partial<Download>): Download {
 
 export function resetInterruptedDownloads(): void {
   const db = getDatabase()
-  db.prepare("UPDATE downloads SET status = 'pending', progress = 0 WHERE status = 'downloading'").run()
+  db.prepare("UPDATE downloads SET status = 'pending', progress = 0, speed = NULL, eta = NULL WHERE status IN ('downloading', 'converting')").run()
 }
 
 export function listPendingDownloads(): Download[] {
@@ -119,4 +128,17 @@ export function deleteDownload(id: string): void {
   const db = getDatabase()
   const stmt = db.prepare('DELETE FROM downloads WHERE id = ?')
   stmt.run(id)
+}
+
+export function deleteCompletedDownloads(): number {
+  const db = getDatabase()
+  const result = db.prepare("DELETE FROM downloads WHERE status = 'done'").run()
+  return result.changes
+}
+
+export function listFailedDownloads(): Download[] {
+  const db = getDatabase()
+  const stmt = db.prepare("SELECT * FROM downloads WHERE status = 'error' ORDER BY createdAt ASC")
+  const rows = stmt.all() as DownloadRow[]
+  return rows.map(rowToDownload)
 }

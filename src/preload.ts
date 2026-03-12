@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from './shared/ipc-channels'
-import type { ElectronAPI, BookImport } from './shared/types'
+import type { ElectronAPI, BookImport, DownloadProgressInfo } from './shared/types'
 
 const api: ElectronAPI = {
   series: {
@@ -39,10 +39,18 @@ const api: ElectronAPI = {
   download: {
     list: () => ipcRenderer.invoke(IPC.DOWNLOAD_LIST),
     start: (url) => ipcRenderer.invoke(IPC.DOWNLOAD_START, url),
+    startBatch: (urls) => ipcRenderer.invoke(IPC.DOWNLOAD_START, urls),
     cancel: (id) => ipcRenderer.invoke(IPC.DOWNLOAD_CANCEL, id),
+    pause: (id) => ipcRenderer.invoke(IPC.DOWNLOAD_PAUSE, id),
+    resume: (id) => ipcRenderer.invoke(IPC.DOWNLOAD_RESUME, id),
     retry: (id) => ipcRenderer.invoke(IPC.DOWNLOAD_RETRY, id),
+    delete: (id) => ipcRenderer.invoke(IPC.DOWNLOAD_DELETE, id),
+    clearCompleted: () => ipcRenderer.invoke(IPC.DOWNLOAD_CLEAR_COMPLETED),
+    retryAllFailed: () => ipcRenderer.invoke(IPC.DOWNLOAD_RETRY_ALL_FAILED),
+    openFile: (id) => ipcRenderer.invoke(IPC.DOWNLOAD_OPEN_FILE, id),
+    showInFolder: (id) => ipcRenderer.invoke(IPC.DOWNLOAD_SHOW_IN_FOLDER, id),
     onProgress: (callback) => {
-      const handler = (_event: Electron.IpcRendererEvent, id: string, progress: number) => callback(id, progress)
+      const handler = (_event: Electron.IpcRendererEvent, info: DownloadProgressInfo) => callback(info)
       ipcRenderer.on(IPC.DOWNLOAD_PROGRESS, handler)
       return () => ipcRenderer.removeListener(IPC.DOWNLOAD_PROGRESS, handler)
     },

@@ -27,7 +27,14 @@ export const IPC = {
   DOWNLOAD_LIST: 'download:list',
   DOWNLOAD_START: 'download:start',
   DOWNLOAD_CANCEL: 'download:cancel',
+  DOWNLOAD_PAUSE: 'download:pause',
+  DOWNLOAD_RESUME: 'download:resume',
   DOWNLOAD_RETRY: 'download:retry',
+  DOWNLOAD_DELETE: 'download:delete',
+  DOWNLOAD_CLEAR_COMPLETED: 'download:clear-completed',
+  DOWNLOAD_RETRY_ALL_FAILED: 'download:retry-all-failed',
+  DOWNLOAD_OPEN_FILE: 'download:open-file',
+  DOWNLOAD_SHOW_IN_FOLDER: 'download:show-in-folder',
   DOWNLOAD_PROGRESS: 'download:progress',
 
   // Config

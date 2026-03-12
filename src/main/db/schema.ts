@@ -53,8 +53,11 @@ export function initializeDatabase(db: Database.Database): void {
       url TEXT NOT NULL,
       filename TEXT NOT NULL,
       localPath TEXT,
-      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'downloading', 'done', 'error')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'downloading', 'converting', 'paused', 'done', 'error')),
       progress REAL NOT NULL DEFAULT 0,
+      speed TEXT,
+      eta TEXT,
+      fileSize TEXT,
       title TEXT,
       thumbnailUrl TEXT,
       duration REAL,
@@ -91,6 +94,7 @@ export function initializeDatabase(db: Database.Database): void {
   migrateSeriesAddFields(db);
   migrateEpisodeAddConverting(db);
   migrateEpisodeAddGenerating(db);
+  migrateDownloadsAddPausedAndMeta(db);
 }
 
 function migrateEpisodeStatuses(db: Database.Database): void {
@@ -281,4 +285,51 @@ function migrateEpisodeAddGenerating(db: Database.Database): void {
   `);
 
   db.pragma('foreign_keys = ON');
+}
+
+function migrateDownloadsAddPausedAndMeta(db: Database.Database): void {
+  const tableInfo = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='downloads'"
+  ).get() as { sql: string } | undefined;
+
+  if (!tableInfo) return;
+
+  // Add new columns if missing
+  if (!tableInfo.sql.includes('speed')) {
+    db.exec(`
+      ALTER TABLE downloads ADD COLUMN speed TEXT;
+      ALTER TABLE downloads ADD COLUMN eta TEXT;
+      ALTER TABLE downloads ADD COLUMN fileSize TEXT;
+    `);
+  }
+
+  // Migrate status CHECK constraint to include 'paused' and 'converting'
+  if (!tableInfo.sql.includes('paused') || !tableInfo.sql.includes('converting')) {
+    db.exec(`
+      CREATE TABLE downloads_new (
+        id TEXT PRIMARY KEY,
+        url TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        localPath TEXT,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'downloading', 'converting', 'paused', 'done', 'error')),
+        progress REAL NOT NULL DEFAULT 0,
+        speed TEXT,
+        eta TEXT,
+        fileSize TEXT,
+        title TEXT,
+        thumbnailUrl TEXT,
+        duration REAL,
+        chapters TEXT,
+        lastError TEXT,
+        createdAt TEXT NOT NULL
+      );
+
+      INSERT INTO downloads_new (id, url, filename, localPath, status, progress, speed, eta, fileSize, title, thumbnailUrl, duration, chapters, lastError, createdAt)
+      SELECT id, url, filename, localPath, status, progress, speed, eta, fileSize, title, thumbnailUrl, duration, chapters, lastError, createdAt
+      FROM downloads;
+
+      DROP TABLE downloads;
+      ALTER TABLE downloads_new RENAME TO downloads;
+    `);
+  }
 }
