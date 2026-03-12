@@ -29,6 +29,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Prepare bundled binaries
+        run: node build/prepare-binaries.js
+
       - name: Import Code Signing Certificate
         if: env.CSC_LINK != ''
         env:
@@ -86,6 +89,9 @@ jobs:
         run: npm version "${{ steps.version.outputs.VERSION }}" --no-git-tag-version
 
       - run: npm ci
+
+      - name: Prepare bundled binaries
+        run: node build/prepare-binaries.js
 
       - name: Publish
         env:
