@@ -45,9 +45,14 @@ export const useDownloadStore = create<DownloadState>((set) => ({
   },
 
   updateProgress: (id, progress) => {
+    if (progress >= 100) {
+      // Download finished — refetch from DB to get final status
+      window.electronAPI.download.list().then((downloads) => set({ downloads }))
+      return
+    }
     set((state) => ({
       downloads: state.downloads.map((d) =>
-        d.id === id ? { ...d, progress, status: 'downloading' as const } : d
+        d.id === id ? { ...d, progress } : d
       ),
     }))
   },
