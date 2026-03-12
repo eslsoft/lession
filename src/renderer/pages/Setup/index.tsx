@@ -515,6 +515,7 @@ function ServiceEditor({
   const [previewing, setPreviewing] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [previewAudioPath, setPreviewAudioPath] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const disposeAudio = useCallback(() => {
@@ -837,6 +838,7 @@ function ServiceEditor({
                     disposeAudio()
                     setPreviewing(true)
                     setPreviewAudioPath(null)
+                    setPreviewError(null)
                     try {
                       const audioPath = await window.electronAPI.tts.preview(
                         engine as TtsEngine,
@@ -852,7 +854,7 @@ function ServiceEditor({
                         audioRef.current = audio
                         setIsPlaying(true)
                       } catch (err) {
-                        console.error('TTS preview failed:', err)
+                        setPreviewError((err as Error).message)
                       } finally {
                         setPreviewing(false)
                       }
@@ -884,6 +886,9 @@ function ServiceEditor({
                     </Button>
                   )}
               </div>
+              {previewError && (
+                <p className="text-xs text-red-500">{previewError}</p>
+              )}
             </>
           </div>
         </>
