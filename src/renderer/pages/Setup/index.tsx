@@ -392,7 +392,7 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                       }}
                       options={[
                         { value: 'edge_tts', label: 'Edge TTS (Recommended)' },
-                        { value: 'kokoro', label: 'Local Kokoro-82M' },
+                        { value: 'kokoro', label: 'Kokoro-82M' },
                       ]}
                     />
                   </div>
