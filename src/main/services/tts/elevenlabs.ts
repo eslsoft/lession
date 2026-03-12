@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { ElevenLabsClient } from 'elevenlabs'
 import type { TtsProvider } from './types'
+import { getDefaultModel } from '../../../shared/engines'
 
 export const elevenlabsProvider: TtsProvider = {
   capabilities: {
@@ -20,7 +21,7 @@ export const elevenlabsProvider: TtsProvider = {
       voice,
       {
         text,
-        model_id: 'eleven_turbo_v2_5',
+        model_id: service.options.model || getDefaultModel('elevenlabs'),
         output_format: 'mp3_44100_128',
       },
     )

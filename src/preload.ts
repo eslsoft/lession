@@ -51,6 +51,7 @@ const api: ElectronAPI = {
     get: () => ipcRenderer.invoke(IPC.CONFIG_GET),
     set: (config) => ipcRenderer.invoke(IPC.CONFIG_SET, config),
     testS3: (config) => ipcRenderer.invoke(IPC.CONFIG_TEST_S3, config),
+    verifyService: (service) => ipcRenderer.invoke(IPC.CONFIG_VERIFY_SERVICE, service),
   },
   splitter: {
     getMetadata: (filePath) => ipcRenderer.invoke(IPC.SPLITTER_GET_METADATA, filePath),
@@ -81,10 +82,10 @@ const api: ElectronAPI = {
   },
   bookImport: {
     extract: (filePath: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_EXTRACT, filePath),
-    preview: (serviceId: string, voice: string, speed: number, text?: string) =>
-      ipcRenderer.invoke(IPC.BOOK_IMPORT_PREVIEW, serviceId, voice, speed, text),
-    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[], serviceId: string, voice: string, speed: number) =>
-      ipcRenderer.invoke(IPC.BOOK_IMPORT_GENERATE, seriesId, epubPath, chapters, serviceId, voice, speed),
+    preview: (serviceId: string, voice: string, speed: number, model?: string, text?: string) =>
+      ipcRenderer.invoke(IPC.BOOK_IMPORT_PREVIEW, serviceId, voice, speed, model, text),
+    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[], serviceId: string, voice: string, speed: number, model?: string) =>
+      ipcRenderer.invoke(IPC.BOOK_IMPORT_GENERATE, seriesId, epubPath, chapters, serviceId, voice, speed, model),
     cancel: (id: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_CANCEL, id),
     retry: (id: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_RETRY, id),
     list: (seriesId: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_LIST, seriesId),

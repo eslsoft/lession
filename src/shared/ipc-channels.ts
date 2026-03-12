@@ -34,6 +34,7 @@ export const IPC = {
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',
   CONFIG_TEST_S3: 'config:testS3',
+  CONFIG_VERIFY_SERVICE: 'config:verifyService',
 
   // Splitter
   SPLITTER_GET_METADATA: 'splitter:getMetadata',

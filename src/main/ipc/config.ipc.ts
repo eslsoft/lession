@@ -2,7 +2,8 @@ import { ipcMain } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
 import { testConnection } from '../services/storage'
-import type { AppConfig } from '../../shared/types'
+import { verifyService } from '../services/verify'
+import type { AppConfig, ServiceConfig } from '../../shared/types'
 import { BUILTIN_SERVICES } from '../../shared/types'
 
 const store = new Store()
@@ -38,5 +39,9 @@ export function registerConfigIpc(): void {
 
   ipcMain.handle(IPC.CONFIG_TEST_S3, (_event, storage: AppConfig['storage']) => {
     return testConnection(storage)
+  })
+
+  ipcMain.handle(IPC.CONFIG_VERIFY_SERVICE, async (_event, service: ServiceConfig) => {
+    return verifyService(service)
   })
 }

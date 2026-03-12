@@ -1,6 +1,6 @@
 import Store from 'electron-store'
 import { getCachedTranscript, saveCachedTranscript, hasCachedTranscript } from './cache'
-import type { ServiceConfig, Segment, TranscriptionProviderType } from '../../../shared/types'
+import type { ServiceConfig, Segment, ServiceProvider } from '../../../shared/types'
 import { BUILTIN_SERVICES } from '../../../shared/types'
 import type { TranscriptionProvider } from './types'
 import { localWhisperxProvider } from './local-whisperx'
@@ -9,10 +9,10 @@ import { replicateTranscriptionProvider } from './replicate'
 // Re-export cache utilities used by other modules
 export { hasCachedTranscript, getCachedTranscript }
 
-// ── Provider registry ──
+// ── Provider registry (keyed by ServiceProvider, not engine) ──
 
-const providers: Record<TranscriptionProviderType, TranscriptionProvider> = {
-  local_whisperx: localWhisperxProvider,
+const providers: Record<string, TranscriptionProvider> = {
+  local: localWhisperxProvider,
   replicate: replicateTranscriptionProvider,
 }
 
@@ -47,8 +47,8 @@ export async function dispatchTranscribe(
     return cached.segments
   }
 
-  const provider = providers[service.providerType as TranscriptionProviderType]
-  if (!provider) throw new Error(`Unknown transcription provider: ${service.providerType}`)
+  const provider = providers[service.provider]
+  if (!provider) throw new Error(`Unknown transcription provider: ${service.provider}`)
 
   const segments = await provider.transcribe(service, filePath, language, onProgress)
 

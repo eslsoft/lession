@@ -157,23 +157,26 @@ export interface BookImportChapter {
 }
 
 // ── Service Config ──
-export type TtsProviderType = 'edge_tts' | 'kokoro' | 'elevenlabs' | 'openai' | 'openai_compatible'
-export type TranscriptionProviderType = 'local_whisperx' | 'replicate'
+export type ServiceProvider = 'local' | 'openai' | 'openai_compatible' | 'elevenlabs' | 'replicate'
+export type TtsEngine = 'edge_tts' | 'kokoro' | 'elevenlabs' | 'openai' | 'openai_compatible'
+export type TranscriptionEngine = 'whisperx'
+
 
 export interface ServiceConfig {
   id: string
   name: string
   category: 'tts' | 'transcription'
-  providerType: TtsProviderType | TranscriptionProviderType
+  provider: ServiceProvider
+  engine: TtsEngine | TranscriptionEngine
   credentials: Record<string, string>
   options: Record<string, string>
   builtin?: boolean
 }
 
 export const BUILTIN_SERVICES: ServiceConfig[] = [
-  { id: 'builtin_edge_tts', name: 'Edge TTS', category: 'tts', providerType: 'edge_tts', credentials: {}, options: {}, builtin: true },
-  { id: 'builtin_kokoro', name: 'Kokoro', category: 'tts', providerType: 'kokoro', credentials: {}, options: {}, builtin: true },
-  { id: 'builtin_local_whisperx', name: 'Local WhisperX', category: 'transcription', providerType: 'local_whisperx', credentials: {}, options: { device: 'cpu', computeType: 'float16', defaultLanguage: 'en' }, builtin: true },
+  { id: 'builtin_edge_tts', name: 'Edge TTS', category: 'tts', provider: 'local', engine: 'edge_tts', credentials: {}, options: {}, builtin: true },
+  { id: 'builtin_kokoro', name: 'Kokoro', category: 'tts', provider: 'local', engine: 'kokoro', credentials: {}, options: {}, builtin: true },
+  { id: 'builtin_whisperx', name: 'WhisperX', category: 'transcription', provider: 'local', engine: 'whisperx', credentials: {}, options: { device: 'cpu', computeType: 'float16', defaultLanguage: 'en' }, builtin: true },
 ]
 
 // ── Config ──
@@ -257,6 +260,7 @@ export interface ElectronAPI {
     get: () => Promise<AppConfig | null>
     set: (config: AppConfig) => Promise<void>
     testS3: (config: AppConfig['storage']) => Promise<boolean>
+    verifyService: (service: ServiceConfig) => Promise<{ ok: boolean; error?: string }>
   }
   // Splitter
   splitter: {
@@ -288,8 +292,8 @@ export interface ElectronAPI {
   // Book Import
   bookImport: {
     extract: (filePath: string) => Promise<ExtractedBook>
-    preview: (serviceId: string, voice: string, speed: number, text?: string) => Promise<string>
-    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[], serviceId: string, voice: string, speed: number) => Promise<BookImport>
+    preview: (serviceId: string, voice: string, speed: number, model?: string, text?: string) => Promise<string>
+    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[], serviceId: string, voice: string, speed: number, model?: string) => Promise<BookImport>
     cancel: (id: string) => Promise<void>
     retry: (id: string) => Promise<void>
     list: (seriesId: string) => Promise<BookImport[]>

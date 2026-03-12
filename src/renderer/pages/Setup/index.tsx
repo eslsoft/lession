@@ -9,8 +9,9 @@ import { Separator } from '../../components/ui/separator'
 import { Dialog, DialogContent } from '../../components/ui/dialog'
 import { Badge } from '../../components/ui/badge'
 import { cn } from '../../lib/utils'
-import type { AppConfig, ServiceConfig, TtsProviderType, TranscriptionProviderType } from '../../../shared/types'
+import type { AppConfig, ServiceConfig, ServiceProvider, TtsEngine, TranscriptionEngine } from '../../../shared/types'
 import { BUILTIN_SERVICES } from '../../../shared/types'
+import { getEngineLabel, getVoicesForEngine, getDefaultVoice, getModelsForEngine, getDefaultModel, PROVIDER_LABELS } from '../../../shared/engines'
 import EnvironmentStatus from '../../components/EnvironmentStatus'
 
 const defaultConfig: AppConfig = {
@@ -38,14 +39,15 @@ const sections = [
   { id: 'environment' as Section, label: 'Environment', icon: Terminal },
 ]
 
-const TTS_PROVIDERS: { value: TtsProviderType; label: string }[] = [
-  { value: 'elevenlabs', label: 'ElevenLabs' },
-  { value: 'openai', label: 'OpenAI TTS' },
-  { value: 'openai_compatible', label: 'OpenAI Compatible' },
+/** Available providers for adding new TTS services (built-in local ones are pre-configured). */
+const TTS_ADD_OPTIONS: { provider: ServiceProvider; engine: TtsEngine; label: string }[] = [
+  { provider: 'elevenlabs', engine: 'elevenlabs', label: 'ElevenLabs' },
+  { provider: 'openai', engine: 'openai', label: 'OpenAI TTS' },
+  { provider: 'openai_compatible', engine: 'openai_compatible', label: 'OpenAI Compatible' },
 ]
 
-const TRANSCRIPTION_PROVIDERS: { value: TranscriptionProviderType; label: string }[] = [
-  { value: 'replicate', label: 'Replicate WhisperX' },
+const TRANSCRIPTION_ADD_OPTIONS: { provider: ServiceProvider; engine: TranscriptionEngine; label: string }[] = [
+  { provider: 'replicate', engine: 'whisperx', label: 'Replicate' },
 ]
 
 interface Props {
@@ -57,17 +59,8 @@ function generateId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
-function defaultServiceName(providerType: string): string {
-  const names: Record<string, string> = {
-    edge_tts: 'Edge TTS',
-    kokoro: 'Kokoro',
-    elevenlabs: 'ElevenLabs',
-    openai: 'OpenAI TTS',
-    openai_compatible: 'OpenAI Compatible',
-    local_whisperx: 'Local WhisperX',
-    replicate: 'Replicate',
-  }
-  return names[providerType] ?? providerType
+function defaultServiceName(engine: string): string {
+  return getEngineLabel(engine)
 }
 
 export default function SetupDialog({ open, onOpenChange }: Props) {
@@ -399,15 +392,29 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
 
 // ── Service Row ──
 
+function isServiceConfigured(service: ServiceConfig): boolean {
+  if (service.provider === 'local') return true
+  if (['elevenlabs', 'openai'].includes(service.provider)) return !!service.credentials.apiKey
+  if (service.provider === 'replicate') return !!service.credentials.apiToken
+  if (service.provider === 'openai_compatible') return !!service.options.baseUrl
+  return true
+}
+
 function ServiceRow({ service, onEdit, onRemove }: { service: ServiceConfig; onEdit: () => void; onRemove: () => void }) {
+  const configured = isServiceConfigured(service)
   return (
     <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border bg-card">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium">{service.name}</span>
-        <Badge variant="outline" className="text-xs">{service.providerType}</Badge>
-        {service.builtin && <Badge variant="secondary" className="text-xs">Built-in</Badge>}
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={cn('h-2 w-2 rounded-full flex-shrink-0', configured ? 'bg-green-500' : 'bg-amber-400')} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium truncate">{service.name}</span>
+            {service.builtin && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Built-in</Badge>}
+          </div>
+          <span className="text-xs text-muted-foreground">{PROVIDER_LABELS[service.provider] ?? service.provider}</span>
+        </div>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-shrink-0">
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onEdit}>
           <Pencil className="h-3.5 w-3.5" />
         </Button>
@@ -423,57 +430,6 @@ function ServiceRow({ service, onEdit, onRemove }: { service: ServiceConfig; onE
 
 // ── Service Editor ──
 
-const VOICES_BY_PROVIDER: Record<string, { value: string; label: string }[]> = {
-  edge_tts: [
-    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
-    { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
-    { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
-    { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
-    { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
-    { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
-    { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
-  ],
-  kokoro: [
-    { value: 'af_heart', label: 'Heart (Female)' },
-    { value: 'af_bella', label: 'Bella (Female)' },
-    { value: 'af_sarah', label: 'Sarah (Female)' },
-    { value: 'am_adam', label: 'Adam (Male)' },
-    { value: 'am_michael', label: 'Michael (Male)' },
-    { value: 'bf_emma', label: 'Emma (British Female)' },
-    { value: 'bm_george', label: 'George (British Male)' },
-  ],
-  elevenlabs: [
-    { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George (Male, Narrative)' },
-    { value: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily (Female, Narrative)' },
-    { value: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel (Male, British)' },
-    { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah (Female, Soft)' },
-    { value: 'TX3LPaxmHKxFdv7VOQHJ', label: 'Liam (Male, Articulate)' },
-    { value: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte (Female, Swedish)' },
-  ],
-  openai: [
-    { value: 'alloy', label: 'Alloy' },
-    { value: 'ash', label: 'Ash' },
-    { value: 'ballad', label: 'Ballad' },
-    { value: 'coral', label: 'Coral' },
-    { value: 'echo', label: 'Echo' },
-    { value: 'fable', label: 'Fable' },
-    { value: 'nova', label: 'Nova' },
-    { value: 'onyx', label: 'Onyx' },
-    { value: 'sage', label: 'Sage' },
-    { value: 'shimmer', label: 'Shimmer' },
-  ],
-}
-
-function getVoicesForProvider(providerType: string, optionsVoices?: string): { value: string; label: string }[] {
-  if (providerType === 'openai_compatible' && optionsVoices) {
-    return optionsVoices.split(',').map((pair) => {
-      const [value, label] = pair.trim().split(':')
-      return { value: value.trim(), label: label?.trim() || value.trim() }
-    }).filter((v) => v.value)
-  }
-  return VOICES_BY_PROVIDER[providerType] ?? []
-}
-
 function ServiceEditor({
   service,
   category,
@@ -486,14 +442,19 @@ function ServiceEditor({
   onCancel: () => void
 }) {
   const isNew = !service
-  const providerOptions = category === 'tts' ? TTS_PROVIDERS : TRANSCRIPTION_PROVIDERS
-  const [providerType, setProviderType] = useState(service?.providerType ?? providerOptions[0].value)
+  const addOptions = category === 'tts' ? TTS_ADD_OPTIONS : TRANSCRIPTION_ADD_OPTIONS
+  const [provider, setProvider] = useState<ServiceProvider>(service?.provider ?? addOptions[0].provider)
+  const [engine, setEngine] = useState<TtsEngine | TranscriptionEngine>(service?.engine ?? addOptions[0].engine)
   const [name, setName] = useState(service?.name ?? '')
   const [credentials, setCredentials] = useState<Record<string, string>>(service?.credentials ?? {})
   const [options, setOptions] = useState<Record<string, string>>(service?.options ?? {})
 
+  // Verify state
+  const [verifying, setVerifying] = useState(false)
+  const [verifyResult, setVerifyResult] = useState<{ ok: boolean; error?: string } | null>(null)
+
   // Preview state (TTS only)
-  const voiceOptions = getVoicesForProvider(providerType, options.voices)
+  const voiceOptions = getVoicesForEngine(engine, options.voices)
   const [previewVoice, setPreviewVoice] = useState(voiceOptions[0]?.value ?? '')
   const [previewSpeed, setPreviewSpeed] = useState(1.0)
   const [previewing, setPreviewing] = useState(false)
@@ -519,10 +480,12 @@ function ServiceEditor({
     setOptions((prev) => ({ ...prev, [key]: value }))
   }
 
-  function handleProviderChange(newType: string) {
-    setProviderType(newType as TtsProviderType | TranscriptionProviderType)
-    if (!name || name === defaultServiceName(providerType)) {
-      setName(defaultServiceName(newType))
+  function handleProviderChange(newProvider: string) {
+    const opt = addOptions.find((o) => o.provider === newProvider) ?? addOptions[0]
+    setProvider(opt.provider)
+    setEngine(opt.engine)
+    if (!name || name === defaultServiceName(engine)) {
+      setName(defaultServiceName(opt.engine))
     }
     setCredentials({})
     setOptions({})
@@ -531,9 +494,10 @@ function ServiceEditor({
   function handleSave() {
     onSave({
       id: service?.id ?? generateId(),
-      name: name || defaultServiceName(providerType),
+      name: name || defaultServiceName(engine),
       category,
-      providerType,
+      provider,
+      engine,
       credentials,
       options,
       ...(service?.builtin ? { builtin: true } : {}),
@@ -548,18 +512,21 @@ function ServiceEditor({
 
       <div className="space-y-2">
         <Label>Provider</Label>
-        <Select
-          value={providerType}
-          onChange={(e) => handleProviderChange(e.target.value)}
-          options={providerOptions}
-          disabled={!!service}
-        />
+        {service ? (
+          <Input value={PROVIDER_LABELS[provider] ?? provider} disabled />
+        ) : (
+          <Select
+            value={provider}
+            onChange={(e) => handleProviderChange(e.target.value)}
+            options={addOptions.map((opt) => ({ value: opt.provider, label: opt.label }))}
+          />
+        )}
       </div>
 
       <div className="space-y-2">
         <Label>Name</Label>
         <Input
-          placeholder={defaultServiceName(providerType)}
+          placeholder={defaultServiceName(engine)}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={!!service?.builtin}
@@ -567,19 +534,55 @@ function ServiceEditor({
       </div>
 
       {/* Provider-specific fields */}
-      {(providerType === 'elevenlabs' || providerType === 'openai') && (
-        <div className="space-y-2">
-          <Label>API Key</Label>
-          <Input
-            type="password"
-            placeholder={providerType === 'elevenlabs' ? 'sk_...' : 'sk-...'}
-            value={credentials.apiKey ?? ''}
-            onChange={(e) => updateCredential('apiKey', e.target.value)}
-          />
-        </div>
+      {engine === 'elevenlabs' && (
+        <>
+          <div className="space-y-2">
+            <Label>API Key</Label>
+            <Input
+              type="password"
+              placeholder="sk_..."
+              value={credentials.apiKey ?? ''}
+              onChange={(e) => updateCredential('apiKey', e.target.value)}
+            />
+          </div>
+          {getModelsForEngine(engine).length > 0 && (
+            <div className="space-y-2">
+              <Label>Default Model</Label>
+              <Select
+                value={options.model ?? getDefaultModel(engine)}
+                onChange={(e) => updateOption('model', e.target.value)}
+                options={getModelsForEngine(engine)}
+              />
+            </div>
+          )}
+        </>
       )}
 
-      {providerType === 'openai_compatible' && (
+      {engine === 'openai' && (
+        <>
+          <div className="space-y-2">
+            <Label>API Key</Label>
+            <Input
+              type="password"
+              placeholder="sk-..."
+              value={credentials.apiKey ?? ''}
+              onChange={(e) => updateCredential('apiKey', e.target.value)}
+            />
+          </div>
+          {getModelsForEngine(engine).length > 0 && (
+            <div className="space-y-2">
+              <Label>Default Model</Label>
+              <Select
+                value={options.model ?? getDefaultModel(engine)}
+                onChange={(e) => updateOption('model', e.target.value)}
+                options={getModelsForEngine(engine)}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {engine === 'openai_compatible' && (
         <>
           <div className="space-y-2">
             <Label>Base URL</Label>
@@ -620,7 +623,7 @@ function ServiceEditor({
         </>
       )}
 
-      {providerType === 'local_whisperx' && (
+      {engine === 'whisperx' && provider === 'local' && (
         <>
           <div className="space-y-2">
             <Label>WhisperX Path</Label>
@@ -677,7 +680,7 @@ function ServiceEditor({
         </>
       )}
 
-      {providerType === 'replicate' && (
+      {provider === 'replicate' && (
         <div className="space-y-2">
           <Label>API Token</Label>
           <Input
@@ -689,6 +692,50 @@ function ServiceEditor({
           <p className="text-xs text-muted-foreground">
             Get your token at replicate.com/account/api-tokens
           </p>
+        </div>
+      )}
+
+      {/* Verify credentials */}
+      {provider !== 'local' && (
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              setVerifying(true)
+              setVerifyResult(null)
+              try {
+                const result = await window.electronAPI.config.verifyService({
+                  id: service?.id ?? '',
+                  name: '',
+                  category,
+                  provider,
+                  engine,
+                  credentials,
+                  options,
+                })
+                setVerifyResult(result)
+              } catch (err) {
+                setVerifyResult({ ok: false, error: (err as Error).message })
+              } finally {
+                setVerifying(false)
+              }
+            }}
+            disabled={verifying}
+          >
+            {verifying && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            Verify
+          </Button>
+          {verifyResult?.ok === true && (
+            <span className="flex items-center gap-1 text-sm text-green-500">
+              <CheckCircle className="h-4 w-4" /> Verified
+            </span>
+          )}
+          {verifyResult?.ok === false && (
+            <span className="flex items-center gap-1 text-sm text-red-500">
+              <XCircle className="h-4 w-4" /> {verifyResult.error}
+            </span>
+          )}
         </div>
       )}
 
@@ -736,6 +783,7 @@ function ServiceEditor({
                       service!.id,
                       previewVoice,
                       previewSpeed,
+                      options.model || undefined,
                     )
                     setPreviewAudioPath(audioPath)
                     const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)

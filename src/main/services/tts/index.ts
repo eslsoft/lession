@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import type { ServiceConfig, TtsProviderType } from '../../../shared/types'
+import type { ServiceConfig, TtsEngine } from '../../../shared/types'
 import { BUILTIN_SERVICES } from '../../../shared/types'
 import type { TtsProvider, TtsResult, TtsProviderCapabilities } from './types'
 import { edgeTtsProvider } from './edge-tts'
@@ -13,7 +13,7 @@ export type { TtsSegment, TtsResult, TtsProviderCapabilities } from './types'
 
 // ── Provider registry ──
 
-const providers: Record<TtsProviderType, TtsProvider> = {
+const providers: Record<TtsEngine, TtsProvider> = {
   edge_tts: edgeTtsProvider,
   kokoro: kokoroProvider,
   elevenlabs: elevenlabsProvider,
@@ -21,9 +21,9 @@ const providers: Record<TtsProviderType, TtsProvider> = {
   openai_compatible: openaiCompatibleProvider,
 }
 
-function getProvider(providerType: TtsProviderType): TtsProvider {
-  const provider = providers[providerType]
-  if (!provider) throw new Error(`Unknown TTS provider: ${providerType}`)
+function getProvider(engine: TtsEngine): TtsProvider {
+  const provider = providers[engine]
+  if (!provider) throw new Error(`Unknown TTS engine: ${engine}`)
   return provider
 }
 
@@ -41,8 +41,14 @@ export function resolveService(serviceId: string): ServiceConfig {
 
 // ── Public API ──
 
-export function getProviderCapabilities(providerType: TtsProviderType): TtsProviderCapabilities {
-  return getProvider(providerType).capabilities
+export function getProviderCapabilities(engine: TtsEngine): TtsProviderCapabilities {
+  return getProvider(engine).capabilities
+}
+
+/** Apply a runtime model override to a service config (non-mutating). */
+function withModelOverride(service: ServiceConfig, model?: string): ServiceConfig {
+  if (!model) return service
+  return { ...service, options: { ...service.options, model } }
 }
 
 export async function dispatchTts(
@@ -53,7 +59,7 @@ export async function dispatchTts(
   outputPath: string,
   onProgress?: (percent: number) => void,
 ): Promise<TtsResult> {
-  return getProvider(service.providerType as TtsProviderType).synthesize(
+  return getProvider(service.engine as TtsEngine).synthesize(
     service, voice, speed, text, outputPath, onProgress,
   )
 }
@@ -64,8 +70,9 @@ export async function previewTts(
   speed: number,
   text: string,
   outputPath: string,
+  model?: string,
 ): Promise<string> {
-  const service = resolveService(serviceId)
+  const service = withModelOverride(resolveService(serviceId), model)
   const result = await dispatchTts(service, voice, speed, text, outputPath)
   return result.audioPath
 }

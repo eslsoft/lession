@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import OpenAI from 'openai'
 import type { TtsProvider } from './types'
+import { getDefaultModel } from '../../../shared/engines'
 
 export const openaiProvider: TtsProvider = {
   capabilities: {
@@ -44,7 +45,7 @@ export const openaiProvider: TtsProvider = {
       onProgress?.(10 + Math.round((i / chunks.length) * 70))
 
       const response = await client.audio.speech.create({
-        model: 'tts-1-hd',
+        model: service.options.model || getDefaultModel('openai'),
         voice: voice as 'alloy' | 'ash' | 'ballad' | 'coral' | 'echo' | 'fable' | 'nova' | 'onyx' | 'sage' | 'shimmer',
         input: chunks[i],
         response_format: 'mp3',

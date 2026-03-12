@@ -8,76 +8,10 @@ import { Textarea } from '../../components/ui/textarea'
 import { Select } from '../../components/ui/select'
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useConfigStore } from '../../stores/configStore'
-import type { ExtractedBook, BookImport, ServiceConfig, TtsProviderType } from '@shared/types'
+import type { ExtractedBook, BookImport, ServiceConfig } from '@shared/types'
+import { getVoicesForEngine, getDefaultVoice, getModelsForEngine, getDefaultModel } from '@shared/engines'
 
 type Tab = 'text' | 'book'
-
-const VOICES_BY_PROVIDER: Record<string, { value: string; label: string }[]> = {
-  edge_tts: [
-    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
-    { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
-    { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
-    { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
-    { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
-    { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
-    { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
-  ],
-  kokoro: [
-    { value: 'af_heart', label: 'Heart (Female)' },
-    { value: 'af_bella', label: 'Bella (Female)' },
-    { value: 'af_sarah', label: 'Sarah (Female)' },
-    { value: 'am_adam', label: 'Adam (Male)' },
-    { value: 'am_michael', label: 'Michael (Male)' },
-    { value: 'bf_emma', label: 'Emma (British Female)' },
-    { value: 'bm_george', label: 'George (British Male)' },
-  ],
-  elevenlabs: [
-    { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George (Male, Narrative)' },
-    { value: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily (Female, Narrative)' },
-    { value: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel (Male, British)' },
-    { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah (Female, Soft)' },
-    { value: 'TX3LPaxmHKxFdv7VOQHJ', label: 'Liam (Male, Articulate)' },
-    { value: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte (Female, Swedish)' },
-  ],
-  openai: [
-    { value: 'alloy', label: 'Alloy' },
-    { value: 'ash', label: 'Ash' },
-    { value: 'ballad', label: 'Ballad' },
-    { value: 'coral', label: 'Coral' },
-    { value: 'echo', label: 'Echo' },
-    { value: 'fable', label: 'Fable' },
-    { value: 'nova', label: 'Nova' },
-    { value: 'onyx', label: 'Onyx' },
-    { value: 'sage', label: 'Sage' },
-    { value: 'shimmer', label: 'Shimmer' },
-  ],
-}
-
-const DEFAULT_VOICES: Record<string, string> = {
-  edge_tts: 'en-US-AndrewMultilingualNeural',
-  kokoro: 'af_heart',
-  elevenlabs: 'JBFqnCBsd6RMkjVDRZzb',
-  openai: 'alloy',
-}
-
-function getVoicesForService(service: ServiceConfig): { value: string; label: string }[] {
-  // For openai_compatible, parse from service.options.voices
-  if (service.providerType === 'openai_compatible' && service.options.voices) {
-    return service.options.voices.split(',').map((pair) => {
-      const [value, label] = pair.trim().split(':')
-      return { value: value.trim(), label: label?.trim() || value.trim() }
-    }).filter((v) => v.value)
-  }
-  return VOICES_BY_PROVIDER[service.providerType] ?? []
-}
-
-function getDefaultVoiceForService(service: ServiceConfig): string {
-  if (service.providerType === 'openai_compatible' && service.options.voices) {
-    const voices = getVoicesForService(service)
-    return voices[0]?.value ?? ''
-  }
-  return DEFAULT_VOICES[service.providerType] ?? ''
-}
 
 const MAX_PREVIEW_MS = 30_000
 
@@ -97,8 +31,10 @@ export default function TextToSpeechPage() {
   // Voice settings — service-based
   const [serviceId, setServiceId] = useState(ttsServices[0]?.id ?? '')
   const selectedService = ttsServices.find((s) => s.id === serviceId) ?? ttsServices[0]
-  const [voice, setVoice] = useState(selectedService ? getDefaultVoiceForService(selectedService) : '')
+  const [voice, setVoice] = useState(selectedService ? getDefaultVoice(selectedService.engine, selectedService.options.voices) : '')
   const [speed, setSpeed] = useState(1.0)
+  const modelOptions = selectedService ? getModelsForEngine(selectedService.engine) : []
+  const [model, setModel] = useState(selectedService?.options.model ?? getDefaultModel(selectedService?.engine ?? ''))
 
   // Text tab state
   const [title, setTitle] = useState('')
@@ -143,7 +79,7 @@ export default function TextToSpeechPage() {
     disposeAudio()
     setPreviewingId(id)
     try {
-      const audioPath = await window.electronAPI.bookImport.preview(serviceId, voice, speed, text)
+      const audioPath = await window.electronAPI.bookImport.preview(serviceId, voice, speed, model || undefined, text)
       const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
       audio.onended = () => setPlayingId(null)
       audio.play()
@@ -227,7 +163,7 @@ export default function TextToSpeechPage() {
     setGenerating(true)
     setError(null)
     try {
-      const bookImport = await window.electronAPI.bookImport.generate(seriesId, extractedBook.epubPath, selected, serviceId, voice, speed)
+      const bookImport = await window.electronAPI.bookImport.generate(seriesId, extractedBook.epubPath, selected, serviceId, voice, speed, model || undefined)
       setActiveImport(bookImport)
       fetchEpisodes(seriesId)
     } catch (err) {
@@ -243,7 +179,7 @@ export default function TextToSpeechPage() {
     setError(null)
     try {
       const chaptersToGenerate = [{ title: title.trim(), text: textContent.trim() }]
-      const bookImport = await window.electronAPI.bookImport.generate(seriesId, '', chaptersToGenerate, serviceId, voice, speed)
+      const bookImport = await window.electronAPI.bookImport.generate(seriesId, '', chaptersToGenerate, serviceId, voice, speed, model || undefined)
       setActiveImport(bookImport)
       fetchEpisodes(seriesId)
     } catch (err) {
@@ -255,7 +191,7 @@ export default function TextToSpeechPage() {
 
   const canGenerateText = tab === 'text' && title.trim() && textContent.trim() && !generating && !!serviceId
   const canGenerateBook = tab === 'book' && selectedCount > 0 && !generating && !!serviceId
-  const voiceOptions = selectedService ? getVoicesForService(selectedService) : []
+  const voiceOptions = selectedService ? getVoicesForEngine(selectedService.engine, selectedService.options.voices) : []
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -277,13 +213,27 @@ export default function TextToSpeechPage() {
               const id = e.target.value
               setServiceId(id)
               const svc = ttsServices.find((s) => s.id === id)
-              if (svc) setVoice(getDefaultVoiceForService(svc))
+              if (svc) {
+                setVoice(getDefaultVoice(svc.engine, svc.options.voices))
+                setModel(svc.options.model ?? getDefaultModel(svc.engine))
+              }
               disposeAudio()
             }}
             options={ttsServices.map((s) => ({ value: s.id, label: s.name }))}
             className="w-44"
           />
         </div>
+        {modelOptions.length > 0 && (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Model</Label>
+            <Select
+              value={model}
+              onChange={(e) => { setModel(e.target.value); disposeAudio() }}
+              options={modelOptions}
+              className="w-36"
+            />
+          </div>
+        )}
         <div className="space-y-1 flex-1">
           <Label className="text-xs text-muted-foreground">Voice</Label>
           <Select

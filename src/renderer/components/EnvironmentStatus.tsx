@@ -113,7 +113,7 @@ export default function EnvironmentStatus() {
         <h3 className="text-sm font-medium">Tool Usage</h3>
         <div className="text-xs text-muted-foreground space-y-1">
           <p><strong>uv</strong> — Required for NLP analysis, TTS (Edge TTS / Kokoro), and book import (EPUB extraction)</p>
-          <p><strong>whisperx</strong> — Required only for local transcription (Local WhisperX provider)</p>
+          <p><strong>whisperx</strong> — Required only when using WhisperX with Local provider</p>
           <p><strong>ebook-convert</strong> — Required only for importing PDF books (converts PDF to EPUB)</p>
         </div>
       </div>

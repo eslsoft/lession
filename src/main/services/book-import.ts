@@ -4,8 +4,9 @@ import fs from 'node:fs'
 import { app, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
-import type { AppConfig, BookImport, ExtractedBook, Segment, ServiceConfig, TtsProviderType } from '../../shared/types'
+import type { AppConfig, BookImport, ExtractedBook, Segment, ServiceConfig, TtsEngine } from '../../shared/types'
 import { BUILTIN_SERVICES } from '../../shared/types'
+import { getDefaultVoice } from '../../shared/engines'
 import {
   createBookImport,
   getBookImport,
@@ -229,6 +230,7 @@ export function startBookImport(
   serviceId: string,
   voice: string,
   speed: number,
+  model?: string,
 ): BookImport {
   // Prevent concurrent imports for the same series
   for (const [, control] of activeImports) {
@@ -255,7 +257,7 @@ export function startBookImport(
   activeImports.set(bookImport.id, control)
 
   // Kick off pipeline asynchronously
-  runGeneratePipeline(bookImport.id, seriesId, epubPath, confirmedChapters, serviceId, voice, speed, control).catch((err) => {
+  runGeneratePipeline(bookImport.id, seriesId, epubPath, confirmedChapters, serviceId, voice, speed, control, model).catch((err) => {
     const existing = getBookImport(bookImport.id)
     if (existing && existing.status !== 'cancelled') {
       updateBookImport(bookImport.id, {
@@ -317,8 +319,10 @@ async function runGeneratePipeline(
   voice: string,
   speed: number,
   control: { cancelled: boolean },
+  model?: string,
 ): Promise<void> {
-  const service = resolveService(serviceId)
+  const resolved = resolveService(serviceId)
+  const service = model ? { ...resolved, options: { ...resolved.options, model } } : resolved
   const bookImport = getBookImport(importId)!
   const chapters = bookImport.chapters!
 
@@ -362,7 +366,7 @@ async function runGeneratePipeline(
 
     try {
       // TTS: text → audio
-      const capabilities = getProviderCapabilities(service.providerType as TtsProviderType)
+      const capabilities = getProviderCapabilities(service.engine as TtsEngine)
       const rawAudioPath = path.join(outputDir, `${episodeId}${capabilities.audioFormat}`)
       const ttsResult = await dispatchTts(
         service,
@@ -487,11 +491,11 @@ async function retryPipeline(
     sendEpisodeProgress(episodeId, 'generating', 0)
 
     try {
-      const capabilities = getProviderCapabilities(ttsService.providerType as TtsProviderType)
+      const capabilities = getProviderCapabilities(ttsService.engine as TtsEngine)
       const rawAudioPath = path.join(outputDir, `${episodeId}${capabilities.audioFormat}`)
       const ttsResult = await dispatchTts(
         ttsService,
-        ttsService.options.voice || 'en-US-AndrewMultilingualNeural',
+        ttsService.options.voice || getDefaultVoice(ttsService.engine),
         parseFloat(ttsService.options.speed || '1.0'),
         extractedChapter.text,
         rawAudioPath,
