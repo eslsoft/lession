@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDownloadStore } from '../../stores/downloadStore'
 import { useSeriesStore } from '../../stores/seriesStore'
-import { useEpisodeStore } from '../../stores/episodeStore'
 import type { Download } from '../../../shared/types'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -59,20 +58,14 @@ export default function DownloadsPage() {
     updateProgress,
   } = useDownloadStore()
   const { series, fetchSeries } = useSeriesStore()
-  const { createEpisode } = useEpisodeStore()
 
   const [url, setUrl] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // Dialog state for Create Episode
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [createDialogDownload, setCreateDialogDownload] = useState<Download | null>(null)
-  const [selectedSeriesId, setSelectedSeriesId] = useState('')
-
-  // Dialog state for Split & Import
-  const [splitDialogOpen, setSplitDialogOpen] = useState(false)
-  const [splitDialogDownload, setSplitDialogDownload] = useState<Download | null>(null)
-  const [splitSeriesId, setSplitSeriesId] = useState('')
+  // Import dialog state
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importDownload, setImportDownload] = useState<Download | null>(null)
+  const [importSeriesId, setImportSeriesId] = useState('')
 
   useEffect(() => {
     fetchDownloads()
@@ -111,40 +104,18 @@ export default function DownloadsPage() {
     await cancelDownload(id)
   }
 
-  const openCreateDialog = (dl: Download) => {
-    setCreateDialogDownload(dl)
-    setSelectedSeriesId(series[0]?.id ?? '')
-    setCreateDialogOpen(true)
+  const openImportDialog = (dl: Download) => {
+    setImportDownload(dl)
+    setImportSeriesId(series[0]?.id ?? '')
+    setImportDialogOpen(true)
   }
 
-  const handleCreateEpisode = async () => {
-    if (!createDialogDownload || !selectedSeriesId) return
-    await createEpisode({
-      seriesId: selectedSeriesId,
-      title: createDialogDownload.title || createDialogDownload.filename,
-      order: 0,
-      mimeType: 'video',
-      localPath: createDialogDownload.localPath,
-      duration: createDialogDownload.duration,
-      source: { type: 'url', origin: createDialogDownload.url },
-      status: 'ready',
-      publishStatus: 'draft',
-    })
-    setCreateDialogOpen(false)
-    setCreateDialogDownload(null)
-  }
-
-  const openSplitDialog = (dl: Download) => {
-    setSplitDialogDownload(dl)
-    setSplitSeriesId(series[0]?.id ?? '')
-    setSplitDialogOpen(true)
-  }
-
-  const handleSplitImport = () => {
-    if (!splitDialogDownload || !splitSeriesId) return
-    navigate(`/split?seriesId=${splitSeriesId}&file=${encodeURIComponent(splitDialogDownload.localPath || '')}`)
-    setSplitDialogOpen(false)
-    setSplitDialogDownload(null)
+  const handleImport = () => {
+    if (!importDownload || !importSeriesId) return
+    const filePath = importDownload.localPath ?? ''
+    navigate(`/series/${importSeriesId}/import-audio?file=${encodeURIComponent(filePath)}&seriesId=${importSeriesId}`)
+    setImportDialogOpen(false)
+    setImportDownload(null)
   }
 
   const sorted = [...downloads].sort(
@@ -228,22 +199,13 @@ export default function DownloadsPage() {
                       </Button>
                     )}
                     {dl.status === 'done' && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openCreateDialog(dl)}
-                        >
-                          Create Episode
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => openSplitDialog(dl)}
-                        >
-                          Split & Import
-                        </Button>
-                      </>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openImportDialog(dl)}
+                      >
+                        Import as Episode
+                      </Button>
                     )}
                     {dl.status === 'error' && (
                       <>
@@ -273,23 +235,23 @@ export default function DownloadsPage() {
         </Table>
       )}
 
-      {/* Create Episode Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent onClose={() => setCreateDialogOpen(false)}>
+      {/* Import Dialog — select target series */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent onClose={() => setImportDialogOpen(false)}>
           <DialogHeader>
-            <DialogTitle>Create Episode</DialogTitle>
+            <DialogTitle>Import as Episode</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Create an episode from "{createDialogDownload?.title || createDialogDownload?.filename}"
+              Import "{importDownload?.title || importDownload?.filename}" — you can choose to create a single episode or split into multiple on the next page.
             </p>
             <div>
               <label className="text-sm font-medium mb-1 block">Target Series</label>
               {seriesOptions.length > 0 ? (
                 <Select
                   options={seriesOptions}
-                  value={selectedSeriesId}
-                  onChange={(e) => setSelectedSeriesId(e.target.value)}
+                  value={importSeriesId}
+                  onChange={(e) => setImportSeriesId(e.target.value)}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">No series available. Create a series first.</p>
@@ -297,44 +259,10 @@ export default function DownloadsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateEpisode} disabled={!selectedSeriesId}>
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Split & Import Dialog */}
-      <Dialog open={splitDialogOpen} onOpenChange={setSplitDialogOpen}>
-        <DialogContent onClose={() => setSplitDialogOpen(false)}>
-          <DialogHeader>
-            <DialogTitle>Split & Import</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Split "{splitDialogDownload?.title || splitDialogDownload?.filename}" into episodes
-            </p>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Target Series</label>
-              {seriesOptions.length > 0 ? (
-                <Select
-                  options={seriesOptions}
-                  value={splitSeriesId}
-                  onChange={(e) => setSplitSeriesId(e.target.value)}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">No series available. Create a series first.</p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSplitDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSplitImport} disabled={!splitSeriesId}>
+            <Button onClick={handleImport} disabled={!importSeriesId}>
               Continue
             </Button>
           </DialogFooter>

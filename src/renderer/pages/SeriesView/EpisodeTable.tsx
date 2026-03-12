@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Scissors, Trash2, Play, Upload, BookOpen, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Play, Upload } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Progress } from '../../components/ui/progress'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
@@ -22,9 +22,6 @@ interface EpisodeTableProps {
   onBatchPublish: (ids: string[], targetStatus: 'preview' | 'published') => Promise<void>
   onBatchDelete: (ids: string[]) => Promise<void>
   onNewEpisode: () => void
-  onSplitImport: () => void
-  onImportBook: () => void
-  importBookLoading?: boolean
   activeBookImport: BookImport | null
 }
 
@@ -38,9 +35,6 @@ export function EpisodeTable({
   onBatchPublish,
   onBatchDelete,
   onNewEpisode,
-  onSplitImport,
-  onImportBook,
-  importBookLoading,
   activeBookImport,
 }: EpisodeTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -138,14 +132,6 @@ export function EpisodeTable({
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={onImportBook} disabled={importBookLoading}>
-            {importBookLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <BookOpen className="h-4 w-4 mr-2" />}
-            {importBookLoading ? 'Extracting...' : 'Import Book'}
-          </Button>
-          <Button variant="outline" onClick={onSplitImport}>
-            <Scissors className="h-4 w-4 mr-2" />
-            Split & Import
-          </Button>
           <Button onClick={onNewEpisode}>
             <Plus className="h-4 w-4 mr-2" />
             New Episode

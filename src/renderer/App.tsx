@@ -7,7 +7,8 @@ import DownloadsPage from './pages/Downloads'
 import SeriesListPage from './pages/SeriesView'
 import SeriesDetailPage from './pages/SeriesView/SeriesDetail'
 import EpisodeDetailPage from './pages/EpisodeDetail'
-import SplittingEditorPage from './pages/SplittingEditor'
+import ImportAudioPage from './pages/ImportAudio'
+import TextToSpeechPage from './pages/TextToSpeech'
 
 export default function App() {
   const { config, initialized, fetchConfig } = useConfigStore()
@@ -32,7 +33,8 @@ export default function App() {
           <Route path="/series/:id" element={<SeriesDetailPage />} />
           <Route path="/series/:seriesId/episodes/:episodeId" element={<EpisodeDetailPage />} />
           <Route path="/downloads" element={<DownloadsPage />} />
-          <Route path="/split" element={<SplittingEditorPage />} />
+          <Route path="/series/:id/import-audio" element={<ImportAudioPage />} />
+          <Route path="/series/:id/tts" element={<TextToSpeechPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/series" replace />} />
       </Routes>
