@@ -103,6 +103,18 @@ export function updateDownload(id: string, data: Partial<Download>): Download {
   return getDownload(id)!
 }
 
+export function resetInterruptedDownloads(): void {
+  const db = getDatabase()
+  db.prepare("UPDATE downloads SET status = 'pending', progress = 0 WHERE status = 'downloading'").run()
+}
+
+export function listPendingDownloads(): Download[] {
+  const db = getDatabase()
+  const stmt = db.prepare("SELECT * FROM downloads WHERE status = 'pending' ORDER BY createdAt ASC")
+  const rows = stmt.all() as DownloadRow[]
+  return rows.map(rowToDownload)
+}
+
 export function deleteDownload(id: string): void {
   const db = getDatabase()
   const stmt = db.prepare('DELETE FROM downloads WHERE id = ?')

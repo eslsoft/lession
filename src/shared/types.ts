@@ -189,9 +189,10 @@ export interface AppConfig {
     secretAccessKey: string
     publicBaseUrl: string
   }
-  import: {
+  downloader: {
     ytdlpPath: string
     downloadDir: string
+    maxConcurrent: number
   }
   services: ServiceConfig[]
 }

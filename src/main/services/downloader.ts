@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
 import type { Download, AppConfig } from '../../shared/types'
@@ -11,6 +11,8 @@ import {
   updateDownload,
   getDownload,
   deleteDownload,
+  listPendingDownloads,
+  resetInterruptedDownloads,
 } from '../db/repositories/download'
 
 const store = new Store()
@@ -29,10 +31,42 @@ function sendProgress(downloadId: string, progress: number): void {
   }
 }
 
-export function startDownload(url: string): Download {
+function getMaxConcurrent(): number {
   const config = getConfig()
-  const { ytdlpPath: configYtdlpPath, downloadDir } = config.import
+  return config.downloader.maxConcurrent || 3
+}
 
+function getDefaultDownloadDir(): string {
+  return path.join(app.getPath('downloads'), 'lession')
+}
+
+function tryProcessQueue(): void {
+  const config = getConfig()
+  const { ytdlpPath: configYtdlpPath, downloadDir: configDownloadDir } = config.downloader
+  const downloadDir = configDownloadDir || getDefaultDownloadDir()
+  const resolvedPath = getYtdlpPath(configYtdlpPath || undefined)
+
+  const pending = listPendingDownloads()
+  for (const dl of pending) {
+    if (activeProcesses.size >= getMaxConcurrent()) break
+    if (activeProcesses.has(dl.id)) continue
+    runYtdlp(dl.id, dl.url, downloadDir, resolvedPath)
+  }
+}
+
+/** Call on app startup to reset interrupted downloads and resume pending ones. */
+export function resumeDownloads(): void {
+  // Downloads that were "downloading" when the app quit have no active process — reset to pending
+  resetInterruptedDownloads()
+
+  try {
+    tryProcessQueue()
+  } catch {
+    // Config may not be set yet on first launch — that's fine
+  }
+}
+
+export function startDownload(url: string): Download {
   // Create DB record immediately with pending status
   const download = createDownload({
     url,
@@ -41,10 +75,7 @@ export function startDownload(url: string): Download {
     progress: 0,
   })
 
-  // Kick off the yt-dlp process asynchronously
-  const resolvedPath = getYtdlpPath(configYtdlpPath || undefined)
-  runYtdlp(download.id, url, downloadDir, resolvedPath)
-
+  tryProcessQueue()
   return download
 }
 
@@ -113,13 +144,14 @@ async function runYtdlp(
 
     // Check if the download record still exists (might have been deleted via cancel)
     const existing = getDownload(downloadId)
-    if (!existing) return
+    if (!existing) { tryProcessQueue(); return }
 
     if (code !== 0) {
       updateDownload(downloadId, {
         status: 'error',
         lastError: stderr.trim() || `yt-dlp exited with code ${code}`,
       })
+      tryProcessQueue()
       return
     }
 
@@ -168,6 +200,7 @@ async function runYtdlp(
       chapters,
     })
     sendProgress(downloadId, 100)
+    tryProcessQueue()
   })
 
   proc.on('error', (err) => {
@@ -178,6 +211,7 @@ async function runYtdlp(
       status: 'error',
       lastError: `Failed to start yt-dlp: ${err.message}`,
     })
+    tryProcessQueue()
   })
 }
 
@@ -188,25 +222,20 @@ export function cancelDownload(id: string): void {
     activeProcesses.delete(id)
   }
   deleteDownload(id)
+  tryProcessQueue()
 }
 
 export function retryDownload(id: string): Download {
   const existing = getDownload(id)
   if (!existing) throw new Error(`Download ${id} not found`)
 
-  const config = getConfig()
-  const { ytdlpPath: configYtdlpPath, downloadDir } = config.import
-
-  // Reset state
+  // Reset state to pending, let the queue pick it up
   updateDownload(id, {
     status: 'pending',
     progress: 0,
     lastError: undefined,
   })
 
-  // Re-run the download
-  const resolvedPath = getYtdlpPath(configYtdlpPath || undefined)
-  runYtdlp(id, existing.url, downloadDir, resolvedPath)
-
+  tryProcessQueue()
   return getDownload(id)!
 }

@@ -25,6 +25,7 @@ import { registerBookImportIpc } from './ipc/book-import.ipc';
 import { registerTtsIpc } from './ipc/tts.ipc';
 import { registerEnvIpc } from './ipc/env.ipc';
 import { registerMediaScheme, registerMediaProtocol } from './protocol';
+import { resumeDownloads } from './services/downloader';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -91,6 +92,9 @@ app.on('ready', () => {
 
   // Register IPC handlers
   registerAllIpc();
+
+  // Resume any pending/interrupted downloads from previous session
+  resumeDownloads();
 
   createWindow();
 });

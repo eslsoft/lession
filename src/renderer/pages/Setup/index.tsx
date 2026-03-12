@@ -24,19 +24,20 @@ const defaultConfig: AppConfig = {
     secretAccessKey: '',
     publicBaseUrl: '',
   },
-  import: {
+  downloader: {
     ytdlpPath: '',
     downloadDir: '',
+    maxConcurrent: 3,
   },
   services: [...BUILTIN_SERVICES],
 }
 
-type Section = 'storage' | 'services' | 'import' | 'environment'
+type Section = 'storage' | 'services' | 'downloader' | 'environment'
 
 const sections = [
   { id: 'storage' as Section, label: 'Storage', icon: HardDrive },
   { id: 'services' as Section, label: 'Services', icon: Server },
-  { id: 'import' as Section, label: 'Import', icon: Download },
+  { id: 'downloader' as Section, label: 'Downloader', icon: Download },
   { id: 'environment' as Section, label: 'Environment', icon: Terminal },
 ]
 
@@ -87,8 +88,8 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
     setTestResult(null)
   }
 
-  function updateImport<K extends keyof AppConfig['import']>(key: K, value: AppConfig['import'][K]) {
-    setForm((prev) => ({ ...prev, import: { ...prev.import, [key]: value } }))
+  function updateDownloader<K extends keyof AppConfig['downloader']>(key: K, value: AppConfig['downloader'][K]) {
+    setForm((prev) => ({ ...prev, downloader: { ...prev.downloader, [key]: value } }))
   }
 
   function saveService(service: ServiceConfig) {
@@ -148,7 +149,7 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
 
   async function handleSelectDirectory() {
     const result = await window.electronAPI.dialog.openDirectory()
-    if (result) updateImport('downloadDir', result)
+    if (result) updateDownloader('downloadDir', result)
   }
 
   const ttsServices = form.services.filter((s) => s.category === 'tts')
@@ -357,22 +358,35 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                 </div>
               )}
 
-              {activeSection === 'import' && (
+              {activeSection === 'downloader' && (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="downloadDir">Download Directory</Label>
                     <div className="flex gap-2">
                       <Input
                         id="downloadDir"
-                        placeholder="/Users/you/Downloads"
-                        value={form.import.downloadDir}
-                        onChange={(e) => updateImport('downloadDir', e.target.value)}
+                        placeholder="~/Downloads/lession"
+                        value={form.downloader.downloadDir}
+                        onChange={(e) => updateDownloader('downloadDir', e.target.value)}
                         className="flex-1"
                       />
                       <Button variant="outline" size="icon" onClick={handleSelectDirectory}>
                         <FolderOpen className="h-4 w-4" />
                       </Button>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="maxConcurrent">Max Concurrent Downloads</Label>
+                    <Input
+                      id="maxConcurrent"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={form.downloader.maxConcurrent || 3}
+                      onChange={(e) => updateDownloader('maxConcurrent', Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                      className="w-24"
+                    />
                   </div>
                 </div>
               )}
