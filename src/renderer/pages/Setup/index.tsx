@@ -38,10 +38,6 @@ const defaultConfig: AppConfig = {
     provider: 'edge_tts',
     voice: 'en-US-AndrewMultilingualNeural',
     speed: 1.0,
-    replicate: {
-      apiToken: '',
-      model: 'jaaari/kokoro-82m',
-    },
   },
 }
 
@@ -409,13 +405,12 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                         updateTts('provider', provider)
                         // Reset voice to default for the selected provider
                         if (provider === 'edge_tts') updateTts('voice', 'en-US-AndrewMultilingualNeural')
-                        else if (provider === 'local_kokoro' || provider === 'replicate') updateTts('voice', 'af_heart')
+                        else if (provider === 'kokoro') updateTts('voice', 'af_heart')
                         setPreviewAudioPath(null)
                       }}
                       options={[
                         { value: 'edge_tts', label: 'Edge TTS (Recommended)' },
-                        { value: 'local_kokoro', label: 'Local Kokoro-82M' },
-                        { value: 'replicate', label: 'Replicate (Cloud)' },
+                        { value: 'kokoro', label: 'Local Kokoro-82M' },
                       ]}
                     />
                   </div>
@@ -470,47 +465,6 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                       />
                     </div>
                   </div>
-
-                  {form.tts?.provider === 'replicate' && (
-                    <>
-                      <Separator />
-                      <div className="space-y-2">
-                        <Label htmlFor="ttsReplicateToken">API Token</Label>
-                        <Input
-                          id="ttsReplicateToken"
-                          type="password"
-                          placeholder="r8_..."
-                          value={form.tts?.replicate?.apiToken ?? ''}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              tts: {
-                                ...prev.tts,
-                                replicate: { ...prev.tts.replicate, apiToken: e.target.value },
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ttsReplicateModel">Model</Label>
-                        <Input
-                          id="ttsReplicateModel"
-                          placeholder="owner/model"
-                          value={form.tts?.replicate?.model ?? ''}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              tts: {
-                                ...prev.tts,
-                                replicate: { ...prev.tts.replicate, model: e.target.value },
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-                    </>
-                  )}
 
                   <Separator />
 

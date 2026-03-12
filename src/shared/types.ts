@@ -182,13 +182,9 @@ export interface AppConfig {
     downloadDir: string
   }
   tts: {
-    provider: 'edge_tts' | 'local_kokoro' | 'replicate'
+    provider: 'edge_tts' | 'kokoro'
     voice: string
     speed: number
-    replicate: {
-      apiToken: string
-      model: string
-    }
   }
 }
 
