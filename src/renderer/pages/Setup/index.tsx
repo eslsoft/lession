@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { FolderOpen, CheckCircle, XCircle, Loader2, HardDrive, Mic, Download, X, Volume2, Play, Square, Terminal } from 'lucide-react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { FolderOpen, CheckCircle, XCircle, Loader2, HardDrive, Download, X, Terminal, Server, Plus, Pencil, Trash2, Volume2, Play, Square } from 'lucide-react'
 import { useConfigStore } from '../../stores/configStore'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -7,8 +7,10 @@ import { Label } from '../../components/ui/label'
 import { Select } from '../../components/ui/select'
 import { Separator } from '../../components/ui/separator'
 import { Dialog, DialogContent } from '../../components/ui/dialog'
+import { Badge } from '../../components/ui/badge'
 import { cn } from '../../lib/utils'
-import type { AppConfig } from '../../../shared/types'
+import type { AppConfig, ServiceConfig, TtsProviderType, TranscriptionProviderType } from '../../../shared/types'
+import { BUILTIN_SERVICES } from '../../../shared/types'
 import EnvironmentStatus from '../../components/EnvironmentStatus'
 
 const defaultConfig: AppConfig = {
@@ -20,42 +22,52 @@ const defaultConfig: AppConfig = {
     secretAccessKey: '',
     publicBaseUrl: '',
   },
-  transcription: {
-    provider: 'local_whisperx',
-    whisperxPath: '',
-    device: 'cpu',
-    computeType: 'float16',
-    defaultLanguage: 'en',
-    replicate: {
-      apiToken: '',
-    },
-  },
   import: {
     ytdlpPath: '',
     downloadDir: '',
   },
-  tts: {
-    provider: 'edge_tts',
-    voice: 'en-US-AndrewMultilingualNeural',
-    speed: 1.0,
-    elevenlabs: { apiKey: '' },
-    openai: { apiKey: '' },
-  },
+  services: [...BUILTIN_SERVICES],
 }
 
-type Section = 'storage' | 'transcription' | 'tts' | 'import' | 'environment'
+type Section = 'storage' | 'services' | 'import' | 'environment'
 
 const sections = [
   { id: 'storage' as Section, label: 'Storage', icon: HardDrive },
-  { id: 'transcription' as Section, label: 'Transcription', icon: Mic },
-  { id: 'tts' as Section, label: 'TTS', icon: Volume2 },
+  { id: 'services' as Section, label: 'Services', icon: Server },
   { id: 'import' as Section, label: 'Import', icon: Download },
   { id: 'environment' as Section, label: 'Environment', icon: Terminal },
+]
+
+const TTS_PROVIDERS: { value: TtsProviderType; label: string }[] = [
+  { value: 'elevenlabs', label: 'ElevenLabs' },
+  { value: 'openai', label: 'OpenAI TTS' },
+  { value: 'openai_compatible', label: 'OpenAI Compatible' },
+]
+
+const TRANSCRIPTION_PROVIDERS: { value: TranscriptionProviderType; label: string }[] = [
+  { value: 'replicate', label: 'Replicate WhisperX' },
 ]
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+function generateId(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
+
+function defaultServiceName(providerType: string): string {
+  const names: Record<string, string> = {
+    edge_tts: 'Edge TTS',
+    kokoro: 'Kokoro',
+    elevenlabs: 'ElevenLabs',
+    openai: 'OpenAI TTS',
+    openai_compatible: 'OpenAI Compatible',
+    local_whisperx: 'Local WhisperX',
+    replicate: 'Replicate',
+  }
+  return names[providerType] ?? providerType
 }
 
 export default function SetupDialog({ open, onOpenChange }: Props) {
@@ -67,24 +79,13 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<boolean | null>(null)
-  const [previewing, setPreviewing] = useState(false)
-  const [previewAudioPath, setPreviewAudioPath] = useState<string | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  function disposeAudio() {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.onended = null
-      audioRef.current.removeAttribute('src')
-      audioRef.current.load()
-      audioRef.current = null
-    }
-    setIsPlaying(false)
-  }
+  // Service editor state
+  const [editingService, setEditingService] = useState<ServiceConfig | null>(null)
+  const [addingCategory, setAddingCategory] = useState<'tts' | 'transcription' | null>(null)
 
   useEffect(() => {
-    if (config) setForm({ ...defaultConfig, ...config, tts: { ...defaultConfig.tts, ...config.tts } })
+    if (config) setForm({ ...defaultConfig, ...config })
   }, [config])
 
   function updateStorage<K extends keyof AppConfig['storage']>(key: K, value: AppConfig['storage'][K]) {
@@ -92,16 +93,33 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
     setTestResult(null)
   }
 
-  function updateTranscription<K extends keyof AppConfig['transcription']>(key: K, value: AppConfig['transcription'][K]) {
-    setForm((prev) => ({ ...prev, transcription: { ...prev.transcription, [key]: value } }))
-  }
-
   function updateImport<K extends keyof AppConfig['import']>(key: K, value: AppConfig['import'][K]) {
     setForm((prev) => ({ ...prev, import: { ...prev.import, [key]: value } }))
   }
 
-  function updateTts<K extends keyof AppConfig['tts']>(key: K, value: AppConfig['tts'][K]) {
-    setForm((prev) => ({ ...prev, tts: { ...prev.tts, [key]: value } }))
+  function saveService(service: ServiceConfig) {
+    setForm((prev) => {
+      const existing = prev.services.findIndex((s) => s.id === service.id)
+      const services = [...prev.services]
+      if (existing >= 0) {
+        services[existing] = service
+      } else {
+        services.push(service)
+      }
+      return { ...prev, services }
+    })
+    setEditingService(null)
+    setAddingCategory(null)
+  }
+
+  function removeService(id: string) {
+    // Prevent removing builtin services
+    const service = form.services.find((s) => s.id === id)
+    if (service?.builtin) return
+    setForm((prev) => ({
+      ...prev,
+      services: prev.services.filter((s) => s.id !== id),
+    }))
   }
 
   async function handleTestConnection() {
@@ -127,17 +145,13 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
     }
   }
 
-  async function handleSelectFile() {
-    const result = await window.electronAPI.dialog.openFile()
-    if (result) {
-      updateTranscription('whisperxPath', result)
-    }
-  }
-
   async function handleSelectDirectory() {
     const result = await window.electronAPI.dialog.openDirectory()
     if (result) updateImport('downloadDir', result)
   }
+
+  const ttsServices = form.services.filter((s) => s.category === 'tts')
+  const transcriptionServices = form.services.filter((s) => s.category === 'transcription')
 
   return (
     <Dialog open={open} onOpenChange={isFirstTime ? () => { /* noop */ } : onOpenChange}>
@@ -272,304 +286,73 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
                 </div>
               )}
 
-              {activeSection === 'transcription' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="provider">Provider</Label>
-                    <Select
-                      id="provider"
-                      value={form.transcription.provider}
-                      onChange={(e) => updateTranscription('provider', e.target.value as 'local_whisperx' | 'replicate')}
-                      options={[
-                        { value: 'local_whisperx', label: 'Local WhisperX' },
-                        { value: 'replicate', label: 'Replicate WhisperX' },
-                      ]}
+              {activeSection === 'services' && (
+                <div className="space-y-6">
+                  {/* Editing / Adding a service */}
+                  {(editingService || addingCategory) ? (
+                    <ServiceEditor
+                      service={editingService}
+                      category={addingCategory ?? editingService!.category}
+                      onSave={saveService}
+                      onCancel={() => { setEditingService(null); setAddingCategory(null) }}
                     />
-                  </div>
-
-                  <Separator />
-
-                  {form.transcription.provider === 'local_whisperx' && (
+                  ) : (
                     <>
-                      <div className="space-y-2">
-                        <Label htmlFor="whisperxPath">WhisperX Path</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="whisperxPath"
-                            placeholder="/usr/local/bin/whisperx"
-                            value={form.transcription.whisperxPath}
-                            onChange={(e) => updateTranscription('whisperxPath', e.target.value)}
-                            className="flex-1"
-                          />
-                          <Button variant="outline" size="icon" onClick={handleSelectFile}>
-                            <FolderOpen className="h-4 w-4" />
+                      {/* TTS Services */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-medium">TTS Services</h3>
+                          <Button variant="outline" size="sm" onClick={() => setAddingCategory('tts')}>
+                            <Plus className="mr-1 h-3 w-3" /> Add
                           </Button>
                         </div>
+                        {ttsServices.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-3 text-center border rounded-lg border-dashed">
+                            No TTS services configured
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {ttsServices.map((s) => (
+                              <ServiceRow
+                                key={s.id}
+                                service={s}
+                                onEdit={() => setEditingService(s)}
+                                onRemove={() => removeService(s.id)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="device">Device</Label>
-                          <Select
-                            id="device"
-                            value={form.transcription.device}
-                            onChange={(e) => updateTranscription('device', e.target.value as 'cpu' | 'cuda' | 'mps')}
-                            options={[
-                              { value: 'cpu', label: 'CPU' },
-                              { value: 'cuda', label: 'CUDA (NVIDIA GPU)' },
-                              { value: 'mps', label: 'MPS (Apple Silicon)' },
-                            ]}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="computeType">Compute Type</Label>
-                          <Select
-                            id="computeType"
-                            value={form.transcription.computeType}
-                            onChange={(e) => updateTranscription('computeType', e.target.value)}
-                            options={[
-                              { value: 'float16', label: 'float16' },
-                              { value: 'int8', label: 'int8' },
-                              { value: 'float32', label: 'float32' },
-                            ]}
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {form.transcription.provider === 'replicate' && (
-                    <>
-                      <div className="space-y-2">
-                        <Label htmlFor="replicateApiToken">API Token</Label>
-                        <Input
-                          id="replicateApiToken"
-                          type="password"
-                          placeholder="r8_..."
-                          value={form.transcription.replicate?.apiToken ?? ''}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              transcription: {
-                                ...prev.transcription,
-                                replicate: { ...prev.transcription.replicate, apiToken: e.target.value },
-                              },
-                            }))
-                          }
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Get your token at replicate.com/account/api-tokens
-                        </p>
-                      </div>
-
-                    </>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="defaultLanguage">Default Language</Label>
-                    <Input
-                      id="defaultLanguage"
-                      placeholder="en"
-                      value={form.transcription.defaultLanguage}
-                      onChange={(e) => updateTranscription('defaultLanguage', e.target.value)}
-                      className="w-32"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {activeSection === 'tts' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="ttsProvider">Provider</Label>
-                    <Select
-                      id="ttsProvider"
-                      value={form.tts?.provider ?? 'edge_tts'}
-                      onChange={(e) => {
-                        const provider = e.target.value as AppConfig['tts']['provider']
-                        updateTts('provider', provider)
-                        // Reset voice to default for the selected provider
-                        if (provider === 'edge_tts') updateTts('voice', 'en-US-AndrewMultilingualNeural')
-                        else if (provider === 'kokoro') updateTts('voice', 'af_heart')
-                        else if (provider === 'elevenlabs') updateTts('voice', 'JBFqnCBsd6RMkjVDRZzb')
-                        else if (provider === 'openai') updateTts('voice', 'alloy')
-                        setPreviewAudioPath(null)
-                      }}
-                      options={[
-                        { value: 'edge_tts', label: 'Edge TTS' },
-                        { value: 'kokoro', label: 'Kokoro-82M' },
-                        { value: 'elevenlabs', label: 'ElevenLabs' },
-                        { value: 'openai', label: 'OpenAI TTS' },
-                      ]}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="ttsVoice">Voice</Label>
-                      <Select
-                        id="ttsVoice"
-                        value={form.tts?.voice ?? ''}
-                        onChange={(e) => { updateTts('voice', e.target.value); setPreviewAudioPath(null) }}
-                        options={
-                          form.tts?.provider === 'edge_tts' ? [
-                            { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
-                            { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
-                            { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
-                            { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
-                            { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
-                            { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
-                            { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
-                          ] : form.tts?.provider === 'kokoro' ? [
-                            { value: 'af_heart', label: 'Heart (Female)' },
-                            { value: 'af_bella', label: 'Bella (Female)' },
-                            { value: 'af_sarah', label: 'Sarah (Female)' },
-                            { value: 'am_adam', label: 'Adam (Male)' },
-                            { value: 'am_michael', label: 'Michael (Male)' },
-                            { value: 'bf_emma', label: 'Emma (British Female)' },
-                            { value: 'bm_george', label: 'George (British Male)' },
-                          ] : form.tts?.provider === 'elevenlabs' ? [
-                            { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George (Male, Narrative)' },
-                            { value: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily (Female, Narrative)' },
-                            { value: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel (Male, British)' },
-                            { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah (Female, Soft)' },
-                            { value: 'TX3LPaxmHKxFdv7VOQHJ', label: 'Liam (Male, Articulate)' },
-                            { value: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte (Female, Swedish)' },
-                          ] : [
-                            { value: 'alloy', label: 'Alloy' },
-                            { value: 'ash', label: 'Ash' },
-                            { value: 'ballad', label: 'Ballad' },
-                            { value: 'coral', label: 'Coral' },
-                            { value: 'echo', label: 'Echo' },
-                            { value: 'fable', label: 'Fable' },
-                            { value: 'nova', label: 'Nova' },
-                            { value: 'onyx', label: 'Onyx' },
-                            { value: 'sage', label: 'Sage' },
-                            { value: 'shimmer', label: 'Shimmer' },
-                          ]
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="ttsSpeed">Speed</Label>
-                      <Input
-                        id="ttsSpeed"
-                        type="number"
-                        min={0.5}
-                        max={2.0}
-                        step={0.1}
-                        value={form.tts?.speed ?? 1.0}
-                        onChange={(e) => updateTts('speed', parseFloat(e.target.value) || 1.0)}
-                      />
-                    </div>
-                  </div>
-
-                  {(form.tts?.provider === 'elevenlabs' || form.tts?.provider === 'openai') && (
-                    <>
                       <Separator />
-                      <div className="space-y-2">
-                        <Label htmlFor="ttsApiKey">
-                          {form.tts.provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'} API Key
-                        </Label>
-                        <Input
-                          id="ttsApiKey"
-                          type="password"
-                          placeholder={form.tts.provider === 'elevenlabs' ? 'sk_...' : 'sk-...'}
-                          value={
-                            form.tts.provider === 'elevenlabs'
-                              ? (form.tts.elevenlabs?.apiKey ?? '')
-                              : (form.tts.openai?.apiKey ?? '')
-                          }
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              tts: {
-                                ...prev.tts,
-                                ...(prev.tts.provider === 'elevenlabs'
-                                  ? { elevenlabs: { ...prev.tts.elevenlabs, apiKey: e.target.value } }
-                                  : { openai: { ...prev.tts.openai, apiKey: e.target.value } }),
-                              },
-                            }))
-                          }
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {form.tts.provider === 'elevenlabs'
-                            ? 'Get your key at elevenlabs.io/app/settings/api-keys'
-                            : 'Get your key at platform.openai.com/api-keys'}
-                        </p>
+
+                      {/* Transcription Services */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-medium">Transcription Services</h3>
+                          <Button variant="outline" size="sm" onClick={() => setAddingCategory('transcription')}>
+                            <Plus className="mr-1 h-3 w-3" /> Add
+                          </Button>
+                        </div>
+                        {transcriptionServices.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-3 text-center border rounded-lg border-dashed">
+                            No transcription services configured
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {transcriptionServices.map((s) => (
+                              <ServiceRow
+                                key={s.id}
+                                service={s}
+                                onEdit={() => setEditingService(s)}
+                                onRemove={() => removeService(s.id)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
-
-                  <Separator />
-
-                  {/* Voice Preview */}
-                  <div className="space-y-3">
-                    <Label>Voice Preview</Label>
-                    <p className="text-xs text-muted-foreground">
-                      "The quick brown fox jumps over the lazy dog. This is a preview of the selected voice."
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          disposeAudio()
-                          setPreviewing(true)
-                          setPreviewAudioPath(null)
-                          try {
-                            const audioPath = await window.electronAPI.bookImport.preview(
-                              form.tts.provider,
-                              form.tts.voice,
-                              form.tts.speed,
-                            )
-                            setPreviewAudioPath(audioPath)
-                            // Auto-play after generation
-                            const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
-                            audio.onended = () => setIsPlaying(false)
-                            audio.play()
-                            audioRef.current = audio
-                            setIsPlaying(true)
-                          } catch (err) {
-                            console.error('TTS preview failed:', err)
-                          } finally {
-                            setPreviewing(false)
-                          }
-                        }}
-                        disabled={previewing}
-                      >
-                        {previewing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                        Try Voice
-                      </Button>
-                      {isPlaying && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => disposeAudio()}
-                        >
-                          <Square className="mr-1 h-3 w-3" /> Stop
-                        </Button>
-                      )}
-                      {previewAudioPath && !isPlaying && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            disposeAudio()
-                            const audio = new Audio(`local-media://localhost${encodeURI(previewAudioPath)}`)
-                            audio.onended = () => setIsPlaying(false)
-                            audio.play()
-                            audioRef.current = audio
-                            setIsPlaying(true)
-                          }}
-                        >
-                          <Play className="mr-1 h-3 w-3" /> Replay
-                        </Button>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -598,16 +381,411 @@ export default function SetupDialog({ open, onOpenChange }: Props) {
               )}
             </div>
 
-            {/* Footer */}
-            <div className="flex flex-shrink-0 justify-end border-t border-border px-6 py-3">
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isFirstTime ? 'Save & Get Started' : 'Save'}
-              </Button>
-            </div>
+            {/* Footer — hidden when editing a service (ServiceEditor has its own buttons) */}
+            {!(activeSection === 'services' && (editingService || addingCategory)) && (
+              <div className="flex flex-shrink-0 justify-end border-t border-border px-6 py-3">
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isFirstTime ? 'Save & Get Started' : 'Save'}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ── Service Row ──
+
+function ServiceRow({ service, onEdit, onRemove }: { service: ServiceConfig; onEdit: () => void; onRemove: () => void }) {
+  return (
+    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border bg-card">
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium">{service.name}</span>
+        <Badge variant="outline" className="text-xs">{service.providerType}</Badge>
+        {service.builtin && <Badge variant="secondary" className="text-xs">Built-in</Badge>}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onEdit}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        {!service.builtin && (
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={onRemove}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Service Editor ──
+
+const VOICES_BY_PROVIDER: Record<string, { value: string; label: string }[]> = {
+  edge_tts: [
+    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Male)' },
+    { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Female)' },
+    { value: 'en-US-GuyNeural', label: 'Guy (Male)' },
+    { value: 'en-US-JennyNeural', label: 'Jenny (Female)' },
+    { value: 'en-US-AriaNeural', label: 'Aria (Female)' },
+    { value: 'en-GB-SoniaNeural', label: 'Sonia (British Female)' },
+    { value: 'en-GB-RyanNeural', label: 'Ryan (British Male)' },
+  ],
+  kokoro: [
+    { value: 'af_heart', label: 'Heart (Female)' },
+    { value: 'af_bella', label: 'Bella (Female)' },
+    { value: 'af_sarah', label: 'Sarah (Female)' },
+    { value: 'am_adam', label: 'Adam (Male)' },
+    { value: 'am_michael', label: 'Michael (Male)' },
+    { value: 'bf_emma', label: 'Emma (British Female)' },
+    { value: 'bm_george', label: 'George (British Male)' },
+  ],
+  elevenlabs: [
+    { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George (Male, Narrative)' },
+    { value: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily (Female, Narrative)' },
+    { value: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel (Male, British)' },
+    { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah (Female, Soft)' },
+    { value: 'TX3LPaxmHKxFdv7VOQHJ', label: 'Liam (Male, Articulate)' },
+    { value: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte (Female, Swedish)' },
+  ],
+  openai: [
+    { value: 'alloy', label: 'Alloy' },
+    { value: 'ash', label: 'Ash' },
+    { value: 'ballad', label: 'Ballad' },
+    { value: 'coral', label: 'Coral' },
+    { value: 'echo', label: 'Echo' },
+    { value: 'fable', label: 'Fable' },
+    { value: 'nova', label: 'Nova' },
+    { value: 'onyx', label: 'Onyx' },
+    { value: 'sage', label: 'Sage' },
+    { value: 'shimmer', label: 'Shimmer' },
+  ],
+}
+
+function getVoicesForProvider(providerType: string, optionsVoices?: string): { value: string; label: string }[] {
+  if (providerType === 'openai_compatible' && optionsVoices) {
+    return optionsVoices.split(',').map((pair) => {
+      const [value, label] = pair.trim().split(':')
+      return { value: value.trim(), label: label?.trim() || value.trim() }
+    }).filter((v) => v.value)
+  }
+  return VOICES_BY_PROVIDER[providerType] ?? []
+}
+
+function ServiceEditor({
+  service,
+  category,
+  onSave,
+  onCancel,
+}: {
+  service: ServiceConfig | null
+  category: 'tts' | 'transcription'
+  onSave: (service: ServiceConfig) => void
+  onCancel: () => void
+}) {
+  const isNew = !service
+  const providerOptions = category === 'tts' ? TTS_PROVIDERS : TRANSCRIPTION_PROVIDERS
+  const [providerType, setProviderType] = useState(service?.providerType ?? providerOptions[0].value)
+  const [name, setName] = useState(service?.name ?? '')
+  const [credentials, setCredentials] = useState<Record<string, string>>(service?.credentials ?? {})
+  const [options, setOptions] = useState<Record<string, string>>(service?.options ?? {})
+
+  // Preview state (TTS only)
+  const voiceOptions = getVoicesForProvider(providerType, options.voices)
+  const [previewVoice, setPreviewVoice] = useState(voiceOptions[0]?.value ?? '')
+  const [previewSpeed, setPreviewSpeed] = useState(1.0)
+  const [previewing, setPreviewing] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [previewAudioPath, setPreviewAudioPath] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const disposeAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.onended = null
+      audioRef.current.removeAttribute('src')
+      audioRef.current.load()
+      audioRef.current = null
+    }
+    setIsPlaying(false)
+  }, [])
+
+  function updateCredential(key: string, value: string) {
+    setCredentials((prev) => ({ ...prev, [key]: value }))
+  }
+  function updateOption(key: string, value: string) {
+    setOptions((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleProviderChange(newType: string) {
+    setProviderType(newType as TtsProviderType | TranscriptionProviderType)
+    if (!name || name === defaultServiceName(providerType)) {
+      setName(defaultServiceName(newType))
+    }
+    setCredentials({})
+    setOptions({})
+  }
+
+  function handleSave() {
+    onSave({
+      id: service?.id ?? generateId(),
+      name: name || defaultServiceName(providerType),
+      category,
+      providerType,
+      credentials,
+      options,
+      ...(service?.builtin ? { builtin: true } : {}),
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">{isNew ? 'Add' : 'Edit'} {category === 'tts' ? 'TTS' : 'Transcription'} Service</h3>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Provider</Label>
+        <Select
+          value={providerType}
+          onChange={(e) => handleProviderChange(e.target.value)}
+          options={providerOptions}
+          disabled={!!service}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Name</Label>
+        <Input
+          placeholder={defaultServiceName(providerType)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={!!service?.builtin}
+        />
+      </div>
+
+      {/* Provider-specific fields */}
+      {(providerType === 'elevenlabs' || providerType === 'openai') && (
+        <div className="space-y-2">
+          <Label>API Key</Label>
+          <Input
+            type="password"
+            placeholder={providerType === 'elevenlabs' ? 'sk_...' : 'sk-...'}
+            value={credentials.apiKey ?? ''}
+            onChange={(e) => updateCredential('apiKey', e.target.value)}
+          />
+        </div>
+      )}
+
+      {providerType === 'openai_compatible' && (
+        <>
+          <div className="space-y-2">
+            <Label>Base URL</Label>
+            <Input
+              placeholder="https://api.example.com/v1"
+              value={options.baseUrl ?? ''}
+              onChange={(e) => updateOption('baseUrl', e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Model</Label>
+            <Input
+              placeholder="tts-1"
+              value={options.model ?? ''}
+              onChange={(e) => updateOption('model', e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>API Key (optional)</Label>
+            <Input
+              type="password"
+              placeholder="sk-..."
+              value={credentials.apiKey ?? ''}
+              onChange={(e) => updateCredential('apiKey', e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Voices (comma-separated: value:label,...)</Label>
+            <Input
+              placeholder="alloy:Alloy,nova:Nova"
+              value={options.voices ?? ''}
+              onChange={(e) => updateOption('voices', e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Format: value:label pairs separated by commas. Example: alloy:Alloy,nova:Nova
+            </p>
+          </div>
+        </>
+      )}
+
+      {providerType === 'local_whisperx' && (
+        <>
+          <div className="space-y-2">
+            <Label>WhisperX Path</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="/usr/local/bin/whisperx"
+                value={options.whisperxPath ?? ''}
+                onChange={(e) => updateOption('whisperxPath', e.target.value)}
+                className="flex-1"
+              />
+              <Button variant="outline" size="icon" onClick={async () => {
+                const result = await window.electronAPI.dialog.openFile()
+                if (result) updateOption('whisperxPath', result)
+              }}>
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Device</Label>
+              <Select
+                value={options.device ?? 'cpu'}
+                onChange={(e) => updateOption('device', e.target.value)}
+                options={[
+                  { value: 'cpu', label: 'CPU' },
+                  { value: 'cuda', label: 'CUDA (NVIDIA GPU)' },
+                  { value: 'mps', label: 'MPS (Apple Silicon)' },
+                ]}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Compute Type</Label>
+              <Select
+                value={options.computeType ?? 'float16'}
+                onChange={(e) => updateOption('computeType', e.target.value)}
+                options={[
+                  { value: 'float16', label: 'float16' },
+                  { value: 'int8', label: 'int8' },
+                  { value: 'float32', label: 'float32' },
+                ]}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Default Language</Label>
+            <Input
+              placeholder="en"
+              value={options.defaultLanguage ?? ''}
+              onChange={(e) => updateOption('defaultLanguage', e.target.value)}
+              className="w-32"
+            />
+          </div>
+        </>
+      )}
+
+      {providerType === 'replicate' && (
+        <div className="space-y-2">
+          <Label>API Token</Label>
+          <Input
+            type="password"
+            placeholder="r8_..."
+            value={credentials.apiToken ?? ''}
+            onChange={(e) => updateCredential('apiToken', e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Get your token at replicate.com/account/api-tokens
+          </p>
+        </div>
+      )}
+
+      {/* Voice Preview (TTS services only, existing services) */}
+      {category === 'tts' && !isNew && voiceOptions.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <Label>Voice Preview</Label>
+            <div className="flex items-end gap-3">
+              <div className="space-y-1 flex-1">
+                <Label className="text-xs text-muted-foreground">Voice</Label>
+                <Select
+                  value={previewVoice}
+                  onChange={(e) => { setPreviewVoice(e.target.value); disposeAudio(); setPreviewAudioPath(null) }}
+                  options={voiceOptions}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Speed</Label>
+                <Input
+                  type="number"
+                  min={0.5}
+                  max={2.0}
+                  step={0.1}
+                  value={previewSpeed}
+                  onChange={(e) => setPreviewSpeed(parseFloat(e.target.value) || 1.0)}
+                  className="w-20"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              &ldquo;The quick brown fox jumps over the lazy dog. This is a preview of the selected voice.&rdquo;
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  disposeAudio()
+                  setPreviewing(true)
+                  setPreviewAudioPath(null)
+                  try {
+                    const audioPath = await window.electronAPI.bookImport.preview(
+                      service!.id,
+                      previewVoice,
+                      previewSpeed,
+                    )
+                    setPreviewAudioPath(audioPath)
+                    const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
+                    audio.onended = () => setIsPlaying(false)
+                    audio.play()
+                    audioRef.current = audio
+                    setIsPlaying(true)
+                  } catch (err) {
+                    console.error('TTS preview failed:', err)
+                  } finally {
+                    setPreviewing(false)
+                  }
+                }}
+                disabled={previewing || !previewVoice}
+              >
+                {previewing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Volume2 className="mr-1 h-3 w-3" />}
+                Try Voice
+              </Button>
+              {isPlaying && (
+                <Button variant="ghost" size="sm" onClick={disposeAudio}>
+                  <Square className="mr-1 h-3 w-3" /> Stop
+                </Button>
+              )}
+              {previewAudioPath && !isPlaying && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    disposeAudio()
+                    const audio = new Audio(`local-media://localhost${encodeURI(previewAudioPath)}`)
+                    audio.onended = () => setIsPlaying(false)
+                    audio.play()
+                    audioRef.current = audio
+                    setIsPlaying(true)
+                  }}
+                >
+                  <Play className="mr-1 h-3 w-3" /> Replay
+                </Button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" size="sm" onClick={() => { disposeAudio(); onCancel() }}>Cancel</Button>
+        <Button size="sm" onClick={() => { disposeAudio(); handleSave() }}>
+          {isNew ? 'Add Service' : 'Save'}
+        </Button>
+      </div>
+    </div>
   )
 }

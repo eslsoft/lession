@@ -11,6 +11,7 @@ import SegmentAnalysisPanel from '../../components/SegmentAnalysisPanel'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Progress } from '../../components/ui/progress'
+import { Select } from '../../components/ui/select'
 import type { PublishStatus, Segment, Transcript } from '../../../shared/types'
 import { formatDuration, getStatusVariant, getStatusLabel } from './utils'
 import EditDrawer from './EditDrawer'
@@ -40,6 +41,10 @@ export default function EpisodeDetailPage() {
   const [editDescription, setEditDescription] = useState('')
   const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null)
+
+  // Transcription service selector
+  const transcriptionServices = config?.services?.filter((s) => s.category === 'transcription') ?? []
+  const [transcriptionServiceId, setTranscriptionServiceId] = useState(transcriptionServices[0]?.id ?? '')
 
   const currentSeries = series.find((s) => s.id === seriesId)
 
@@ -107,24 +112,19 @@ export default function EpisodeDetailPage() {
   }
 
   const handleTranscribe = useCallback(async () => {
-    if (!episodeId || isTranscribing) return
+    if (!episodeId || isTranscribing || !transcriptionServiceId) return
     setActionError(null)
     try {
-      const result = await window.electronAPI.transcript.generate(episodeId)
-      // If the user stayed on this page, the completedIds effect above will
-      // already refetch. But the IPC resolve also gives us the transcript
-      // directly, so we can update immediately.
+      const result = await window.electronAPI.transcript.generate(episodeId, transcriptionServiceId)
       setTranscript(result)
       await fetchEpisode(episodeId)
     } catch (err) {
       setActionError((err as Error).message)
       await fetchEpisode(episodeId)
     } finally {
-      // Safety net: if the store still has this episode (e.g. the nlp:100
-      // event was somehow missed), clean it up.
       clearProgress(episodeId)
     }
-  }, [episodeId, isTranscribing, fetchEpisode, clearProgress])
+  }, [episodeId, isTranscribing, transcriptionServiceId, fetchEpisode, clearProgress])
 
   const handlePublish = useCallback(
     async (targetStatus: PublishStatus) => {
@@ -235,6 +235,14 @@ export default function EpisodeDetailPage() {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 shrink-0">
+          {(showTranscribe || showRetranscribe) && transcriptionServices.length > 0 && (
+            <Select
+              value={transcriptionServiceId}
+              onChange={(e) => setTranscriptionServiceId(e.target.value)}
+              options={transcriptionServices.map((s) => ({ value: s.id, label: s.name }))}
+              className="w-40 h-8 text-xs"
+            />
+          )}
           {showConvert && (
             <Button
               variant="outline"

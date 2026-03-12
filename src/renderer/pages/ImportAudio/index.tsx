@@ -10,6 +10,8 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { useEpisodeStore } from '../../stores/episodeStore'
+import { useConfigStore } from '../../stores/configStore'
+import { Select } from '../../components/ui/select'
 import { isVideoPath } from '@shared/media-formats'
 import type { Segment } from '@shared/types'
 
@@ -64,6 +66,8 @@ export default function ImportAudioPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { createEpisode } = useEpisodeStore()
+  const { config } = useConfigStore()
+  const transcriptionServices = config?.services?.filter((s) => s.category === 'transcription') ?? []
 
   const filePath = searchParams.get('file')
   const seriesId = searchParams.get('seriesId') ?? ''
@@ -94,6 +98,7 @@ export default function ImportAudioPage() {
   const [transcribeProgress, setTranscribeProgress] = useState(0)
   const [detectingSilence, setDetectingSilence] = useState(false)
   const [silenceMinDuration, setSilenceMinDuration] = useState('5')
+  const [transcriptionServiceId, setTranscriptionServiceId] = useState(transcriptionServices[0]?.id ?? '')
 
   const waveformRef = useRef<WaveformHandle>(null)
 
@@ -264,12 +269,12 @@ export default function ImportAudioPage() {
 
   // Split mode: transcribe
   const handleTranscribe = async () => {
-    if (!filePath) return
+    if (!filePath || !transcriptionServiceId) return
     setTranscribing(true)
     setError(null)
     setTranscribeProgress(0)
     try {
-      const segs = await window.electronAPI.transcript.transcribeFile(filePath)
+      const segs = await window.electronAPI.transcript.transcribeFile(filePath, transcriptionServiceId)
       setTranscriptSegments(segs)
       setHasTranscript(true)
     } catch (err) {
@@ -484,7 +489,15 @@ export default function ImportAudioPage() {
         <>
           {/* Tools bar */}
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8" onClick={handleTranscribe} disabled={busy || loading}>
+            {transcriptionServices.length > 0 && (
+              <Select
+                value={transcriptionServiceId}
+                onChange={(e) => setTranscriptionServiceId(e.target.value)}
+                options={transcriptionServices.map((s) => ({ value: s.id, label: s.name }))}
+                className="w-36 h-8 text-xs"
+              />
+            )}
+            <Button variant="outline" size="sm" className="h-8" onClick={handleTranscribe} disabled={busy || loading || !transcriptionServiceId}>
               {transcribing ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : hasTranscript ? (

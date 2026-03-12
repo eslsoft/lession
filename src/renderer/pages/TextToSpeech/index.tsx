@@ -8,7 +8,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { Select } from '../../components/ui/select'
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useConfigStore } from '../../stores/configStore'
-import type { ExtractedBook, BookImport, AppConfig } from '@shared/types'
+import type { ExtractedBook, BookImport, ServiceConfig, TtsProviderType } from '@shared/types'
 
 type Tab = 'text' | 'book'
 
@@ -60,6 +60,25 @@ const DEFAULT_VOICES: Record<string, string> = {
   openai: 'alloy',
 }
 
+function getVoicesForService(service: ServiceConfig): { value: string; label: string }[] {
+  // For openai_compatible, parse from service.options.voices
+  if (service.providerType === 'openai_compatible' && service.options.voices) {
+    return service.options.voices.split(',').map((pair) => {
+      const [value, label] = pair.trim().split(':')
+      return { value: value.trim(), label: label?.trim() || value.trim() }
+    }).filter((v) => v.value)
+  }
+  return VOICES_BY_PROVIDER[service.providerType] ?? []
+}
+
+function getDefaultVoiceForService(service: ServiceConfig): string {
+  if (service.providerType === 'openai_compatible' && service.options.voices) {
+    const voices = getVoicesForService(service)
+    return voices[0]?.value ?? ''
+  }
+  return DEFAULT_VOICES[service.providerType] ?? ''
+}
+
 const MAX_PREVIEW_MS = 30_000
 
 export default function TextToSpeechPage() {
@@ -72,10 +91,14 @@ export default function TextToSpeechPage() {
   const initialTab = searchParams.get('tab') as Tab | null
   const [tab, setTab] = useState<Tab>(initialTab === 'book' ? 'book' : 'text')
 
-  // Voice settings (local override, initialized from global config)
-  const [provider, setProvider] = useState<AppConfig['tts']['provider']>(config?.tts?.provider ?? 'edge_tts')
-  const [voice, setVoice] = useState(config?.tts?.voice ?? 'en-US-AndrewMultilingualNeural')
-  const [speed, setSpeed] = useState(config?.tts?.speed ?? 1.0)
+  // Available TTS services from config
+  const ttsServices = config?.services?.filter((s) => s.category === 'tts') ?? []
+
+  // Voice settings — service-based
+  const [serviceId, setServiceId] = useState(ttsServices[0]?.id ?? '')
+  const selectedService = ttsServices.find((s) => s.id === serviceId) ?? ttsServices[0]
+  const [voice, setVoice] = useState(selectedService ? getDefaultVoiceForService(selectedService) : '')
+  const [speed, setSpeed] = useState(1.0)
 
   // Text tab state
   const [title, setTitle] = useState('')
@@ -92,7 +115,7 @@ export default function TextToSpeechPage() {
   const [activeImport, setActiveImport] = useState<BookImport | null>(null)
 
   // Preview state
-  const [previewingId, setPreviewingId] = useState<string | null>(null) // 'text' | 'voice' | chapter index as string
+  const [previewingId, setPreviewingId] = useState<string | null>(null)
   const [playingId, setPlayingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -116,16 +139,16 @@ export default function TextToSpeechPage() {
   useEffect(() => () => disposeAudio(), [disposeAudio])
 
   const handlePreview = useCallback(async (id: string, text?: string) => {
+    if (!serviceId) return
     disposeAudio()
     setPreviewingId(id)
     try {
-      const audioPath = await window.electronAPI.bookImport.preview(provider, voice, speed, text)
+      const audioPath = await window.electronAPI.bookImport.preview(serviceId, voice, speed, text)
       const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
       audio.onended = () => setPlayingId(null)
       audio.play()
       audioRef.current = audio
       setPlayingId(id)
-      // Auto-stop after 30s
       timerRef.current = setTimeout(() => {
         if (audioRef.current) {
           audioRef.current.pause()
@@ -137,7 +160,7 @@ export default function TextToSpeechPage() {
     } finally {
       setPreviewingId(null)
     }
-  }, [provider, voice, speed, disposeAudio])
+  }, [serviceId, voice, speed, disposeAudio])
 
   // Subscribe to book import progress
   useEffect(() => {
@@ -198,13 +221,13 @@ export default function TextToSpeechPage() {
   }
 
   const handleGenerateFromBook = async () => {
-    if (!seriesId || !extractedBook) return
+    if (!seriesId || !extractedBook || !serviceId) return
     const selected = chapters.filter((ch) => ch.selected).map(({ title: t, text }) => ({ title: t, text }))
     if (selected.length === 0) return
     setGenerating(true)
     setError(null)
     try {
-      const bookImport = await window.electronAPI.bookImport.generate(seriesId, extractedBook.epubPath, selected)
+      const bookImport = await window.electronAPI.bookImport.generate(seriesId, extractedBook.epubPath, selected, serviceId, voice, speed)
       setActiveImport(bookImport)
       fetchEpisodes(seriesId)
     } catch (err) {
@@ -215,12 +238,12 @@ export default function TextToSpeechPage() {
   }
 
   const handleGenerateFromText = async () => {
-    if (!seriesId || !title.trim() || !textContent.trim()) return
+    if (!seriesId || !title.trim() || !textContent.trim() || !serviceId) return
     setGenerating(true)
     setError(null)
     try {
       const chaptersToGenerate = [{ title: title.trim(), text: textContent.trim() }]
-      const bookImport = await window.electronAPI.bookImport.generate(seriesId, '', chaptersToGenerate)
+      const bookImport = await window.electronAPI.bookImport.generate(seriesId, '', chaptersToGenerate, serviceId, voice, speed)
       setActiveImport(bookImport)
       fetchEpisodes(seriesId)
     } catch (err) {
@@ -230,9 +253,9 @@ export default function TextToSpeechPage() {
     }
   }
 
-  const canGenerateText = tab === 'text' && title.trim() && textContent.trim() && !generating
-  const canGenerateBook = tab === 'book' && selectedCount > 0 && !generating
-  const voiceOptions = VOICES_BY_PROVIDER[provider] ?? []
+  const canGenerateText = tab === 'text' && title.trim() && textContent.trim() && !generating && !!serviceId
+  const canGenerateBook = tab === 'book' && selectedCount > 0 && !generating && !!serviceId
+  const voiceOptions = selectedService ? getVoicesForService(selectedService) : []
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -247,22 +270,18 @@ export default function TextToSpeechPage() {
       {/* Voice Settings */}
       <div className="flex items-end gap-3 rounded-lg border border-border bg-muted/30 p-3">
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Provider</Label>
+          <Label className="text-xs text-muted-foreground">Service</Label>
           <Select
-            value={provider}
+            value={serviceId}
             onChange={(e) => {
-              const p = e.target.value as AppConfig['tts']['provider']
-              setProvider(p)
-              setVoice(DEFAULT_VOICES[p] ?? '')
+              const id = e.target.value
+              setServiceId(id)
+              const svc = ttsServices.find((s) => s.id === id)
+              if (svc) setVoice(getDefaultVoiceForService(svc))
               disposeAudio()
             }}
-            options={[
-              { value: 'edge_tts', label: 'Edge TTS' },
-              { value: 'kokoro', label: 'Kokoro-82M' },
-              { value: 'elevenlabs', label: 'ElevenLabs' },
-              { value: 'openai', label: 'OpenAI TTS' },
-            ]}
-            className="w-36"
+            options={ttsServices.map((s) => ({ value: s.id, label: s.name }))}
+            className="w-44"
           />
         </div>
         <div className="space-y-1 flex-1">
@@ -292,8 +311,15 @@ export default function TextToSpeechPage() {
           onPreview={() => handlePreview('voice')}
           onStop={disposeAudio}
           label="Try Voice"
+          disabled={!serviceId}
         />
       </div>
+
+      {ttsServices.length === 0 && (
+        <div className="text-sm text-amber-500 bg-amber-500/10 rounded-md px-4 py-3">
+          No TTS services configured. Please add one in Settings.
+        </div>
+      )}
 
       {/* Tab Bar */}
       <div className="flex border-b border-border">
@@ -364,7 +390,7 @@ export default function TextToSpeechPage() {
               playingId={playingId}
               onPreview={() => handlePreview('text', textContent)}
               onStop={disposeAudio}
-              disabled={!textContent.trim()}
+              disabled={!textContent.trim() || !serviceId}
             />
           </div>
 

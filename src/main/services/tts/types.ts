@@ -1,4 +1,4 @@
-import type { AppConfig } from '../../../shared/types'
+import type { ServiceConfig } from '../../../shared/types'
 
 export interface TtsSegment {
   start: number
@@ -15,13 +15,14 @@ export interface TtsResult {
 export interface TtsProviderCapabilities {
   wordLevelTimestamps: boolean
   audioFormat: '.mp3' | '.wav'
-  requiresApiKey?: 'elevenlabs' | 'openai'
 }
 
 export interface TtsProvider {
   capabilities: TtsProviderCapabilities
   synthesize(
-    config: AppConfig['tts'],
+    service: ServiceConfig,
+    voice: string,
+    speed: number,
     text: string,
     outputPath: string,
     onProgress?: (percent: number) => void,

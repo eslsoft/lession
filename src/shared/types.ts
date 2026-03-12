@@ -156,6 +156,26 @@ export interface BookImportChapter {
   error?: string
 }
 
+// ── Service Config ──
+export type TtsProviderType = 'edge_tts' | 'kokoro' | 'elevenlabs' | 'openai' | 'openai_compatible'
+export type TranscriptionProviderType = 'local_whisperx' | 'replicate'
+
+export interface ServiceConfig {
+  id: string
+  name: string
+  category: 'tts' | 'transcription'
+  providerType: TtsProviderType | TranscriptionProviderType
+  credentials: Record<string, string>
+  options: Record<string, string>
+  builtin?: boolean
+}
+
+export const BUILTIN_SERVICES: ServiceConfig[] = [
+  { id: 'builtin_edge_tts', name: 'Edge TTS', category: 'tts', providerType: 'edge_tts', credentials: {}, options: {}, builtin: true },
+  { id: 'builtin_kokoro', name: 'Kokoro', category: 'tts', providerType: 'kokoro', credentials: {}, options: {}, builtin: true },
+  { id: 'builtin_local_whisperx', name: 'Local WhisperX', category: 'transcription', providerType: 'local_whisperx', credentials: {}, options: { device: 'cpu', computeType: 'float16', defaultLanguage: 'en' }, builtin: true },
+]
+
 // ── Config ──
 export interface AppConfig {
   storage: {
@@ -166,31 +186,11 @@ export interface AppConfig {
     secretAccessKey: string
     publicBaseUrl: string
   }
-  transcription: {
-    provider: 'local_whisperx' | 'replicate'
-    whisperxPath: string
-    device: 'cpu' | 'cuda' | 'mps'
-    computeType: string
-    defaultLanguage: string
-    replicate: {
-      apiToken: string
-    }
-  }
   import: {
     ytdlpPath: string
     downloadDir: string
   }
-  tts: {
-    provider: 'edge_tts' | 'kokoro' | 'elevenlabs' | 'openai'
-    voice: string
-    speed: number
-    elevenlabs?: {
-      apiKey: string
-    }
-    openai?: {
-      apiKey: string
-    }
-  }
+  services: ServiceConfig[]
 }
 
 // ── Publish Preview ──
@@ -237,11 +237,11 @@ export interface ElectronAPI {
   // Transcript
   transcript: {
     get: (episodeId: string) => Promise<Transcript | null>
-    generate: (episodeId: string) => Promise<Transcript>
+    generate: (episodeId: string, serviceId: string) => Promise<Transcript>
     updateSegment: (transcriptId: string, segmentIndex: number, text: string) => Promise<void>
     splitSegment: (transcriptId: string, segmentIndex: number, wordIndex: number) => Promise<void>
     getFileTranscript: (filePath: string) => Promise<Segment[] | null>
-    transcribeFile: (filePath: string) => Promise<Segment[]>
+    transcribeFile: (filePath: string, serviceId: string) => Promise<Segment[]>
     onFileProgress: (callback: (data: { stage: string; percent: number }) => void) => () => void
   }
   // Download
@@ -288,8 +288,8 @@ export interface ElectronAPI {
   // Book Import
   bookImport: {
     extract: (filePath: string) => Promise<ExtractedBook>
-    preview: (provider: string, voice: string, speed: number, text?: string) => Promise<string>
-    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[]) => Promise<BookImport>
+    preview: (serviceId: string, voice: string, speed: number, text?: string) => Promise<string>
+    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[], serviceId: string, voice: string, speed: number) => Promise<BookImport>
     cancel: (id: string) => Promise<void>
     retry: (id: string) => Promise<void>
     list: (seriesId: string) => Promise<BookImport[]>

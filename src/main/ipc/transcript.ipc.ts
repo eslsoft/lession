@@ -1,23 +1,18 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
 import { getTranscript, getTranscriptById, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText, splitSegment } from '../db/repositories/transcript'
 import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositories/episode'
 import { getSeries } from '../db/repositories/series'
-import { dispatchTranscribe, getCachedTranscript } from '../services/transcription'
+import { dispatchTranscribe, resolveTranscriptionService, getCachedTranscript } from '../services/transcription'
 import { processTranscript } from '../services/nlp'
-import type { AppConfig } from '../../shared/types'
-
-const store = new Store()
 
 export function registerTranscriptIpc(): void {
   ipcMain.handle(IPC.TRANSCRIPT_GET, (_event, episodeId: string) => {
     return getTranscript(episodeId)
   })
 
-  ipcMain.handle(IPC.TRANSCRIPT_GENERATE, async (_event, episodeId: string) => {
-    const config = store.get('config') as AppConfig | undefined
-    if (!config) throw new Error('App not configured. Please complete setup first.')
+  ipcMain.handle(IPC.TRANSCRIPT_GENERATE, async (_event, episodeId: string, serviceId: string) => {
+    const service = resolveTranscriptionService(serviceId)
 
     const episode = getEpisode(episodeId)
     if (!episode) throw new Error(`Episode not found: ${episodeId}`)
@@ -40,10 +35,11 @@ export function registerTranscriptIpc(): void {
       updateEpisodeStatus(episodeId, 'transcribing')
       emitProgress('transcribing', 0)
 
+      const language = service.options.defaultLanguage || series.language
       const segments = await dispatchTranscribe(
-        config,
+        service,
         episode.localPath,
-        series.language,
+        language,
         (percent) => emitProgress('transcribing', percent),
       )
 
@@ -51,12 +47,12 @@ export function registerTranscriptIpc(): void {
       if (transcript) {
         updateTranscript(transcript.id, {
           segments,
-          language: series.language,
+          language,
         })
       } else {
         transcript = createTranscript({
           episodeId,
-          language: series.language,
+          language,
           segments,
         })
       }
@@ -115,9 +111,8 @@ export function registerTranscriptIpc(): void {
     return cached?.segments ?? null
   })
 
-  ipcMain.handle(IPC.TRANSCRIPTION_TRANSCRIBE_FILE, async (_event, filePath: string) => {
-    const config = store.get('config') as AppConfig | undefined
-    if (!config) throw new Error('App not configured. Please complete setup first.')
+  ipcMain.handle(IPC.TRANSCRIPTION_TRANSCRIBE_FILE, async (_event, filePath: string, serviceId: string) => {
+    const service = resolveTranscriptionService(serviceId)
 
     const mainWindow = BrowserWindow.getAllWindows()[0]
     function emitProgress(stage: string, percent: number): void {
@@ -125,8 +120,8 @@ export function registerTranscriptIpc(): void {
     }
 
     emitProgress('transcribing', 0)
-    const language = config.transcription.defaultLanguage || 'en'
-    const segments = await dispatchTranscribe(config, filePath, language, (percent) => emitProgress('transcribing', percent))
+    const language = service.options.defaultLanguage || 'en'
+    const segments = await dispatchTranscribe(service, filePath, language, (percent) => emitProgress('transcribing', percent))
     if (segments.length === 0) throw new Error('Transcription produced no segments.')
     emitProgress('transcribing', 100)
     return segments

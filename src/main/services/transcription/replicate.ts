@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { spawn } from 'node:child_process'
+import Store from 'electron-store'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import type { Segment, WordToken, AppConfig } from '../../../shared/types'
@@ -109,9 +110,11 @@ function parseOutput(output: unknown): Segment[] {
   })
 }
 
+const store = new Store()
+
 export const replicateTranscriptionProvider: TranscriptionProvider = {
-  async transcribe(config, filePath, language, onProgress) {
-    const { apiToken } = config.transcription.replicate
+  async transcribe(service, filePath, language, onProgress) {
+    const apiToken = service.credentials.apiToken
     if (!apiToken) throw new Error('Replicate API token is not configured.')
 
     const replicate = new ReplicateLib({ auth: apiToken })
@@ -138,8 +141,9 @@ export const replicateTranscriptionProvider: TranscriptionProvider = {
       // Compress to small MP3 before uploading
       compressedPath = await compressForUpload(filePath)
 
-      // Upload compressed file to S3 and get pre-signed URL
-      const storageConfig = config.storage
+      // Read storage config from store
+      const appConfig = store.get('config') as AppConfig | undefined
+      const storageConfig = appConfig?.storage
       if (!storageConfig) throw new Error('S3 storage is required for cloud transcription of large files. Please configure Storage in Settings.')
 
       const uploaded = await uploadToS3AndGetUrl(

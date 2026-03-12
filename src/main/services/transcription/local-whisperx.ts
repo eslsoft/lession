@@ -6,8 +6,10 @@ import type { Segment, WordToken } from '../../../shared/types'
 import type { TranscriptionProvider } from './types'
 
 export const localWhisperxProvider: TranscriptionProvider = {
-  async transcribe(config, filePath, language, onProgress) {
-    const { whisperxPath, device, computeType } = config.transcription
+  async transcribe(service, filePath, language, onProgress) {
+    const whisperxPath = service.options.whisperxPath
+    const device = service.options.device || 'cpu'
+    const computeType = service.options.computeType || 'float16'
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whisperx-'))
 
     return new Promise<Segment[]>((resolve, reject) => {

@@ -6,11 +6,10 @@ export const elevenlabsProvider: TtsProvider = {
   capabilities: {
     wordLevelTimestamps: true,
     audioFormat: '.mp3',
-    requiresApiKey: 'elevenlabs',
   },
 
-  async synthesize(config, text, outputPath, onProgress) {
-    const apiKey = config.elevenlabs?.apiKey
+  async synthesize(service, voice, speed, text, outputPath, onProgress) {
+    const apiKey = service.credentials.apiKey
     if (!apiKey) throw new Error('ElevenLabs API key is not configured')
 
     const client = new ElevenLabsClient({ apiKey })
@@ -18,7 +17,7 @@ export const elevenlabsProvider: TtsProvider = {
     onProgress?.(10)
 
     const response = await client.textToSpeech.convertWithTimestamps(
-      config.voice,
+      voice,
       {
         text,
         model_id: 'eleven_turbo_v2_5',

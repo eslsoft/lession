@@ -4,14 +4,14 @@ import fs from 'node:fs'
 import { app, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
-import type { AppConfig, BookImport, ExtractedBook, Segment } from '../../shared/types'
+import type { AppConfig, BookImport, ExtractedBook, Segment, ServiceConfig, TtsProviderType } from '../../shared/types'
+import { BUILTIN_SERVICES } from '../../shared/types'
 import {
   createBookImport,
   getBookImport,
   updateBookImport,
 } from '../db/repositories/book-import'
 import { createEpisode, updateEpisode, updateEpisodeStatus, getNextOrder } from '../db/repositories/episode'
-import { getSeries } from '../db/repositories/series'
 import { getTranscript, createTranscript, updateTranscript, updateTranscriptSegments } from '../db/repositories/transcript'
 import { dispatchTts, getProviderCapabilities } from './tts'
 import type { TtsSegment } from './tts'
@@ -97,10 +97,12 @@ function ttsSegmentsToTranscriptSegments(ttsSegments: TtsSegment[], originalText
 const store = new Store()
 const activeImports = new Map<string, { cancelled: boolean }>()
 
-function getConfig(): AppConfig {
+function resolveService(serviceId: string): ServiceConfig {
   const config = store.get('config') as AppConfig | undefined
-  if (!config) throw new Error('App not configured. Please complete setup first.')
-  return config
+  const service = config?.services?.find((s) => s.id === serviceId)
+    ?? BUILTIN_SERVICES.find((s) => s.id === serviceId)
+  if (!service) throw new Error(`Service not found: ${serviceId}`)
+  return service
 }
 
 function sendProgress(bookImport: BookImport): void {
@@ -224,6 +226,9 @@ export function startBookImport(
   seriesId: string,
   epubPath: string,
   confirmedChapters: ConfirmedChapter[],
+  serviceId: string,
+  voice: string,
+  speed: number,
 ): BookImport {
   // Prevent concurrent imports for the same series
   for (const [, control] of activeImports) {
@@ -250,7 +255,7 @@ export function startBookImport(
   activeImports.set(bookImport.id, control)
 
   // Kick off pipeline asynchronously
-  runGeneratePipeline(bookImport.id, seriesId, epubPath, confirmedChapters, control).catch((err) => {
+  runGeneratePipeline(bookImport.id, seriesId, epubPath, confirmedChapters, serviceId, voice, speed, control).catch((err) => {
     const existing = getBookImport(bookImport.id)
     if (existing && existing.status !== 'cancelled') {
       updateBookImport(bookImport.id, {
@@ -269,7 +274,6 @@ export function cancelBookImport(id: string): void {
   const control = activeImports.get(id)
   if (control) {
     control.cancelled = true
-    // Note: the pipeline loop will clean up activeImports when it sees cancelled
   }
   const existing = getBookImport(id)
   if (existing) {
@@ -309,9 +313,12 @@ async function runGeneratePipeline(
   seriesId: string,
   epubPath: string,
   confirmedChapters: ConfirmedChapter[],
+  serviceId: string,
+  voice: string,
+  speed: number,
   control: { cancelled: boolean },
 ): Promise<void> {
-  const config = getConfig()
+  const service = resolveService(serviceId)
   const bookImport = getBookImport(importId)!
   const chapters = bookImport.chapters!
 
@@ -355,10 +362,12 @@ async function runGeneratePipeline(
 
     try {
       // TTS: text → audio
-      const capabilities = getProviderCapabilities(config.tts.provider)
+      const capabilities = getProviderCapabilities(service.providerType as TtsProviderType)
       const rawAudioPath = path.join(outputDir, `${episodeId}${capabilities.audioFormat}`)
       const ttsResult = await dispatchTts(
-        config.tts,
+        service,
+        voice,
+        speed,
         ch.text,
         rawAudioPath,
         (percent) => sendEpisodeProgress(episodeId, 'generating', Math.round(percent * 0.8)),
@@ -439,9 +448,13 @@ async function retryPipeline(
   importId: string,
   control: { cancelled: boolean },
 ): Promise<void> {
-  const config = getConfig()
   const bookImport = getBookImport(importId)
   if (!bookImport || !bookImport.chapters) throw new Error('No chapters to retry')
+
+  // For retry we need to find a TTS service — use the first available TTS service
+  const config = store.get('config') as AppConfig | undefined
+  const ttsService = config?.services?.find((s) => s.category === 'tts')
+  if (!ttsService) throw new Error('No TTS service configured. Please add one in Settings.')
 
   const chapters = bookImport.chapters
   const outputDir = path.join(app.getPath('userData'), 'episodes', bookImport.seriesId)
@@ -474,10 +487,12 @@ async function retryPipeline(
     sendEpisodeProgress(episodeId, 'generating', 0)
 
     try {
-      const capabilities = getProviderCapabilities(config.tts.provider)
+      const capabilities = getProviderCapabilities(ttsService.providerType as TtsProviderType)
       const rawAudioPath = path.join(outputDir, `${episodeId}${capabilities.audioFormat}`)
       const ttsResult = await dispatchTts(
-        config.tts,
+        ttsService,
+        ttsService.options.voice || 'en-US-AndrewMultilingualNeural',
+        parseFloat(ttsService.options.speed || '1.0'),
         extractedChapter.text,
         rawAudioPath,
         (percent) => sendEpisodeProgress(episodeId, 'generating', Math.round(percent * 0.8)),

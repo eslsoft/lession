@@ -21,15 +21,15 @@ const api: ElectronAPI = {
   },
   transcript: {
     get: (episodeId) => ipcRenderer.invoke(IPC.TRANSCRIPT_GET, episodeId),
-    generate: (episodeId) => ipcRenderer.invoke(IPC.TRANSCRIPT_GENERATE, episodeId),
+    generate: (episodeId, serviceId) => ipcRenderer.invoke(IPC.TRANSCRIPT_GENERATE, episodeId, serviceId),
     updateSegment: (transcriptId, segmentIndex, text) =>
       ipcRenderer.invoke(IPC.TRANSCRIPT_UPDATE_SEGMENT, transcriptId, segmentIndex, text),
     splitSegment: (transcriptId, segmentIndex, wordIndex) =>
       ipcRenderer.invoke(IPC.TRANSCRIPT_SPLIT_SEGMENT, transcriptId, segmentIndex, wordIndex),
     getFileTranscript: (filePath: string) =>
       ipcRenderer.invoke(IPC.TRANSCRIPTION_GET_FILE, filePath),
-    transcribeFile: (filePath: string) =>
-      ipcRenderer.invoke(IPC.TRANSCRIPTION_TRANSCRIBE_FILE, filePath),
+    transcribeFile: (filePath: string, serviceId: string) =>
+      ipcRenderer.invoke(IPC.TRANSCRIPTION_TRANSCRIBE_FILE, filePath, serviceId),
     onFileProgress: (callback: (data: { stage: string; percent: number }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: { stage: string; percent: number }) => callback(data)
       ipcRenderer.on(IPC.TRANSCRIPTION_FILE_PROGRESS, handler)
@@ -81,10 +81,10 @@ const api: ElectronAPI = {
   },
   bookImport: {
     extract: (filePath: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_EXTRACT, filePath),
-    preview: (provider: string, voice: string, speed: number, text?: string) =>
-      ipcRenderer.invoke(IPC.BOOK_IMPORT_PREVIEW, provider, voice, speed, text),
-    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[]) =>
-      ipcRenderer.invoke(IPC.BOOK_IMPORT_GENERATE, seriesId, epubPath, chapters),
+    preview: (serviceId: string, voice: string, speed: number, text?: string) =>
+      ipcRenderer.invoke(IPC.BOOK_IMPORT_PREVIEW, serviceId, voice, speed, text),
+    generate: (seriesId: string, epubPath: string, chapters: { title: string; text: string }[], serviceId: string, voice: string, speed: number) =>
+      ipcRenderer.invoke(IPC.BOOK_IMPORT_GENERATE, seriesId, epubPath, chapters, serviceId, voice, speed),
     cancel: (id: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_CANCEL, id),
     retry: (id: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_RETRY, id),
     list: (seriesId: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_LIST, seriesId),

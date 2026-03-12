@@ -3,9 +3,9 @@ import { runTtsScript } from './run-script'
 
 export const edgeTtsProvider: TtsProvider = {
   capabilities: { wordLevelTimestamps: true, audioFormat: '.mp3' },
-  synthesize(config, text, outputPath, onProgress) {
+  synthesize(_service, voice, speed, text, outputPath, onProgress) {
     return runTtsScript('tts_edge.py', {
-      text, outputPath, voice: config.voice, speed: config.speed,
+      text, outputPath, voice, speed,
     }, outputPath, onProgress)
   },
 }
