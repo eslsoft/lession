@@ -293,6 +293,7 @@ export interface ElectronAPI {
   tts: {
     listModels: (engine: TtsEngine, credentials: Record<string, string>) => Promise<{ options: { value: string; label: string }[]; default: string }>
     listVoices: (engine: TtsEngine, credentials: Record<string, string>) => Promise<{ options: { value: string; label: string }[]; default: string }>
+    preview: (engine: TtsEngine, credentials: Record<string, string>, voice: string, speed: number, model?: string, text?: string) => Promise<string>
   }
   // Book Import
   bookImport: {

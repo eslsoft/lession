@@ -93,11 +93,14 @@ export default function TextToSpeechPage() {
   useEffect(() => () => disposeAudio(), [disposeAudio])
 
   const handlePreview = useCallback(async (id: string, text?: string) => {
-    if (!serviceId) return
+    if (!selectedService) return
     disposeAudio()
     setPreviewingId(id)
     try {
-      const audioPath = await window.electronAPI.bookImport.preview(serviceId, voice, speed, model || undefined, text)
+      const audioPath = await window.electronAPI.tts.preview(
+        selectedService.engine as TtsEngine, selectedService.credentials,
+        voice, speed, model || undefined, text,
+      )
       const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
       audio.onended = () => setPlayingId(null)
       audio.play()

@@ -63,6 +63,7 @@ export const IPC = {
   // TTS
   TTS_LIST_MODELS: 'tts:list-models',
   TTS_LIST_VOICES: 'tts:list-voices',
+  TTS_PREVIEW: 'tts:preview',
 
   // Book Import
   BOOK_IMPORT_EXTRACT: 'book-import:extract',

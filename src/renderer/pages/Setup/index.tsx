@@ -818,26 +818,26 @@ function ServiceEditor({
                 />
               </div>
             </div>
-            {service && (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  &ldquo;The quick brown fox jumps over the lazy dog. This is a preview of the selected voice.&rdquo;
-                </p>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      disposeAudio()
-                      setPreviewing(true)
-                      setPreviewAudioPath(null)
-                      try {
-                        const audioPath = await window.electronAPI.bookImport.preview(
-                          service.id,
-                          previewVoice,
-                          previewSpeed,
-                          options.model || undefined,
-                        )
+            <>
+              <p className="text-xs text-muted-foreground">
+                &ldquo;The quick brown fox jumps over the lazy dog. This is a preview of the selected voice.&rdquo;
+              </p>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    disposeAudio()
+                    setPreviewing(true)
+                    setPreviewAudioPath(null)
+                    try {
+                      const audioPath = await window.electronAPI.tts.preview(
+                        engine as TtsEngine,
+                        credentials,
+                        previewVoice,
+                        previewSpeed,
+                        options.model || undefined,
+                      )
                         setPreviewAudioPath(audioPath)
                         const audio = new Audio(`local-media://localhost${encodeURI(audioPath)}`)
                         audio.onended = () => setIsPlaying(false)
@@ -876,9 +876,8 @@ function ServiceEditor({
                       <Play className="mr-1 h-3 w-3" /> Replay
                     </Button>
                   )}
-                </div>
-              </>
-            )}
+              </div>
+            </>
           </div>
         </>
       )}

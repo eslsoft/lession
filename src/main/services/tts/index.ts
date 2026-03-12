@@ -73,14 +73,18 @@ export async function dispatchTts(
 }
 
 export async function previewTts(
-  serviceId: string,
+  engine: TtsEngine,
+  credentials: Record<string, string>,
   voice: string,
   speed: number,
   text: string,
   outputPath: string,
   model?: string,
 ): Promise<string> {
-  const service = withModelOverride(resolveService(serviceId), model)
+  const service = withModelOverride(
+    { engine, credentials } as ServiceConfig,
+    model,
+  )
   const result = await dispatchTts(service, voice, speed, text, outputPath)
   return result.audioPath
 }

@@ -83,6 +83,7 @@ const api: ElectronAPI = {
   tts: {
     listModels: (engine, credentials) => ipcRenderer.invoke(IPC.TTS_LIST_MODELS, engine, credentials),
     listVoices: (engine, credentials) => ipcRenderer.invoke(IPC.TTS_LIST_VOICES, engine, credentials),
+    preview: (engine, credentials, voice, speed, model?, text?) => ipcRenderer.invoke(IPC.TTS_PREVIEW, engine, credentials, voice, speed, model, text),
   },
   bookImport: {
     extract: (filePath: string) => ipcRenderer.invoke(IPC.BOOK_IMPORT_EXTRACT, filePath),
