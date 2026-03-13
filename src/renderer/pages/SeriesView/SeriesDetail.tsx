@@ -112,15 +112,28 @@ export default function SeriesDetailPage() {
     })
     if (publishableIds.length === 0) return
     setBatchPublishProgress({ current: 0, total: publishableIds.length })
+    const errors: { title: string; error: string }[] = []
     try {
       for (let i = 0; i < publishableIds.length; i++) {
         setBatchPublishProgress({ current: i + 1, total: publishableIds.length })
-        await window.electronAPI.publisher.publishEpisode(publishableIds[i], targetStatus)
+        try {
+          await window.electronAPI.publisher.publishEpisode(publishableIds[i], targetStatus)
+        } catch (err) {
+          const ep = episodes.find((e) => e.id === publishableIds[i])
+          errors.push({
+            title: ep?.title ?? publishableIds[i],
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
       }
     } finally {
       setBatchPublishProgress(null)
     }
     if (id) await fetchEpisodes(id)
+    if (errors.length > 0) {
+      const detail = errors.map((e) => `• ${e.title}: ${e.error}`).join('\n')
+      window.alert(`${errors.length} episode(s) failed to publish:\n\n${detail}`)
+    }
   }
 
   const handleBatchDelete = async (ids: string[]) => {
