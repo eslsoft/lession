@@ -19,7 +19,7 @@ import { getMediaMetadata } from './splitter'
 import { processTranscript } from './nlp'
 
 const store = new Store()
-const activeImports = new Map<string, { cancelled: boolean }>()
+const activeImports = new Map<string, { cancelled: boolean; seriesId: string }>()
 
 function resolveService(serviceId: string): ServiceConfig {
   const config = store.get('config') as AppConfig | undefined
@@ -156,9 +156,9 @@ export function startBookImport(
   model?: string,
 ): BookImport {
   // Prevent concurrent imports for the same series
-  for (const [, control] of activeImports) {
-    if (!control.cancelled) {
-      throw new Error('Another book import is already in progress. Please wait or cancel it first.')
+  for (const [, entry] of activeImports) {
+    if (!entry.cancelled && entry.seriesId === seriesId) {
+      throw new Error('Another book import is already in progress for this series. Please wait or cancel it first.')
     }
   }
 
@@ -176,7 +176,7 @@ export function startBookImport(
     })),
   })
 
-  const control = { cancelled: false }
+  const control = { cancelled: false, seriesId }
   activeImports.set(bookImport.id, control)
 
   // Kick off pipeline asynchronously
@@ -211,7 +211,7 @@ export function retryBookImport(id: string): void {
   const existing = getBookImport(id)
   if (!existing) throw new Error(`Book import ${id} not found`)
 
-  const control = { cancelled: false }
+  const control = { cancelled: false, seriesId: existing.seriesId }
   activeImports.set(id, control)
 
   updateBookImport(id, { status: 'generating', lastError: undefined })

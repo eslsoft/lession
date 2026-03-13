@@ -187,6 +187,7 @@ export default function TextToSpeechPage() {
       const bookImport = await window.electronAPI.bookImport.generate(seriesId, extractedBook.epubPath, selected, serviceId, voice, speed, model || undefined)
       setActiveImport(bookImport)
       fetchEpisodes(seriesId)
+      navigate(`/series/${seriesId}`)
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -203,6 +204,7 @@ export default function TextToSpeechPage() {
       const bookImport = await window.electronAPI.bookImport.generate(seriesId, '', chaptersToGenerate, serviceId, voice, speed, model || undefined)
       setActiveImport(bookImport)
       fetchEpisodes(seriesId)
+      navigate(`/series/${seriesId}`)
     } catch (err) {
       setError((err as Error).message)
     } finally {
