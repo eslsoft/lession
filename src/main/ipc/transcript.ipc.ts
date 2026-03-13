@@ -3,7 +3,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { getTranscript, getTranscriptById, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText, splitSegment } from '../db/repositories/transcript'
 import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositories/episode'
 import { getSeries } from '../db/repositories/series'
-import { dispatchTranscribe, resolveTranscriptionService, getCachedTranscript } from '../services/transcription'
+import { dispatchTranscribe, resolveTranscriptionService, getCachedTranscript, saveCachedTranscript } from '../services/transcription'
 import { processTranscript } from '../services/nlp'
 
 export function registerTranscriptIpc(): void {
@@ -112,6 +112,10 @@ export function registerTranscriptIpc(): void {
   })
 
   ipcMain.handle(IPC.TRANSCRIPTION_TRANSCRIBE_FILE, async (_event, filePath: string, serviceId: string) => {
+    // Return from cache if available
+    const cached = getCachedTranscript(filePath)
+    if (cached) return cached.segments
+
     const service = resolveTranscriptionService(serviceId)
 
     const mainWindow = BrowserWindow.getAllWindows()[0]
@@ -124,6 +128,10 @@ export function registerTranscriptIpc(): void {
     const segments = await dispatchTranscribe(service, filePath, language, (percent) => emitProgress('transcribing', percent))
     if (segments.length === 0) throw new Error('Transcription produced no segments.')
     emitProgress('transcribing', 100)
+
+    // Cache for future use (split flow reads this later)
+    saveCachedTranscript(filePath, language, segments)
+
     return segments
   })
 }

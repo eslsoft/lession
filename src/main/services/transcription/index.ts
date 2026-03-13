@@ -7,7 +7,7 @@ import { localWhisperxProvider } from './local-whisperx'
 import { replicateTranscriptionProvider } from './replicate'
 
 // Re-export cache utilities used by other modules
-export { hasCachedTranscript, getCachedTranscript }
+export { hasCachedTranscript, getCachedTranscript, saveCachedTranscript }
 
 // ── Provider registry (keyed by ServiceProvider, not engine) ──
 
@@ -32,7 +32,7 @@ export function resolveTranscriptionService(serviceId: string): ServiceConfig {
 
 /**
  * Dispatch transcription to the configured provider (local WhisperX or Replicate cloud).
- * Results are cached by file path — the same file is never transcribed twice.
+ * This is a pure transcription function — callers are responsible for caching.
  */
 export async function dispatchTranscribe(
   service: ServiceConfig,
@@ -40,20 +40,8 @@ export async function dispatchTranscribe(
   language: string,
   onProgress?: (percent: number) => void,
 ): Promise<Segment[]> {
-  // Return from cache if available
-  const cached = getCachedTranscript(filePath)
-  if (cached) {
-    onProgress?.(100)
-    return cached.segments
-  }
-
   const provider = providers[service.provider]
   if (!provider) throw new Error(`Unknown transcription provider: ${service.provider}`)
 
-  const segments = await provider.transcribe(service, filePath, language, onProgress)
-
-  // Cache for future use
-  saveCachedTranscript(filePath, language, segments)
-
-  return segments
+  return provider.transcribe(service, filePath, language, onProgress)
 }
