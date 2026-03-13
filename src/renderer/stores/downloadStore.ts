@@ -12,8 +12,8 @@ interface DownloadState {
   pauseDownload: (id: string) => Promise<void>
   resumeDownload: (id: string) => Promise<void>
   retryDownload: (id: string) => Promise<void>
-  deleteDownload: (id: string) => Promise<void>
-  clearCompleted: () => Promise<void>
+  deleteDownload: (id: string, deleteFiles?: boolean) => Promise<void>
+  clearCompleted: (deleteFiles?: boolean) => Promise<void>
   retryAllFailed: () => Promise<void>
   openFile: (id: string) => Promise<void>
   showInFolder: (id: string) => Promise<void>
@@ -81,15 +81,15 @@ export const useDownloadStore = create<DownloadState>((set) => ({
     }))
   },
 
-  deleteDownload: async (id) => {
-    await window.electronAPI.download.delete(id)
+  deleteDownload: async (id, deleteFiles) => {
+    await window.electronAPI.download.delete(id, deleteFiles)
     set((state) => ({
       downloads: state.downloads.filter((d) => d.id !== id),
     }))
   },
 
-  clearCompleted: async () => {
-    await window.electronAPI.download.clearCompleted()
+  clearCompleted: async (deleteFiles) => {
+    await window.electronAPI.download.clearCompleted(deleteFiles)
     set((state) => ({
       downloads: state.downloads.filter((d) => d.status !== 'done'),
     }))

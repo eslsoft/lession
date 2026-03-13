@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDownloadStore } from '@renderer/stores/downloadStore'
 import { useSeriesStore } from '@renderer/stores/seriesStore'
@@ -23,6 +23,7 @@ import { STATUS_FILTER_OPTIONS, type StatusFilter } from './utils'
 import DownloadItem from './DownloadItem'
 import NewDownloadDialog from './NewDownloadDialog'
 import ImportDialog from './ImportDialog'
+import DeleteConfirmDialog from './DeleteConfirmDialog'
 
 export default function DownloadsPage() {
   const navigate = useNavigate()
@@ -50,6 +51,11 @@ export default function DownloadsPage() {
 
   // New download dialog
   const [newDialogOpen, setNewDialogOpen] = useState(false)
+
+  // Delete confirm dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
 
   // Import dialog state
   const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -89,6 +95,24 @@ export default function DownloadsPage() {
     setImportDialogOpen(false)
     setImportDownload(null)
   }
+
+  const handleDeleteClick = useCallback((id: string) => {
+    setDeleteTargetId(id)
+    setDeleteDialogOpen(true)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(async (deleteFiles: boolean) => {
+    if (deleteTargetId) {
+      await deleteDownload(deleteTargetId, deleteFiles)
+    }
+    setDeleteDialogOpen(false)
+    setDeleteTargetId(null)
+  }, [deleteTargetId, deleteDownload])
+
+  const handleClearConfirm = useCallback(async (deleteFiles: boolean) => {
+    await clearCompleted(deleteFiles)
+    setClearDialogOpen(false)
+  }, [clearCompleted])
 
   // Filter & sort
   const filtered = useMemo(() => {
@@ -132,7 +156,7 @@ export default function DownloadsPage() {
           <h1 className="text-2xl font-bold">Downloads</h1>
           <div className="flex items-center gap-2">
             {stats.completed > 0 && (
-              <Button variant="outline" size="sm" onClick={clearCompleted}>
+              <Button variant="outline" size="sm" onClick={() => setClearDialogOpen(true)}>
                 Clear Completed
               </Button>
             )}
@@ -242,7 +266,7 @@ export default function DownloadsPage() {
                   onResume={() => resumeDownload(dl.id)}
                   onCancel={() => cancelDownload(dl.id)}
                   onRetry={() => retryDownload(dl.id)}
-                  onDelete={() => deleteDownload(dl.id)}
+                  onDelete={() => handleDeleteClick(dl.id)}
                   onOpen={() => openFile(dl.id)}
                   onShowInFolder={() => showInFolder(dl.id)}
                   onImport={() => openImportDialog(dl)}
@@ -269,6 +293,26 @@ export default function DownloadsPage() {
         seriesId={importSeriesId}
         onSeriesChange={setImportSeriesId}
         onImport={handleImport}
+      />
+
+      {/* Delete Confirm Dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="删除下载记录"
+        description="确定要删除这条下载记录吗？"
+        confirmLabel="删除"
+        onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Clear Completed Confirm Dialog */}
+      <DeleteConfirmDialog
+        open={clearDialogOpen}
+        onOpenChange={setClearDialogOpen}
+        title="清除已完成的下载"
+        description={`确定要清除所有已完成的下载记录吗？（共 ${stats.completed} 条）`}
+        confirmLabel="清除"
+        onConfirm={handleClearConfirm}
       />
     </div>
   )

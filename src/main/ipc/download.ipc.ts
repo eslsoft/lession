@@ -43,12 +43,12 @@ export function registerDownloadIpc(): void {
     return retryDownload(id)
   })
 
-  ipcMain.handle(IPC.DOWNLOAD_DELETE, (_event, id: string) => {
-    removeDownload(id)
+  ipcMain.handle(IPC.DOWNLOAD_DELETE, (_event, id: string, deleteFiles?: boolean) => {
+    removeDownload(id, deleteFiles)
   })
 
-  ipcMain.handle(IPC.DOWNLOAD_CLEAR_COMPLETED, () => {
-    clearCompletedDownloads()
+  ipcMain.handle(IPC.DOWNLOAD_CLEAR_COMPLETED, (_event, deleteFiles?: boolean) => {
+    clearCompletedDownloads(deleteFiles)
   })
 
   ipcMain.handle(IPC.DOWNLOAD_RETRY_ALL_FAILED, () => {

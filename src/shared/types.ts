@@ -271,8 +271,8 @@ export interface ElectronAPI {
     pause: (id: string) => Promise<void>
     resume: (id: string) => Promise<void>
     retry: (id: string) => Promise<void>
-    delete: (id: string) => Promise<void>
-    clearCompleted: () => Promise<void>
+    delete: (id: string, deleteFiles?: boolean) => Promise<void>
+    clearCompleted: (deleteFiles?: boolean) => Promise<void>
     retryAllFailed: () => Promise<void>
     openFile: (id: string) => Promise<void>
     showInFolder: (id: string) => Promise<void>

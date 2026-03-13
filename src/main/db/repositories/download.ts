@@ -130,6 +130,13 @@ export function deleteDownload(id: string): void {
   stmt.run(id)
 }
 
+export function listCompletedDownloads(): Download[] {
+  const db = getDatabase()
+  const stmt = db.prepare("SELECT * FROM downloads WHERE status = 'done' ORDER BY createdAt DESC")
+  const rows = stmt.all() as DownloadRow[]
+  return rows.map(rowToDownload)
+}
+
 export function deleteCompletedDownloads(): number {
   const db = getDatabase()
   const result = db.prepare("DELETE FROM downloads WHERE status = 'done'").run()

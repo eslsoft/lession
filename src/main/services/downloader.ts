@@ -14,6 +14,7 @@ import {
   listPendingDownloads,
   resetInterruptedDownloads,
   deleteCompletedDownloads,
+  listCompletedDownloads,
   listFailedDownloads,
 } from '../db/repositories/download'
 
@@ -386,7 +387,7 @@ export function retryDownload(id: string): Download {
   return getDownload(id)!
 }
 
-export function removeDownload(id: string): void {
+export function removeDownload(id: string, deleteFiles = false): void {
   const existing = getDownload(id)
   if (!existing) throw new Error(`Download ${id} not found`)
 
@@ -395,10 +396,22 @@ export function removeDownload(id: string): void {
     throw new Error('Cannot delete an active download. Pause or cancel it first.')
   }
 
+  if (deleteFiles && existing.localPath) {
+    try { fs.unlinkSync(existing.localPath) } catch { /* file may already be gone */ }
+  }
+
   deleteDownload(id)
 }
 
-export function clearCompletedDownloads(): void {
+export function clearCompletedDownloads(deleteFiles = false): void {
+  if (deleteFiles) {
+    const completed = listCompletedDownloads()
+    for (const dl of completed) {
+      if (dl.localPath) {
+        try { fs.unlinkSync(dl.localPath) } catch { /* file may already be gone */ }
+      }
+    }
+  }
   deleteCompletedDownloads()
 }
 
