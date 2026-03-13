@@ -13,86 +13,10 @@ import {
 } from '../db/repositories/book-import'
 import { createEpisode, updateEpisode, updateEpisodeStatus, getNextOrder } from '../db/repositories/episode'
 import { getTranscript, createTranscript, updateTranscript, updateTranscriptSegments } from '../db/repositories/transcript'
-import { dispatchTts, getProviderCapabilities, listTtsVoices } from './tts'
-import type { TtsSegment } from './tts'
+import { dispatchTts, getProviderCapabilities, listTtsVoices, ttsSegmentsToTranscriptSegments } from './tts'
 import { convertToM4a } from './converter'
 import { getMediaMetadata } from './splitter'
 import { processTranscript } from './nlp'
-
-/**
- * Convert word-level TTS segments into sentence-level Transcript segments.
- * Uses the original text to determine sentence boundaries, since TTS word
- * boundaries don't include punctuation.
- */
-function ttsSegmentsToTranscriptSegments(ttsSegments: TtsSegment[], originalText: string): Segment[] {
-  if (ttsSegments.length === 0) return []
-
-  // Split original text into sentences.
-  // Use a negative lookbehind to avoid splitting on common abbreviations (Mr., Dr., etc.)
-  // and decimal numbers (3.14).
-  const sentences = originalText
-    .split(/(?<![A-Z][a-z]|[A-Z]\.[A-Z]|\d)(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  const segments: Segment[] = []
-  let wordIdx = 0
-
-  for (const sentence of sentences) {
-    // Count how many words this sentence has (strip punctuation for matching)
-    const sentenceWords = sentence.split(/\s+/).filter(Boolean)
-    const wordCount = sentenceWords.length
-
-    if (wordIdx >= ttsSegments.length) break
-
-    const sliceEnd = Math.min(wordIdx + wordCount, ttsSegments.length)
-    const wordsInSegment = ttsSegments.slice(wordIdx, sliceEnd)
-
-    if (wordsInSegment.length > 0) {
-      const words: import('../../shared/types').WordToken[] = wordsInSegment.map((w) => ({
-        word: w.text,
-        start: w.start,
-        end: w.end,
-        score: 1,
-        normal: null,
-        tags: null,
-        chunk: null,
-      }))
-      segments.push({
-        start: wordsInSegment[0].start,
-        end: wordsInSegment[wordsInSegment.length - 1].end,
-        text: sentence,
-        edited: false,
-        words,
-      })
-    }
-
-    wordIdx = sliceEnd
-  }
-
-  // Flush any remaining words not covered by sentence splitting
-  if (wordIdx < ttsSegments.length) {
-    const remaining = ttsSegments.slice(wordIdx)
-    const words: import('../../shared/types').WordToken[] = remaining.map((w) => ({
-      word: w.text,
-      start: w.start,
-      end: w.end,
-      score: 1,
-      normal: null,
-      tags: null,
-      chunk: null,
-    }))
-    segments.push({
-      start: remaining[0].start,
-      end: remaining[remaining.length - 1].end,
-      text: remaining.map((w) => w.text).join(' '),
-      edited: false,
-      words,
-    })
-  }
-
-  return segments
-}
 
 const store = new Store()
 const activeImports = new Map<string, { cancelled: boolean }>()

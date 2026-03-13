@@ -10,6 +10,7 @@ import { openaiCompatibleProvider } from './openai-compatible'
 
 // Re-export public types
 export type { TtsSegment, TtsResult, TtsProviderCapabilities, TtsOptionList } from './types'
+export { ttsSegmentsToTranscriptSegments } from './segment-align'
 
 // ── Provider registry ──
 
