@@ -90,7 +90,7 @@ function parseOutput(output: unknown): Segment[] {
 
   return segments.map((seg: Record<string, unknown>) => {
     const words: WordToken[] = ((seg.words as Record<string, unknown>[]) || []).map((w) => ({
-      word: (w.word as string).replace(/[^\w'-]/g, ''),
+      word: (w.word as string).trim(),
       start: w.start as number,
       end: w.end as number,
       score: (w.score as number) ?? 0,
