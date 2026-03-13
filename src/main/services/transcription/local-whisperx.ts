@@ -7,7 +7,7 @@ import type { TranscriptionProvider } from './types'
 
 export const localWhisperxProvider: TranscriptionProvider = {
   async transcribe(service, filePath, language, onProgress) {
-    const whisperxPath = service.options.whisperxPath
+    const whisperxPath = service.options.whisperxPath || 'whisperx'
     const device = service.options.device || 'cpu'
     const computeType = service.options.computeType || 'float16'
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whisperx-'))
@@ -15,7 +15,7 @@ export const localWhisperxProvider: TranscriptionProvider = {
     return new Promise<Segment[]>((resolve, reject) => {
       const args = [
         filePath,
-        '--model', 'large-v2',
+        '--model', 'medium.en',
         '--language', language,
         '--device', device,
         '--compute_type', computeType,
