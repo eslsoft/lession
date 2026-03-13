@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import { app, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
-import type { AppConfig, BookImport, ExtractedBook, Segment, ServiceConfig, TtsEngine } from '../../shared/types'
+import type { AppConfig, BookImport, ExtractedBook, ServiceConfig, TtsEngine } from '../../shared/types'
 import { BUILTIN_SERVICES } from '../../shared/types'
 import {
   createBookImport,
