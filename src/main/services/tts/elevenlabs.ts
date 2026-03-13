@@ -3,51 +3,11 @@ import path from 'node:path'
 import { execSync } from 'node:child_process'
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 import type { TtsProvider, TtsOptionList } from './types'
+import { splitTextIntoChunks } from './text-chunker'
 
 const EMPTY: TtsOptionList = { options: [], default: '' }
 const MAX_CHUNK_CHARS = 4800 // stay safely under the 5000 char API limit
 const MAX_CONTEXT_CHARS = 500 // context hints for cross-chunk continuity
-
-/**
- * Split text into chunks by paragraph, greedily packing as many paragraphs
- * as possible into each chunk to preserve the model's natural sentence
- * breaks and inter-paragraph pauses.
- */
-function splitTextIntoChunks(text: string): string[] {
-  if (text.length <= MAX_CHUNK_CHARS) return [text]
-
-  const paragraphs = text.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean)
-
-  const chunks: string[] = []
-  let current = ''
-
-  for (const para of paragraphs) {
-    const separator = current ? '\n\n' : ''
-    if (current.length + separator.length + para.length <= MAX_CHUNK_CHARS) {
-      current += separator + para
-    } else {
-      if (current) chunks.push(current)
-      if (para.length > MAX_CHUNK_CHARS) {
-        const sentences = para.match(/[^.!?]*[.!?]+\s*/g) || [para]
-        let sentBuf = ''
-        for (const sent of sentences) {
-          if (sentBuf.length + sent.length > MAX_CHUNK_CHARS && sentBuf) {
-            chunks.push(sentBuf.trimEnd())
-            sentBuf = sent
-          } else {
-            sentBuf += sent
-          }
-        }
-        current = sentBuf
-      } else {
-        current = para
-      }
-    }
-  }
-  if (current) chunks.push(current)
-
-  return chunks.filter((c) => c.length > 0)
-}
 
 type Alignment = {
   characters: string[]
@@ -178,7 +138,7 @@ export const elevenlabsProvider: TtsProvider = {
     if (!apiKey) throw new Error('ElevenLabs API key is not configured')
 
     const client = new ElevenLabsClient({ apiKey })
-    const chunks = splitTextIntoChunks(text)
+    const chunks = splitTextIntoChunks(text, MAX_CHUNK_CHARS)
     const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
     let processedChars = 0
 

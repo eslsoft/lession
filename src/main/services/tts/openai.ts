@@ -1,8 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import { execSync } from 'node:child_process'
 import OpenAI from 'openai'
 import type { TtsProvider, TtsOptionList } from './types'
 import type { SelectOption } from '../../../shared/engines'
+import { splitTextIntoChunks } from './text-chunker'
 
 const MODELS: SelectOption[] = [
   { value: 'tts-1-hd', label: 'TTS-1 HD' },
@@ -25,6 +29,23 @@ const VOICES: SelectOption[] = [
 
 const DEFAULT_MODEL = 'tts-1-hd'
 const DEFAULT_VOICE = 'alloy'
+const MAX_CHUNK_CHARS = 4096
+
+/**
+ * Stream the OpenAI TTS response body to a file instead of buffering
+ * the entire response in memory.
+ */
+async function streamResponseToFile(response: Response, filePath: string): Promise<void> {
+  const body = response.body
+  if (!body) {
+    // Fallback: no streaming body available
+    const buffer = Buffer.from(await response.arrayBuffer())
+    fs.writeFileSync(filePath, buffer)
+    return
+  }
+  const nodeStream = Readable.fromWeb(body as import('stream/web').ReadableStream)
+  await pipeline(nodeStream, fs.createWriteStream(filePath))
+}
 
 export const openaiProvider: TtsProvider = {
   capabilities: {
@@ -37,35 +58,16 @@ export const openaiProvider: TtsProvider = {
     if (!apiKey) throw new Error('OpenAI API key is not configured')
 
     const client = new OpenAI({ apiKey })
+    const chunks = splitTextIntoChunks(text, MAX_CHUNK_CHARS)
+    const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
+    let processedChars = 0
 
-    onProgress?.(10)
+    onProgress?.(2)
 
-    // OpenAI TTS has a 4096 character limit per request, split if needed
-    const MAX_CHARS = 4096
-    const chunks: string[] = []
-    if (text.length <= MAX_CHARS) {
-      chunks.push(text)
-    } else {
-      // Split on sentence boundaries
-      const sentences = text.match(/[^.!?]+[.!?]+\s*/g) || [text]
-      let current = ''
-      for (const sentence of sentences) {
-        if (current.length + sentence.length > MAX_CHARS && current.length > 0) {
-          chunks.push(current)
-          current = sentence
-        } else {
-          current += sentence
-        }
-      }
-      if (current) chunks.push(current)
-    }
-
-    const tempFiles: string[] = []
     const dir = path.dirname(outputPath)
+    const tempFiles: string[] = []
 
     for (let i = 0; i < chunks.length; i++) {
-      onProgress?.(10 + Math.round((i / chunks.length) * 70))
-
       const response = await client.audio.speech.create({
         model: service.options.model || DEFAULT_MODEL,
         voice: voice as 'alloy' | 'ash' | 'ballad' | 'coral' | 'echo' | 'fable' | 'nova' | 'onyx' | 'sage' | 'shimmer',
@@ -74,20 +76,21 @@ export const openaiProvider: TtsProvider = {
         speed,
       })
 
-      const buffer = Buffer.from(await response.arrayBuffer())
-
       if (chunks.length === 1) {
-        fs.writeFileSync(outputPath, buffer)
+        await streamResponseToFile(response, outputPath)
       } else {
         const tempPath = path.join(dir, `_tts_chunk_${i}.mp3`)
-        fs.writeFileSync(tempPath, buffer)
+        await streamResponseToFile(response, tempPath)
         tempFiles.push(tempPath)
       }
+
+      processedChars += chunks[i].length
+      const pct = 2 + Math.round((processedChars / totalChars) * 78)
+      onProgress?.(Math.min(pct, 80))
     }
 
     // If multiple chunks, concatenate with ffmpeg
     if (tempFiles.length > 1) {
-      const { execSync } = await import('node:child_process')
       const listFile = path.join(dir, '_tts_concat.txt')
       const listContent = tempFiles.map((f) => `file '${f}'`).join('\n')
       fs.writeFileSync(listFile, listContent)
@@ -108,7 +111,6 @@ export const openaiProvider: TtsProvider = {
     // Get duration via ffprobe
     let duration = 0
     try {
-      const { execSync } = await import('node:child_process')
       const out = execSync(
         `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${outputPath}"`,
         { encoding: 'utf-8' },
@@ -122,7 +124,6 @@ export const openaiProvider: TtsProvider = {
 
     onProgress?.(100)
 
-    // OpenAI TTS does not provide word-level timestamps
     return { duration, audioPath: outputPath, segments: [] }
   },
 

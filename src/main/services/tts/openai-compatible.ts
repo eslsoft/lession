@@ -1,7 +1,28 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import { execSync } from 'node:child_process'
 import OpenAI from 'openai'
 import type { TtsProvider, TtsOptionList } from './types'
+import { splitTextIntoChunks } from './text-chunker'
+
+const MAX_CHUNK_CHARS = 4096
+
+/**
+ * Stream the OpenAI-compatible TTS response body to a file instead of
+ * buffering the entire response in memory.
+ */
+async function streamResponseToFile(response: Response, filePath: string): Promise<void> {
+  const body = response.body
+  if (!body) {
+    const buffer = Buffer.from(await response.arrayBuffer())
+    fs.writeFileSync(filePath, buffer)
+    return
+  }
+  const nodeStream = Readable.fromWeb(body as import('stream/web').ReadableStream)
+  await pipeline(nodeStream, fs.createWriteStream(filePath))
+}
 
 export const openaiCompatibleProvider: TtsProvider = {
   capabilities: {
@@ -20,33 +41,16 @@ export const openaiCompatibleProvider: TtsProvider = {
       baseURL,
     })
 
-    onProgress?.(10)
+    const chunks = splitTextIntoChunks(text, MAX_CHUNK_CHARS)
+    const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
+    let processedChars = 0
 
-    // Same chunking logic as openai provider
-    const MAX_CHARS = 4096
-    const chunks: string[] = []
-    if (text.length <= MAX_CHARS) {
-      chunks.push(text)
-    } else {
-      const sentences = text.match(/[^.!?]+[.!?]+\s*/g) || [text]
-      let current = ''
-      for (const sentence of sentences) {
-        if (current.length + sentence.length > MAX_CHARS && current.length > 0) {
-          chunks.push(current)
-          current = sentence
-        } else {
-          current += sentence
-        }
-      }
-      if (current) chunks.push(current)
-    }
+    onProgress?.(2)
 
     const tempFiles: string[] = []
     const dir = path.dirname(outputPath)
 
     for (let i = 0; i < chunks.length; i++) {
-      onProgress?.(10 + Math.round((i / chunks.length) * 70))
-
       const response = await client.audio.speech.create({
         model,
         voice: voice as 'alloy',
@@ -55,19 +59,20 @@ export const openaiCompatibleProvider: TtsProvider = {
         speed,
       })
 
-      const buffer = Buffer.from(await response.arrayBuffer())
-
       if (chunks.length === 1) {
-        fs.writeFileSync(outputPath, buffer)
+        await streamResponseToFile(response, outputPath)
       } else {
         const tempPath = path.join(dir, `_tts_chunk_${i}.mp3`)
-        fs.writeFileSync(tempPath, buffer)
+        await streamResponseToFile(response, tempPath)
         tempFiles.push(tempPath)
       }
+
+      processedChars += chunks[i].length
+      const pct = 2 + Math.round((processedChars / totalChars) * 78)
+      onProgress?.(Math.min(pct, 80))
     }
 
     if (tempFiles.length > 1) {
-      const { execSync } = await import('node:child_process')
       const listFile = path.join(dir, '_tts_concat.txt')
       const listContent = tempFiles.map((f) => `file '${f}'`).join('\n')
       fs.writeFileSync(listFile, listContent)
@@ -87,7 +92,6 @@ export const openaiCompatibleProvider: TtsProvider = {
 
     let duration = 0
     try {
-      const { execSync } = await import('node:child_process')
       const out = execSync(
         `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${outputPath}"`,
         { encoding: 'utf-8' },
