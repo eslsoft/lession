@@ -239,7 +239,7 @@ export default function EpisodeDetailPage() {
             <Select
               value={transcriptionServiceId}
               onChange={(e) => setTranscriptionServiceId(e.target.value)}
-              options={transcriptionServices.map((s) => ({ value: s.id, label: s.name }))}
+              options={transcriptionServices.map((s) => ({ value: s.id, label: `${s.name} (${s.provider})` }))}
               className="w-40 h-8 text-xs"
             />
           )}
