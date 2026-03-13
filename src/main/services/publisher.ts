@@ -5,7 +5,7 @@ import { getSeries, listSeries } from '../db/repositories/series'
 import { getTranscript } from '../db/repositories/transcript'
 import { createS3Client, uploadFile, uploadJson, uploadBuffer, s3Keys } from './storage'
 import { generateSRT, generateVTT } from './subtitle'
-import type { AppConfig, Episode, PublishFileInfo, PublishPreviewFile, PublishStatus, Series } from '../../shared/types'
+import type { AppConfig, Episode, PublishFileInfo, PublishPreviewFile, PublishStatus, Segment, Series } from '../../shared/types'
 
 export async function publishEpisode(
   episodeId: string,
@@ -30,9 +30,12 @@ export async function publishEpisode(
     updateEpisode(episodeId, { remoteUrl: normalizeRemoteUrl(episode) })
   }
 
-  // Upload transcript + subtitles
+  // Validate transcript before publishing
   const transcript = getTranscript(episodeId)
   if (transcript) {
+    validateTranscriptSegments(transcript.segments)
+
+    // Upload transcript + subtitles
     await uploadJson(s3, bucket, s3Keys.episodeTranscript(episode.seriesId, episodeId), transcript)
     const srt = generateSRT(transcript.segments)
     const vtt = generateVTT(transcript.segments)
@@ -246,6 +249,49 @@ export function previewPublishFile(episodeId: string, fileKey: string, mode: Pub
   }
 
   return null
+}
+
+/**
+ * Validate transcript segments before publishing.
+ * Rules:
+ * 1. Each word token's `word` must be a substring of the segment's `text`
+ * 2. Word tokens must appear in `text` in the same order as in the `words` array
+ * 3. Each word token's time range (start/end) must fall within its own segment's time range
+ * 4. Segment text must not contain newline characters
+ */
+export function validateTranscriptSegments(segments: Segment[]): void {
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i]
+    const text = segment.text
+
+    // Rule 4: no newlines in text
+    if (/[\r\n]/.test(text)) {
+      throw new Error(`Segment ${i}: text contains newline characters`)
+    }
+
+    let searchFrom = 0
+    for (let j = 0; j < segment.words.length; j++) {
+      const wordToken = segment.words[j]
+
+      // Rule 1: word must be substring of text
+      const pos = text.indexOf(wordToken.word, searchFrom)
+      if (pos === -1) {
+        throw new Error(
+          `Segment ${i}, word ${j} ("${wordToken.word}"): not found in segment text after position ${searchFrom}`,
+        )
+      }
+
+      // Rule 2: advance search position to maintain order
+      searchFrom = pos + wordToken.word.length
+
+      // Rule 3: word timing must fall within its segment's time range
+      if (wordToken.start < segment.start || wordToken.end > segment.end) {
+        throw new Error(
+          `Segment ${i}, word ${j} ("${wordToken.word}"): time range [${wordToken.start}, ${wordToken.end}] outside segment range [${segment.start}, ${segment.end}]`,
+        )
+      }
+    }
+  }
 }
 
 function getFileSize(filePath: string): string {
