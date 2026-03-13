@@ -1,4 +1,4 @@
-import { ElevenLabsClient } from 'elevenlabs'
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 import OpenAI from 'openai'
 import type { ServiceConfig } from '../../shared/types'
 
@@ -9,7 +9,7 @@ async function verifyElevenLabs(service: ServiceConfig): Promise<VerifyResult> {
   if (!apiKey) return { ok: false, error: 'API key is required' }
   try {
     const client = new ElevenLabsClient({ apiKey })
-    await client.models.getAll()
+    await client.models.list()
     return { ok: true }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
