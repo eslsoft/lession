@@ -19,12 +19,14 @@ export async function publishEpisode(
   const s3 = createS3Client(config.storage)
   const bucket = config.storage.bucket
 
-  // Upload media if not already uploaded
-  if (episode.localPath && !episode.remoteUrl) {
-    const mediaExt = path.extname(episode.localPath).slice(1) || 'mp4'
-    const mediaKey = s3Keys.episodeMedia(episode.seriesId, episodeId, mediaExt)
-    await uploadFile(s3, bucket, mediaKey, episode.localPath)
-    updateEpisode(episodeId, { remoteUrl: mediaKey })
+  // Upload media if not yet uploaded or if the episode was moved to a different series
+  const expectedMediaExt = path.extname(episode.localPath ?? '').slice(1) || 'mp4'
+  const expectedMediaKey = s3Keys.episodeMedia(episode.seriesId, episodeId, expectedMediaExt)
+  const needsUpload = episode.localPath && (!episode.remoteUrl || episode.remoteUrl !== expectedMediaKey)
+
+  if (needsUpload) {
+    await uploadFile(s3, bucket, expectedMediaKey, episode.localPath!)
+    updateEpisode(episodeId, { remoteUrl: expectedMediaKey })
   } else if (episode.remoteUrl && isAbsoluteUrl(episode.remoteUrl)) {
     // Migrate legacy full URL to relative S3 key
     updateEpisode(episodeId, { remoteUrl: normalizeRemoteUrl(episode) })
@@ -177,13 +179,16 @@ export function previewPublishFiles(episodeId: string, _mode: PublishStatus): Pu
   files.push({ key: s3Keys.seriesFeed(episode.seriesId), type: 'json' })
   files.push({ key: s3Keys.index(), type: 'json' })
 
-  if (episode.localPath && !episode.remoteUrl) {
+  if (episode.localPath) {
     const mediaExt = path.extname(episode.localPath).slice(1) || 'mp4'
-    files.push({
-      key: s3Keys.episodeMedia(episode.seriesId, episodeId, mediaExt),
-      type: 'binary',
-      size: getFileSize(episode.localPath),
-    })
+    const mediaKey = s3Keys.episodeMedia(episode.seriesId, episodeId, mediaExt)
+    if (!episode.remoteUrl || episode.remoteUrl !== mediaKey) {
+      files.push({
+        key: mediaKey,
+        type: 'binary',
+        size: getFileSize(episode.localPath),
+      })
+    }
   }
 
   const transcript = getTranscript(episodeId)
