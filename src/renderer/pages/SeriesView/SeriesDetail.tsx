@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSeriesStore } from '../../stores/seriesStore'
 import { useEpisodeStore } from '../../stores/episodeStore'
+import { useConfigStore } from '../../stores/configStore'
 import { useTranscriptionStore } from '../../stores/transcriptionStore'
 import { MEDIA_FILE_FILTER, IMAGE_FILE_FILTER } from '@shared/media-formats'
 import type { BookImport } from '@shared/types'
@@ -17,6 +18,7 @@ export default function SeriesDetailPage() {
   const navigate = useNavigate()
   const { series, fetchSeries, updateSeries, deleteSeries, uploadCover } = useSeriesStore()
   const { episodes, loading: episodesLoading, fetchEpisodes, deleteEpisode } = useEpisodeStore()
+  const { config } = useConfigStore()
   const progresses = useTranscriptionStore((s) => s.progresses)
   const completedIds = useTranscriptionStore((s) => s.completedIds)
   const ackCompleted = useTranscriptionStore((s) => s.ackCompleted)
@@ -105,6 +107,33 @@ export default function SeriesDetailPage() {
     }
   }
 
+  const transcriptionServices = config?.services?.filter((s) => s.category === 'transcription') ?? []
+
+  const handleBatchTranscribe = async (ids: string[], serviceId: string) => {
+    const eligibleIds = ids.filter((epId) => {
+      const ep = episodes.find((e) => e.id === epId)
+      return ep && ep.status === 'ready'
+    })
+    if (eligibleIds.length === 0) return
+    const errors: { title: string; error: string }[] = []
+    for (const epId of eligibleIds) {
+      try {
+        await window.electronAPI.transcript.generate(epId, serviceId)
+      } catch (err) {
+        const ep = episodes.find((e) => e.id === epId)
+        errors.push({
+          title: ep?.title ?? epId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+    if (id) await fetchEpisodes(id)
+    if (errors.length > 0) {
+      const detail = errors.map((e) => `• ${e.title}: ${e.error}`).join('\n')
+      window.alert(`${errors.length} episode(s) failed to transcribe:\n\n${detail}`)
+    }
+  }
+
   const handleBatchPublish = async (ids: string[], targetStatus: 'preview' | 'published') => {
     const publishableIds = ids.filter((epId) => {
       const ep = episodes.find((e) => e.id === epId)
@@ -161,6 +190,8 @@ export default function SeriesDetailPage() {
         batchPublishProgress={batchPublishProgress}
         onEpisodeClick={(epId) => navigate(`/series/${id}/episodes/${epId}`)}
         onDeleteEpisode={deleteEpisode}
+        transcriptionServices={transcriptionServices}
+        onBatchTranscribe={handleBatchTranscribe}
         onBatchPublish={handleBatchPublish}
         onBatchDelete={handleBatchDelete}
         onNewEpisode={() => setShowCreateDialog(true)}

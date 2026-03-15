@@ -1,11 +1,14 @@
-import React, { useState } from 'react'
-import { Plus, Trash2, Play, Upload } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { Plus, Trash2, Play, Upload, AudioLines } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Progress } from '../../components/ui/progress'
+import { Select } from '../../components/ui/select'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
 import { ConfirmDialog } from './ConfirmDialog'
 import { statusColors, publishColors, formatDuration } from './constants'
-import type { Episode, BookImport } from '../../../shared/types'
+import type { Episode, BookImport, PublishStatus } from '../../../shared/types'
+
+type PublishFilter = 'all' | PublishStatus
 
 interface TranscriptionProgress {
   stage: string
@@ -19,6 +22,8 @@ interface EpisodeTableProps {
   batchPublishProgress: { current: number; total: number } | null
   onEpisodeClick: (episodeId: string) => void
   onDeleteEpisode: (id: string) => Promise<void>
+  transcriptionServices: { id: string; name: string; provider: string }[]
+  onBatchTranscribe: (ids: string[], serviceId: string) => Promise<void>
   onBatchPublish: (ids: string[], targetStatus: 'preview' | 'published') => Promise<void>
   onBatchDelete: (ids: string[]) => Promise<void>
   onNewEpisode: () => void
@@ -32,6 +37,8 @@ export function EpisodeTable({
   batchPublishProgress,
   onEpisodeClick,
   onDeleteEpisode,
+  transcriptionServices,
+  onBatchTranscribe,
   onBatchPublish,
   onBatchDelete,
   onNewEpisode,
@@ -40,8 +47,16 @@ export function EpisodeTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [epToDelete, setEpToDelete] = useState<Episode | null>(null)
   const [showBatchDelete, setShowBatchDelete] = useState(false)
+  const [transcriptionServiceId, setTranscriptionServiceId] = useState(transcriptionServices[0]?.id ?? '')
+  const [batchTranscribing, setBatchTranscribing] = useState(false)
   const [batchPublishing, setBatchPublishing] = useState(false)
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const [publishFilter, setPublishFilter] = useState<PublishFilter>('all')
+
+  const filteredEpisodes = useMemo(
+    () => publishFilter === 'all' ? episodes : episodes.filter((ep) => ep.publishStatus === publishFilter),
+    [episodes, publishFilter],
+  )
 
   const toggleSelect = (episodeId: string) => {
     setSelectedIds((prev) => {
@@ -53,10 +68,10 @@ export function EpisodeTable({
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === episodes.length) {
+    if (selectedIds.size === filteredEpisodes.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(episodes.map((ep) => ep.id)))
+      setSelectedIds(new Set(filteredEpisodes.map((ep) => ep.id)))
     }
   }
 
@@ -69,6 +84,17 @@ export function EpisodeTable({
       return next
     })
     setEpToDelete(null)
+  }
+
+  const handleBatchTranscribe = async () => {
+    if (!transcriptionServiceId) return
+    setBatchTranscribing(true)
+    try {
+      await onBatchTranscribe(Array.from(selectedIds), transcriptionServiceId)
+      setSelectedIds(new Set())
+    } finally {
+      setBatchTranscribing(false)
+    }
   }
 
   const handleBatchPublish = async (targetStatus: 'preview' | 'published') => {
@@ -96,13 +122,51 @@ export function EpisodeTable({
     <>
       {/* Actions Bar */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Episodes ({episodes.length})</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">Episodes ({filteredEpisodes.length})</h2>
+          <div className="flex items-center rounded-md border border-input bg-muted/30 p-0.5">
+            {([['all', 'All'], ['draft', 'Draft'], ['preview', 'Preview'], ['published', 'Published']] as const).map(([value, label]) => (
+              <button
+                key={value}
+                className={`px-2.5 py-1 text-xs font-medium rounded-sm transition-colors ${
+                  publishFilter === value
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => setPublishFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2">
           {selectedIds.size > 0 && (
             <>
               <span className="text-sm text-muted-foreground self-center">
                 {selectedIds.size} selected
               </span>
+              {transcriptionServices.length > 0 && (
+                <>
+                  {transcriptionServices.length > 1 && (
+                    <Select
+                      value={transcriptionServiceId}
+                      onChange={(e) => setTranscriptionServiceId(e.target.value)}
+                      options={transcriptionServices.map((s) => ({ value: s.id, label: `${s.name} (${s.provider})` }))}
+                      className="w-40 h-8 text-xs"
+                    />
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={batchTranscribing || !transcriptionServiceId}
+                    onClick={handleBatchTranscribe}
+                  >
+                    <AudioLines className="h-4 w-4 mr-2" />
+                    Transcribe
+                  </Button>
+                </>
+              )}
               {batchPublishProgress ? (
                 <div className="flex items-center gap-2 self-center">
                   <Progress value={(batchPublishProgress.current / batchPublishProgress.total) * 100} className="w-32 h-2" />
@@ -180,9 +244,9 @@ export function EpisodeTable({
       )}
 
       {/* Table */}
-      {loading && episodes.length === 0 ? (
+      {loading && filteredEpisodes.length === 0 ? (
         <div className="text-muted-foreground">Loading episodes...</div>
-      ) : episodes.length === 0 ? (
+      ) : filteredEpisodes.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Play className="h-10 w-10 text-muted-foreground mb-3" />
           <p className="text-muted-foreground">No episodes yet. Create one or use Split & Import.</p>
@@ -195,9 +259,9 @@ export function EpisodeTable({
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
-                  checked={episodes.length > 0 && selectedIds.size === episodes.length}
+                  checked={filteredEpisodes.length > 0 && selectedIds.size === filteredEpisodes.length}
                   ref={(el) => {
-                    if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < episodes.length
+                    if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredEpisodes.length
                   }}
                   onChange={toggleSelectAll}
                 />
@@ -211,7 +275,7 @@ export function EpisodeTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {episodes.map((ep) => (
+            {filteredEpisodes.map((ep) => (
               <TableRow
                 key={ep.id}
                 className="cursor-pointer"
