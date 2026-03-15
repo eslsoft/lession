@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { readFile } from 'node:fs/promises'
 import type { AppConfig } from '../../shared/types'
 import { guessMimeType } from '../../shared/media-formats'
@@ -78,6 +78,32 @@ export async function deleteFile(
     Bucket: bucket,
     Key: key,
   }))
+}
+
+export async function deletePrefix(
+  client: S3Client,
+  bucket: string,
+  prefix: string,
+): Promise<number> {
+  let deleted = 0
+  let continuationToken: string | undefined
+  do {
+    const list = await client.send(new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+    }))
+    if (list.Contents) {
+      for (const obj of list.Contents) {
+        if (obj.Key) {
+          await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: obj.Key }))
+          deleted++
+        }
+      }
+    }
+    continuationToken = list.NextContinuationToken
+  } while (continuationToken)
+  return deleted
 }
 
 export async function testConnection(config: AppConfig['storage']): Promise<boolean> {
