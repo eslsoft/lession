@@ -6,7 +6,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { listSeries, getSeries, createSeries, updateSeries, deleteSeries } from '../db/repositories/series'
 import { createS3Client, uploadFile, uploadJson, deletePrefix, s3Keys } from '../services/storage'
 import { listEpisodes } from '../db/repositories/episode'
-import { generateIndexJson } from '../services/publisher'
+import { generateIndexJson, publishSeries } from '../services/publisher'
 import type { Series, AppConfig, Episode } from '../../shared/types'
 
 const store = new Store()
@@ -30,8 +30,20 @@ export function registerSeriesIpc(): void {
     return createSeries(data)
   })
 
-  ipcMain.handle(IPC.SERIES_UPDATE, (_event, id: string, data: Partial<Series>) => {
-    return updateSeries(id, data)
+  ipcMain.handle(IPC.SERIES_UPDATE, async (_event, id: string, data: Partial<Series>) => {
+    const result = updateSeries(id, data)
+    // Sync updated metadata to S3 if the series has published episodes
+    try {
+      const episodes = listEpisodes(id)
+      const hasPublished = episodes.some((ep) => ep.publishStatus === 'published' || ep.publishStatus === 'preview')
+      if (hasPublished) {
+        const config = getConfig()
+        await publishSeries(id, config)
+      }
+    } catch {
+      // S3 sync is best-effort; don't fail the local update
+    }
+    return result
   })
 
   ipcMain.handle(IPC.SERIES_DELETE, async (_event, id: string) => {
