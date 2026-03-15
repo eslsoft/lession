@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, Play, Upload, AudioLines } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Progress } from '../../components/ui/progress'
@@ -48,6 +48,11 @@ export function EpisodeTable({
   const [epToDelete, setEpToDelete] = useState<Episode | null>(null)
   const [showBatchDelete, setShowBatchDelete] = useState(false)
   const [transcriptionServiceId, setTranscriptionServiceId] = useState(transcriptionServices[0]?.id ?? '')
+  useEffect(() => {
+    if (!transcriptionServiceId && transcriptionServices.length > 0) {
+      setTranscriptionServiceId(transcriptionServices[0].id)
+    }
+  }, [transcriptionServices, transcriptionServiceId])
   const [batchTranscribing, setBatchTranscribing] = useState(false)
   const [batchPublishing, setBatchPublishing] = useState(false)
   const [batchDeleting, setBatchDeleting] = useState(false)

@@ -110,9 +110,10 @@ export default function SeriesDetailPage() {
   const transcriptionServices = config?.services?.filter((s) => s.category === 'transcription') ?? []
 
   const handleBatchTranscribe = async (ids: string[], serviceId: string) => {
+    const inProgressStatuses = new Set(['converting', 'generating', 'transcribing'])
     const eligibleIds = ids.filter((epId) => {
       const ep = episodes.find((e) => e.id === epId)
-      return ep && ep.status === 'ready'
+      return ep && !inProgressStatuses.has(ep.status)
     })
     if (eligibleIds.length === 0) return
     const errors: { title: string; error: string }[] = []
