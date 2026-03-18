@@ -17,7 +17,7 @@ export const PHRASE_CONFIG: Record<string, { bg: string; underline: string; text
 // spaCy universal POS tags mapped to display labels
 export const POS_DISPLAY: Record<string, string> = {
   NOUN: 'Noun',
-  PROPN: 'Noun',
+  PROPN: 'PROPN',
   VERB: 'Verb',
   AUX: 'Verb',
   ADJ: 'Adjective',

@@ -24,6 +24,7 @@ Run via: uv run scripts/nlp_spacy.py
 """
 import sys
 import json
+import re
 
 import spacy
 
@@ -181,9 +182,13 @@ def process_segments(segments):
             end_wi = token_to_word_idx(ent[-1])
             try_add_phrase(ptype, start_wi, end_wi, ent.text)
 
-        # 2) Phrasal verbs: verb + particle (spaCy dep_=="prt")
-        #    e.g. "give up", "look into", "figure out"
-        #    This is a direct spaCy annotation, not a heuristic.
+        # 2) Regex fallback: catch time expressions spaCy missed (e.g. "2.30pm")
+        TIME_RE = re.compile(r'^\d{1,2}[.:]\d{2}\s?[ap]m$', re.IGNORECASE)
+        for wi, w in enumerate(words):
+            if TIME_RE.match(w["word"].rstrip(".,!?;:")):
+                try_add_phrase("Temporal", wi, wi, w["word"].rstrip(".,!?;:"))
+
+        # 3) Phrasal verbs: verb + particle (spaCy dep_=="prt")
         for token in doc:
             if token.dep_ == "prt" and token.head.pos_ == "VERB":
                 verb = token.head
@@ -198,7 +203,7 @@ def process_segments(segments):
                 pv_text = verb.text + " " + particle.text
                 try_add_phrase("PV", start_wi, end_wi, pv_text)
 
-        # 3) Noun phrases: spaCy doc.noun_chunks (multi-word only)
+        # 4) Noun phrases: spaCy doc.noun_chunks (multi-word only)
         for chunk in doc.noun_chunks:
             start_wi = token_to_word_idx(chunk[0])
             end_wi = token_to_word_idx(chunk[-1])
