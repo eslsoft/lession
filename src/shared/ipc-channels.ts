@@ -86,4 +86,7 @@ export const IPC = {
 
   // Environment
   ENV_CHECK_ALL: 'env:check-all',
+  ENV_TOOL_INSTALL: 'env:tool-install',
+  ENV_TOOL_UPGRADE: 'env:tool-upgrade',
+  ENV_TOOL_PROGRESS: 'env:tool-progress',
 } as const

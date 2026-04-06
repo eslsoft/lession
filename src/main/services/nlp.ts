@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { app } from 'electron'
 import type { Segment } from '../../shared/types'
+import { getUvPath } from './bin-paths'
 
 /**
  * Resolve the path to the spaCy NLP Python script.
@@ -28,7 +29,7 @@ export async function processTranscript(segments: Segment[]): Promise<Segment[]>
   const scriptPath = getScriptPath()
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('uv', ['run', scriptPath], {
+    const proc = spawn(getUvPath(), ['run', scriptPath], {
       env: { ...process.env, PYTHONUNBUFFERED: '1' },
     })
 

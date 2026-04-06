@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { app, BrowserWindow } from 'electron'
 import Store from 'electron-store'
+import { getUvPath } from './bin-paths'
 import { IPC } from '../../shared/ipc-channels'
 import type { AppConfig, BookImport, ExtractedBook, ServiceConfig, TtsEngine } from '../../shared/types'
 import { BUILTIN_SERVICES } from '../../shared/types'
@@ -81,7 +82,7 @@ async function runExtractEpub(epubPath: string): Promise<{ title: string; author
   const scriptPath = getScriptPath('extract_epub.py')
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('uv', ['run', scriptPath], {
+    const proc = spawn(getUvPath(), ['run', scriptPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 

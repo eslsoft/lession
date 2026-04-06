@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { app } from 'electron'
 import type { TtsResult } from './types'
+import { getUvPath } from '../bin-paths'
 
 function getScriptPath(scriptName: string): string {
   if (!app.isPackaged) {
@@ -23,7 +24,7 @@ export function runTtsScript(
   const scriptPath = getScriptPath(scriptName)
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('uv', ['run', scriptPath], {
+    const proc = spawn(getUvPath(), ['run', scriptPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 

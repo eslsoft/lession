@@ -4,10 +4,14 @@ import path from 'node:path'
 import os from 'node:os'
 import type { Segment, WordToken } from '../../../shared/types'
 import type { TranscriptionProvider } from './types'
+import { getWhisperxPath } from '../bin-paths'
 
 export const localWhisperxProvider: TranscriptionProvider = {
   async transcribe(service, filePath, language, onProgress) {
-    const whisperxPath = service.options.whisperxPath || 'whisperx'
+    const whisperxPath = getWhisperxPath(service.options.whisperxPath)
+    if (!whisperxPath) {
+      throw new Error('WhisperX is not installed. Go to Settings → Environment to install it.')
+    }
     const device = service.options.device || 'cpu'
     const computeType = service.options.computeType || 'float16'
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whisperx-'))
@@ -65,7 +69,11 @@ export const localWhisperxProvider: TranscriptionProvider = {
 
       proc.on('error', (err) => {
         cleanup(outputDir)
-        reject(new Error(`Failed to start WhisperX: ${err.message}`))
+        reject(new Error(
+          (err as NodeJS.ErrnoException).code === 'ENOENT'
+            ? 'WhisperX is not installed. Go to Settings → Environment to install it.'
+            : `Failed to start WhisperX: ${err.message}`,
+        ))
       })
     })
   },

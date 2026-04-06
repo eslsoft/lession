@@ -53,6 +53,13 @@ function tryProcessQueue(): void {
   for (const dl of pending) {
     if (activeProcesses.size >= getMaxConcurrent()) break
     if (activeProcesses.has(dl.id)) continue
+    if (!resolvedPath) {
+      updateDownload(dl.id, {
+        status: 'error',
+        lastError: 'yt-dlp is not installed. Go to Settings → Environment to install it.',
+      })
+      continue
+    }
     runYtdlp(dl.id, dl.url, downloadDir, resolvedPath)
   }
 }
@@ -225,8 +232,8 @@ async function runYtdlp(
     const existing = getDownload(downloadId)
     if (!existing) { tryProcessQueue(); return }
 
-    // If paused, don't update status — it was already set to 'paused'
-    if (existing.status === 'paused') { tryProcessQueue(); return }
+    // If already handled by 'error' event or paused, skip
+    if (existing.status === 'error' || existing.status === 'paused') { tryProcessQueue(); return }
 
     if (code !== 0) {
       updateDownload(downloadId, {
@@ -312,7 +319,9 @@ async function runYtdlp(
       status: 'error',
       speed: undefined,
       eta: undefined,
-      lastError: `Failed to start yt-dlp: ${err.message}`,
+      lastError: (err as NodeJS.ErrnoException).code === 'ENOENT'
+        ? 'yt-dlp is not installed. Go to Settings → Environment to install it.'
+        : `Failed to start yt-dlp: ${err.message}`,
     })
     tryProcessQueue()
   })

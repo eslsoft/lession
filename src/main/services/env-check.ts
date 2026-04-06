@@ -1,14 +1,6 @@
 import { spawn } from 'node:child_process'
-import { getFfmpegPath, getFfprobePath, getYtdlpPath } from './bin-paths'
-
-export interface ToolStatus {
-  name: string
-  available: boolean
-  version?: string
-  bundled: boolean
-  installUrl?: string
-  installHint?: string
-}
+import { getFfmpegPath, getFfprobePath, getYtdlpPath, getWhisperxPath, getUvPath } from './bin-paths'
+import type { ToolStatus } from '../../shared/types'
 
 function checkBinary(binPath: string, args: string[], timeoutMs = 5000): Promise<{ available: boolean; version?: string }> {
   return new Promise((resolve) => {
@@ -20,8 +12,7 @@ function checkBinary(binPath: string, args: string[], timeoutMs = 5000): Promise
       proc.stderr.on('data', (data: Buffer) => { output += data.toString() })
 
       proc.on('close', (code) => {
-        if (code === 0 || output.length > 0) {
-          // Extract first line as version info
+        if (code === 0) {
           const firstLine = output.split('\n')[0]?.trim()
           resolve({ available: true, version: firstLine || 'installed' })
         } else {
@@ -39,7 +30,7 @@ function checkBinary(binPath: string, args: string[], timeoutMs = 5000): Promise
 }
 
 export async function checkAllTools(): Promise<ToolStatus[]> {
-  const results = await Promise.all([
+  return Promise.all([
     checkFfmpeg(),
     checkFfprobe(),
     checkYtdlp(),
@@ -47,58 +38,54 @@ export async function checkAllTools(): Promise<ToolStatus[]> {
     checkWhisperx(),
     checkEbookConvert(),
   ])
-  return results
 }
 
 async function checkFfmpeg(): Promise<ToolStatus> {
-  const binPath = getFfmpegPath()
-  const result = await checkBinary(binPath, ['-version'])
-  return {
-    name: 'ffmpeg',
-    bundled: true,
-    ...result,
-  }
+  const result = await checkBinary(getFfmpegPath(), ['-version'])
+  return { name: 'ffmpeg', bundled: true, ...result }
 }
 
 async function checkFfprobe(): Promise<ToolStatus> {
-  const binPath = getFfprobePath()
-  const result = await checkBinary(binPath, ['-version'])
-  return {
-    name: 'ffprobe',
-    bundled: true,
-    ...result,
-  }
+  const result = await checkBinary(getFfprobePath(), ['-version'])
+  return { name: 'ffprobe', bundled: true, ...result }
 }
 
 async function checkYtdlp(): Promise<ToolStatus> {
   const binPath = getYtdlpPath()
-  const result = await checkBinary(binPath, ['--version'])
+  const result = binPath
+    ? await checkBinary(binPath, ['--version'], 15000)
+    : { available: false }
   return {
     name: 'yt-dlp',
+    bundled: false,
+    managedBy: 'uv',
+    ...result,
+    installUrl: 'https://github.com/yt-dlp/yt-dlp',
+    installHint: 'uv tool install yt-dlp',
+  }
+}
+
+async function checkUv(): Promise<ToolStatus> {
+  const result = await checkBinary(getUvPath(), ['--version'])
+  return {
+    name: 'uv',
     bundled: true,
     ...result,
   }
 }
 
-async function checkUv(): Promise<ToolStatus> {
-  const result = await checkBinary('uv', ['--version'])
-  return {
-    name: 'uv',
-    bundled: false,
-    ...result,
-    installUrl: 'https://docs.astral.sh/uv/',
-    installHint: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
-  }
-}
-
 async function checkWhisperx(): Promise<ToolStatus> {
-  const result = await checkBinary('whisperx', ['--help'])
+  const binPath = getWhisperxPath()
+  const result = binPath
+    ? await checkBinary(binPath, ['--help'], 15000)
+    : { available: false }
   return {
     name: 'whisperx',
     bundled: false,
+    managedBy: 'uv',
     ...result,
     installUrl: 'https://github.com/m-bain/whisperX',
-    installHint: 'pip install whisperx',
+    installHint: 'uv tool install whisperx',
   }
 }
 
@@ -107,6 +94,7 @@ async function checkEbookConvert(): Promise<ToolStatus> {
   return {
     name: 'ebook-convert',
     bundled: false,
+    managedBy: 'system',
     ...result,
     installUrl: 'https://calibre-ebook.com/download',
     installHint: 'Install Calibre from https://calibre-ebook.com/download',

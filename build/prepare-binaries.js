@@ -2,8 +2,10 @@
 
 /**
  * Prepare external binaries for Electron packaging.
- * Copies ffmpeg, ffprobe from npm installer packages and downloads yt-dlp.
+ * Copies ffmpeg/ffprobe from npm packages and downloads uv.
  * Run before `electron-forge package` or `make`.
+ *
+ * yt-dlp and whisperx are managed via `uv tool install` at runtime.
  */
 
 const fs = require('fs')
@@ -28,30 +30,43 @@ function copyBinary(src, destName) {
   }
 }
 
-function downloadYtdlp() {
-  const destName = IS_WIN ? 'yt-dlp.exe' : 'yt-dlp'
+function downloadUv() {
+  const destName = IS_WIN ? 'uv.exe' : 'uv'
   const dest = path.join(BIN_DIR, destName)
 
   if (fs.existsSync(dest)) {
-    console.log(`  yt-dlp already exists at ${dest}, skipping download`)
+    console.log(`  uv already exists at ${dest}, skipping download`)
     return
   }
 
-  let url
+  // Determine platform-specific archive URL
+  let archiveName
   if (process.platform === 'darwin') {
-    url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos'
+    const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64'
+    archiveName = `uv-${arch}-apple-darwin.tar.gz`
   } else if (IS_WIN) {
-    url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+    archiveName = 'uv-x86_64-pc-windows-msvc.zip'
   } else {
-    url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
+    const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64'
+    archiveName = `uv-${arch}-unknown-linux-gnu.tar.gz`
   }
 
-  console.log(`  Downloading yt-dlp from ${url}`)
-  execSync(`curl -L -o "${dest}" "${url}"`, { stdio: 'inherit' })
+  const url = `https://github.com/astral-sh/uv/releases/latest/download/${archiveName}`
+  const archivePath = path.join(BIN_DIR, archiveName)
 
-  if (!IS_WIN) {
+  console.log(`  Downloading uv from ${url}`)
+  execSync(`curl -L -o "${archivePath}" "${url}"`, { stdio: 'inherit' })
+
+  // Extract the uv binary from the archive
+  if (archiveName.endsWith('.tar.gz')) {
+    execSync(`tar -xzf "${archivePath}" --strip-components=1 -C "${BIN_DIR}" "*/uv"`, { stdio: 'inherit' })
     fs.chmodSync(dest, 0o755)
+  } else {
+    execSync(`unzip -o "${archivePath}" "uv.exe" -d "${BIN_DIR}"`, { stdio: 'inherit' })
   }
+
+  // Clean up archive
+  fs.unlinkSync(archivePath)
 }
 
 // ── Main ──
@@ -79,12 +94,12 @@ try {
   process.exit(1)
 }
 
-// 3. yt-dlp
-console.log('[3/3] yt-dlp')
+// 3. uv
+console.log('[3/3] uv')
 try {
-  downloadYtdlp()
+  downloadUv()
 } catch (err) {
-  console.error('  Failed to download yt-dlp:', err.message)
+  console.error('  Failed to download uv:', err.message)
   process.exit(1)
 }
 

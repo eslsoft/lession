@@ -228,8 +228,16 @@ export interface ToolStatus {
   available: boolean
   version?: string
   bundled: boolean
+  managedBy?: 'uv' | 'system'
   installUrl?: string
   installHint?: string
+}
+
+export interface ToolActionProgress {
+  toolName: string
+  stage: 'installing' | 'upgrading' | 'done' | 'error'
+  output?: string
+  error?: string
 }
 
 // ── IPC API Types ──
@@ -331,6 +339,9 @@ export interface ElectronAPI {
   // Environment
   env: {
     checkAll: () => Promise<ToolStatus[]>
+    installTool: (name: string) => Promise<void>
+    upgradeTool: (name: string) => Promise<void>
+    onToolProgress: (callback: (data: ToolActionProgress) => void) => () => void
   }
   // Media file reading
   media: {

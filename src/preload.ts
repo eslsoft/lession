@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from './shared/ipc-channels'
-import type { ElectronAPI, BookImport, DownloadProgressInfo } from './shared/types'
+import type { ElectronAPI, BookImport, DownloadProgressInfo, ToolActionProgress } from './shared/types'
 
 const api: ElectronAPI = {
   series: {
@@ -110,6 +110,13 @@ const api: ElectronAPI = {
   },
   env: {
     checkAll: () => ipcRenderer.invoke(IPC.ENV_CHECK_ALL),
+    installTool: (name: string) => ipcRenderer.invoke(IPC.ENV_TOOL_INSTALL, name),
+    upgradeTool: (name: string) => ipcRenderer.invoke(IPC.ENV_TOOL_UPGRADE, name),
+    onToolProgress: (callback: (data: ToolActionProgress) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: ToolActionProgress) => callback(data)
+      ipcRenderer.on(IPC.ENV_TOOL_PROGRESS, handler)
+      return () => ipcRenderer.removeListener(IPC.ENV_TOOL_PROGRESS, handler)
+    },
   },
   media: {
     readFile: (filePath: string) => ipcRenderer.invoke('media:read-file', filePath),
