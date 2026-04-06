@@ -131,14 +131,14 @@ export default function DownloadItem({
 
         <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           {dl.status === 'downloading' && (
-            <Tooltip content="Pause">
+            <Tooltip content="Pause" side="bottom">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onPause}>
                 <Pause className="h-4 w-4" />
               </Button>
             </Tooltip>
           )}
           {isActive && (
-            <Tooltip content="Cancel">
+            <Tooltip content="Cancel" side="bottom">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onCancel}>
                 <X className="h-4 w-4" />
               </Button>
@@ -147,12 +147,12 @@ export default function DownloadItem({
 
           {dl.status === 'pending' && (
             <>
-              <Tooltip content="Pause">
+              <Tooltip content="Pause" side="bottom">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onPause}>
                   <Pause className="h-4 w-4" />
                 </Button>
               </Tooltip>
-              <Tooltip content="Cancel">
+              <Tooltip content="Cancel" side="bottom">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onCancel}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -161,7 +161,7 @@ export default function DownloadItem({
           )}
 
           {dl.status === 'paused' && (
-            <Tooltip content="Resume">
+            <Tooltip content="Resume" side="bottom">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onResume}>
                 <Play className="h-4 w-4" />
               </Button>
@@ -169,7 +169,7 @@ export default function DownloadItem({
           )}
 
           {dl.status === 'error' && (
-            <Tooltip content="Retry">
+            <Tooltip content="Retry" side="bottom">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onRetry}>
                 <RotateCcw className="h-4 w-4" />
               </Button>
@@ -177,7 +177,7 @@ export default function DownloadItem({
           )}
 
           {dl.status === 'done' && (
-            <Tooltip content="Open File">
+            <Tooltip content="Open File" side="bottom">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onOpen}>
                 <FileAudio className="h-4 w-4" />
               </Button>
