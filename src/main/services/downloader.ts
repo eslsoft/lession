@@ -34,6 +34,14 @@ function sendProgress(info: DownloadProgressInfo): void {
   }
 }
 
+function updateDownloadAndNotify(id: string, data: Partial<Download>): Download {
+  const result = updateDownload(id, data)
+  if (data.status === 'done' || data.status === 'error') {
+    sendProgress({ id, progress: result.progress, status: data.status })
+  }
+  return result
+}
+
 function getMaxConcurrent(): number {
   const config = getConfig()
   return config.downloader.maxConcurrent || 3
@@ -54,7 +62,7 @@ function tryProcessQueue(): void {
     if (activeProcesses.size >= getMaxConcurrent()) break
     if (activeProcesses.has(dl.id)) continue
     if (!resolvedPath) {
-      updateDownload(dl.id, {
+      updateDownloadAndNotify(dl.id, {
         status: 'error',
         lastError: 'yt-dlp is not installed. Go to Settings → Environment to install it.',
       })
@@ -120,7 +128,7 @@ async function runYtdlp(
   const outputTemplate = path.join(downloadDir, '%(title)s.%(ext)s')
 
   // Update status to downloading
-  updateDownload(downloadId, { status: 'downloading', progress: 0, speed: undefined, eta: undefined, lastError: undefined })
+  updateDownloadAndNotify(downloadId, { status: 'downloading', progress: 0, speed: undefined, eta: undefined, lastError: undefined })
   sendProgress({ id: downloadId, progress: 0 })
 
   const proc = spawn(ytdlpPath, [
@@ -158,7 +166,7 @@ async function runYtdlp(
       // Mark as converting when audio extraction begins
       if (isExtractAudio) {
         const current = getDownload(downloadId)
-        updateDownload(downloadId, { status: 'converting', speed: undefined, eta: undefined })
+        updateDownloadAndNotify(downloadId, { status: 'converting', speed: undefined, eta: undefined })
         sendProgress({ id: downloadId, progress: current?.progress ?? 100, status: 'converting', title: metaTitle, duration: metaDuration })
       }
 
@@ -182,7 +190,7 @@ async function runYtdlp(
               }))
             }
             if (Object.keys(updates).length > 0) {
-              updateDownload(downloadId, updates)
+              updateDownloadAndNotify(downloadId, updates)
               sendProgress({ id: downloadId, progress: 0, title: metaTitle, duration: metaDuration })
             }
           }
@@ -215,7 +223,7 @@ async function runYtdlp(
       const sizeMatch = text.match(/of\s+~?([\d.]+\s*\S+iB)/)
       const fileSize = sizeMatch ? sizeMatch[1] : undefined
 
-      updateDownload(downloadId, { progress, speed, eta, fileSize })
+      updateDownloadAndNotify(downloadId, { progress, speed, eta, fileSize })
       sendProgress({ id: downloadId, progress, speed, eta, fileSize, title: metaTitle, duration: metaDuration })
     }
   })
@@ -236,7 +244,7 @@ async function runYtdlp(
     if (existing.status === 'error' || existing.status === 'paused') { tryProcessQueue(); return }
 
     if (code !== 0) {
-      updateDownload(downloadId, {
+      updateDownloadAndNotify(downloadId, {
         status: 'error',
         speed: undefined,
         eta: undefined,
@@ -250,7 +258,7 @@ async function runYtdlp(
     const filename = path.basename(localPath)
 
     if (!localPath || !fs.existsSync(localPath)) {
-      updateDownload(downloadId, {
+      updateDownloadAndNotify(downloadId, {
         status: 'error',
         speed: undefined,
         eta: undefined,
@@ -295,7 +303,7 @@ async function runYtdlp(
       // best-effort
     }
 
-    updateDownload(downloadId, {
+    updateDownloadAndNotify(downloadId, {
       status: 'done',
       progress: 100,
       speed: undefined,
@@ -307,7 +315,6 @@ async function runYtdlp(
       duration,
       chapters,
     })
-    sendProgress({ id: downloadId, progress: 100, status: 'done' })
     tryProcessQueue()
   })
 
@@ -315,7 +322,7 @@ async function runYtdlp(
     activeProcesses.delete(downloadId)
     const existing = getDownload(downloadId)
     if (!existing) return
-    updateDownload(downloadId, {
+    updateDownloadAndNotify(downloadId, {
       status: 'error',
       speed: undefined,
       eta: undefined,
@@ -353,7 +360,7 @@ export function pauseDownload(id: string): void {
     activeProcesses.delete(id)
   }
 
-  updateDownload(id, {
+  updateDownloadAndNotify(id, {
     status: 'paused',
     speed: undefined,
     eta: undefined,
@@ -370,7 +377,7 @@ export function resumeDownload(id: string): void {
   }
 
   // Reset to pending, queue will pick it up. --continue flag handles partial file.
-  updateDownload(id, {
+  updateDownloadAndNotify(id, {
     status: 'pending',
     speed: undefined,
     eta: undefined,
@@ -384,7 +391,7 @@ export function retryDownload(id: string): Download {
   if (!existing) throw new Error(`Download ${id} not found`)
 
   // Reset state to pending, let the queue pick it up
-  updateDownload(id, {
+  updateDownloadAndNotify(id, {
     status: 'pending',
     progress: 0,
     speed: undefined,
@@ -427,7 +434,7 @@ export function clearCompletedDownloads(deleteFiles = false): void {
 export function retryAllFailedDownloads(): void {
   const failed = listFailedDownloads()
   for (const dl of failed) {
-    updateDownload(dl.id, {
+    updateDownloadAndNotify(dl.id, {
       status: 'pending',
       progress: 0,
       speed: undefined,

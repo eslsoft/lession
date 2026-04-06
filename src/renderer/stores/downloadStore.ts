@@ -114,8 +114,8 @@ export const useDownloadStore = create<DownloadState>((set) => ({
 
   updateProgress: (info) => {
     const { id, progress, speed, eta, fileSize, title, duration } = info
-    if (info.status === 'done') {
-      // Download fully finished — refetch from DB to get final status with fileSize etc.
+    if (info.status === 'done' || info.status === 'error') {
+      // Terminal state — refetch from DB to get final fields (fileSize, lastError, etc.)
       window.electronAPI.download.list().then((downloads) => set({ downloads }))
       return
     }
