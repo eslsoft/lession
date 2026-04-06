@@ -92,8 +92,25 @@ export default function EpisodeDetailPage() {
   const handleSegmentSplit = useCallback(
     async (segmentIndex: number, wordIndex: number) => {
       if (!transcript || !episodeId) return
-      await window.electronAPI.transcript.splitSegment(transcript.id, segmentIndex, wordIndex)
-      setTranscript(await window.electronAPI.transcript.get(episodeId))
+      try {
+        await window.electronAPI.transcript.splitSegment(transcript.id, segmentIndex, wordIndex)
+        setTranscript(await window.electronAPI.transcript.get(episodeId))
+      } catch (err) {
+        setActionError((err as Error).message)
+      }
+    },
+    [transcript, episodeId],
+  )
+
+  const handleSegmentMerge = useCallback(
+    async (segmentIndex: number) => {
+      if (!transcript || !episodeId) return
+      try {
+        await window.electronAPI.transcript.mergeSegments(transcript.id, segmentIndex)
+        setTranscript(await window.electronAPI.transcript.get(episodeId))
+      } catch (err) {
+        setActionError((err as Error).message)
+      }
     },
     [transcript, episodeId],
   )
@@ -324,6 +341,7 @@ export default function EpisodeDetailPage() {
             onSeek={handleSeek}
             onSegmentEdit={handleSegmentUpdate}
             onSegmentSplit={handleSegmentSplit}
+            onSegmentMerge={handleSegmentMerge}
             onActiveSegmentChange={setActiveSegment}
           />
         </div>

@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
-import { getTranscript, getTranscriptById, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText, splitSegment } from '../db/repositories/transcript'
+import { getTranscript, getTranscriptById, createTranscript, updateTranscript, updateTranscriptSegments, updateSegmentText, splitSegment, mergeSegments } from '../db/repositories/transcript'
 import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositories/episode'
 import { getSeries } from '../db/repositories/series'
 import { dispatchTranscribe, resolveTranscriptionService, getCachedTranscript, saveCachedTranscript } from '../services/transcription'
@@ -86,12 +86,9 @@ export function registerTranscriptIpc(): void {
     splitSegment(transcriptId, segmentIndex, wordIndex)
 
     // Re-run NLP on the two newly created segments to restore phrases & complexity
-    const transcript = getTranscriptById(transcriptId)
-    if (!transcript) return
-
+    const transcript = getTranscriptById(transcriptId)!
     const newFirst = transcript.segments[segmentIndex]
     const newSecond = transcript.segments[segmentIndex + 1]
-    if (!newFirst || !newSecond) return
 
     try {
       const nlpResults = await processTranscript([newFirst, newSecond])
@@ -101,6 +98,23 @@ export function registerTranscriptIpc(): void {
       updateTranscriptSegments(transcriptId, segments)
     } catch {
       // NLP failed — keep the split result without NLP data
+    }
+  })
+
+  ipcMain.handle(IPC.TRANSCRIPT_MERGE_SEGMENTS, async (_event, transcriptId: string, segmentIndex: number) => {
+    mergeSegments(transcriptId, segmentIndex)
+
+    // Re-run NLP on the merged segment to restore phrases & complexity
+    const transcript = getTranscriptById(transcriptId)!
+    const merged = transcript.segments[segmentIndex]
+
+    try {
+      const nlpResults = await processTranscript([merged])
+      const segments = [...transcript.segments]
+      segments[segmentIndex] = nlpResults[0]
+      updateTranscriptSegments(transcriptId, segments)
+    } catch {
+      // NLP enrichment failed — merge itself already persisted
     }
   })
 

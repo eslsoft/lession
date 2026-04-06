@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { User, Eye, Scissors } from 'lucide-react'
+import { User, Eye, Scissors, Merge } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { cn } from '../../lib/utils'
@@ -168,6 +168,7 @@ interface TranscriptEditorProps {
   onSeek?: (time: number) => void
   onSegmentEdit?: (segmentIndex: number, text: string) => void
   onSegmentSplit?: (segmentIndex: number, wordIndex: number) => void
+  onSegmentMerge?: (segmentIndex: number) => void
   onActiveSegmentChange?: (segment: Segment | null) => void
 }
 
@@ -208,6 +209,7 @@ export default function TranscriptEditor({
   onSeek,
   onSegmentEdit,
   onSegmentSplit,
+  onSegmentMerge,
   onActiveSegmentChange,
 }: TranscriptEditorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -333,6 +335,7 @@ export default function TranscriptEditor({
             const isSplitting = index === splittingIndex
             const activeWordIndex = isActive ? findActiveWordIndex(segment, currentTime) : -1
             const canSplit = segment.words && segment.words.length > 1
+            const canMerge = index < segments.length - 1
 
             return (
               <div
@@ -375,6 +378,20 @@ export default function TranscriptEditor({
                       }}
                     >
                       <Scissors className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {canMerge && onSegmentMerge && (
+                    <button
+                      type="button"
+                      className="p-0.5 rounded transition-colors text-muted-foreground/0 group-hover:text-muted-foreground hover:text-foreground hover:bg-accent"
+                      title="Merge with next segment"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSplittingIndex(null)
+                        onSegmentMerge(index)
+                      }}
+                    >
+                      <Merge className="h-3.5 w-3.5" />
                     </button>
                   )}
                   {segment.speaker && (

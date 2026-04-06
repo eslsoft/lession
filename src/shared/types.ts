@@ -266,6 +266,7 @@ export interface ElectronAPI {
     generate: (episodeId: string, serviceId: string) => Promise<Transcript>
     updateSegment: (transcriptId: string, segmentIndex: number, text: string) => Promise<void>
     splitSegment: (transcriptId: string, segmentIndex: number, wordIndex: number) => Promise<void>
+    mergeSegments: (transcriptId: string, segmentIndex: number) => Promise<void>
     getFileTranscript: (filePath: string) => Promise<Segment[] | null>
     transcribeFile: (filePath: string, serviceId: string) => Promise<Segment[]>
     onFileProgress: (callback: (data: { stage: string; percent: number }) => void) => () => void

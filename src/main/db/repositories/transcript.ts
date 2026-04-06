@@ -99,16 +99,51 @@ export function updateSegmentText(id: string, segmentIndex: number, text: string
   stmt.run(JSON.stringify(segments), now, id)
 }
 
+export function mergeSegments(id: string, segmentIndex: number): void {
+  const db = getDatabase()
+  const transcript = getTranscriptById(id)
+  if (!transcript) throw new Error(`Transcript not found: ${id}`)
+
+  const segments = [...transcript.segments]
+  if (segmentIndex < 0 || segmentIndex >= segments.length - 1) {
+    throw new Error(`Cannot merge at index ${segmentIndex}: out of bounds`)
+  }
+
+  const first = segments[segmentIndex]
+  const second = segments[segmentIndex + 1]
+
+  const merged: Segment = {
+    start: first.start,
+    end: second.end,
+    text: [first.text.trimEnd(), second.text.trimStart()].join(' '),
+    edited: true,
+    speaker: first.speaker,
+    words: [...(first.words ?? []), ...(second.words ?? [])],
+    phrases: undefined,
+    complexity: undefined,
+  }
+
+  segments.splice(segmentIndex, 2, merged)
+
+  const now = new Date().toISOString()
+  const stmt = db.prepare('UPDATE transcripts SET segments = ?, updatedAt = ? WHERE id = ?')
+  stmt.run(JSON.stringify(segments), now, id)
+}
+
 export function splitSegment(id: string, segmentIndex: number, wordIndex: number): void {
   const db = getDatabase()
   const transcript = getTranscriptById(id)
-  if (!transcript) return
+  if (!transcript) throw new Error(`Transcript not found: ${id}`)
 
   const segments = [...transcript.segments]
-  if (segmentIndex < 0 || segmentIndex >= segments.length) return
+  if (segmentIndex < 0 || segmentIndex >= segments.length) {
+    throw new Error(`Cannot split at index ${segmentIndex}: out of bounds`)
+  }
 
   const segment = segments[segmentIndex]
-  if (!segment.words || wordIndex <= 0 || wordIndex >= segment.words.length) return
+  if (!segment.words || wordIndex <= 0 || wordIndex >= segment.words.length) {
+    throw new Error(`Cannot split at word index ${wordIndex}: out of bounds`)
+  }
 
   const firstWords = segment.words.slice(0, wordIndex)
   const secondWords = segment.words.slice(wordIndex)

@@ -26,6 +26,8 @@ const api: ElectronAPI = {
       ipcRenderer.invoke(IPC.TRANSCRIPT_UPDATE_SEGMENT, transcriptId, segmentIndex, text),
     splitSegment: (transcriptId, segmentIndex, wordIndex) =>
       ipcRenderer.invoke(IPC.TRANSCRIPT_SPLIT_SEGMENT, transcriptId, segmentIndex, wordIndex),
+    mergeSegments: (transcriptId, segmentIndex) =>
+      ipcRenderer.invoke(IPC.TRANSCRIPT_MERGE_SEGMENTS, transcriptId, segmentIndex),
     getFileTranscript: (filePath: string) =>
       ipcRenderer.invoke(IPC.TRANSCRIPTION_GET_FILE, filePath),
     transcribeFile: (filePath: string, serviceId: string) =>
