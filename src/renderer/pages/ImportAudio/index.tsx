@@ -11,7 +11,9 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { useEpisodeStore } from '../../stores/episodeStore'
 import { useConfigStore } from '../../stores/configStore'
+import { useSeriesStore } from '../../stores/seriesStore'
 import { Select } from '../../components/ui/select'
+import { Switch } from '../../components/ui/switch'
 import { isVideoPath } from '@shared/media-formats'
 import type { Segment } from '@shared/types'
 
@@ -73,6 +75,34 @@ export default function ImportAudioPage() {
   const seriesId = searchParams.get('seriesId') ?? ''
   const initialMode = searchParams.get('mode') as 'single' | 'split' | null
 
+  interface MediaMetadata {
+    duration: number
+    format: string
+    hasVideo: boolean
+    chapters?: { start: number; end: number; title: string }[]
+    tags?: {
+      title?: string
+      artist?: string
+      album?: string
+      date?: string
+      genre?: string
+      comment?: string
+    }
+    coverPath?: string
+  }
+
+  const { series, fetchSeries, uploadCover } = useSeriesStore()
+  const [metadata, setMetadata] = useState<MediaMetadata | null>(null)
+  const [useBookCover, setUseBookCover] = useState(false)
+
+  useEffect(() => {
+    fetchSeries()
+  }, [fetchSeries])
+
+  const currentSeries = useMemo(() => {
+    return series.find((s) => s.id === seriesId)
+  }, [series, seriesId])
+
   const [mode, setMode] = useState<'single' | 'split'>(initialMode ?? 'single')
 
   // Common state
@@ -128,6 +158,53 @@ export default function ImportAudioPage() {
     })
     return () => { cancelled = true }
   }, [filePath])
+
+  // Load chapters from metadata
+  useEffect(() => {
+    if (!filePath) return
+    let cancelled = false
+    window.electronAPI.splitter.getMetadata(filePath)
+      .then((meta) => {
+        if (cancelled) return
+        setMetadata(meta)
+
+        // Pre-populate single mode title
+        if (meta.tags?.title) {
+          setTitle(meta.tags.title)
+        }
+
+        // Pre-populate cover art setting: if book has cover and series doesn't, check the box!
+        if (meta.coverPath && currentSeries && !currentSeries.coverPath) {
+          setUseBookCover(true)
+        }
+
+        if (meta.chapters && meta.chapters.length > 0) {
+          const pts: SplitPoint[] = []
+          const titles = new Map<string | null, string>()
+
+          // Populate the title of the first segment (which starts at index 0)
+          titles.set(null, meta.chapters[0].title)
+
+          for (let i = 0; i < meta.chapters.length - 1; i++) {
+            const id = genId()
+            pts.push({
+              id,
+              time: meta.chapters[i].end,
+            })
+            // The segment starting after this split point
+            titles.set(id, meta.chapters[i + 1].title)
+          }
+
+          setSplitPoints(pts)
+          setSegmentTitles(titles)
+          setMode('split')
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load chapters:', err)
+      })
+    return () => { cancelled = true }
+  }, [filePath, currentSeries])
 
   // Load existing transcript
   useEffect(() => {
@@ -238,13 +315,17 @@ export default function ImportAudioPage() {
 
   // Single mode: create episode
   const handleCreateSingle = async () => {
-    if (!filePath || !seriesId || !title.trim()) return
+    if (!filePath || !seriesId || !title.trim() || !metadata) return
     setCreating(true)
     setError(null)
     try {
       const isVideo = isVideoPath(filePath)
-      const metadata = await window.electronAPI.splitter.getMetadata(filePath)
       const needsConvert = !isVideo && !filePath.toLowerCase().endsWith('.m4a')
+
+      if (useBookCover && metadata.coverPath) {
+        await uploadCover(seriesId, metadata.coverPath)
+      }
+
       const episode = await createEpisode({
         seriesId,
         title: title.trim(),
@@ -324,6 +405,10 @@ export default function ImportAudioPage() {
     setSplitting(true)
     setError(null)
     try {
+      if (useBookCover && metadata?.coverPath) {
+        await uploadCover(seriesId, metadata.coverPath)
+      }
+
       const splitMarkers = validSegments.map((s) => ({
         start: s.start,
         end: s.end,
@@ -364,6 +449,37 @@ export default function ImportAudioPage() {
           {duration > 0 && <span>{formatTime(duration)}</span>}
         </div>
       </div>
+
+      {/* Audiobook Meta Info (Cover Art & Book Details) */}
+      {metadata?.coverPath && (
+        <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card">
+          <img
+            src={`local-media://localhost${encodeURI(metadata.coverPath)}`}
+            alt="Audiobook Cover"
+            className="w-12 h-12 rounded object-cover shadow-sm bg-muted flex-shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">
+              {metadata.tags?.title || 'Unknown Title'}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {metadata.tags?.artist || 'Unknown Artist'}
+              {metadata.tags?.date ? ` · ${metadata.tags.date}` : ''}
+              {metadata.tags?.genre ? ` · ${metadata.tags.genre}` : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 pr-2">
+            <Switch
+              id="use-book-cover"
+              checked={useBookCover}
+              onCheckedChange={setUseBookCover}
+            />
+            <Label htmlFor="use-book-cover" className="text-xs font-medium cursor-pointer select-none">
+              Use as Series Cover
+            </Label>
+          </div>
+        </div>
+      )}
 
       {/* Waveform */}
       {loading && (

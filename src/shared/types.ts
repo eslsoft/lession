@@ -296,7 +296,21 @@ export interface ElectronAPI {
   }
   // Splitter
   splitter: {
-    getMetadata: (filePath: string) => Promise<{ duration: number; format: string }>
+    getMetadata: (filePath: string) => Promise<{
+      duration: number
+      format: string
+      hasVideo: boolean
+      chapters?: { start: number; end: number; title: string }[]
+      tags?: {
+        title?: string
+        artist?: string
+        album?: string
+        date?: string
+        genre?: string
+        comment?: string
+      }
+      coverPath?: string
+    }>
     split: (filePath: string, markers: { start: number; end: number; title: string }[], seriesId: string) => Promise<Episode[]>
     detectSilence: (filePath: string, noiseThreshold?: string, minDuration?: number) => Promise<{ start: number; end: number; duration: number }[]>
   }

@@ -1,15 +1,64 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { mkdir } from 'node:fs/promises'
+import { app } from 'electron'
 import { getFfmpegPath, getFfprobePath } from './bin-paths'
 
-export async function getMediaMetadata(filePath: string): Promise<{ duration: number; format: string; hasVideo: boolean }> {
+interface FfprobeChapter {
+  start_time: string
+  end_time: string
+  tags?: {
+    title?: string
+  }
+}
+
+async function extractCoverArt(filePath: string, outputPath: string): Promise<void> {
+  await mkdir(path.dirname(outputPath), { recursive: true })
+  return new Promise((resolve, reject) => {
+    const proc = spawn(getFfmpegPath(), [
+      '-y',
+      '-i', filePath,
+      '-an',
+      '-vcodec', 'copy',
+      outputPath,
+    ])
+    let stderr = ''
+    proc.stderr.on('data', (data: Buffer) => { stderr += data.toString() })
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Failed to extract cover art: ${stderr}`))
+        return
+      }
+      resolve()
+    })
+    proc.on('error', (err) => {
+      reject(new Error(`Failed to start ffmpeg: ${err.message}`))
+    })
+  })
+}
+
+export async function getMediaMetadata(filePath: string): Promise<{
+  duration: number
+  format: string
+  hasVideo: boolean
+  chapters?: { start: number; end: number; title: string }[]
+  tags?: {
+    title?: string
+    artist?: string
+    album?: string
+    date?: string
+    genre?: string
+    comment?: string
+  }
+  coverPath?: string
+}> {
   return new Promise((resolve, reject) => {
     const proc = spawn(getFfprobePath(), [
       '-v', 'quiet',
       '-print_format', 'json',
       '-show_format',
       '-show_streams',
+      '-show_chapters',
       filePath,
     ])
 
@@ -31,11 +80,57 @@ export async function getMediaMetadata(filePath: string): Promise<{ duration: nu
             s.codec_type === 'video' &&
             (s.disposition as Record<string, unknown> | undefined)?.attached_pic !== 1,
         )
-        resolve({
-          duration: parseFloat(info.format.duration),
-          format: info.format.format_name,
-          hasVideo,
-        })
+        const chapters = (info.chapters || []).map((ch: FfprobeChapter, idx: number) => ({
+          start: parseFloat(ch.start_time),
+          end: parseFloat(ch.end_time),
+          title: ch.tags?.title || `Chapter ${idx + 1}`,
+        }))
+
+        const coverStream = (info.streams || []).find(
+          (s: Record<string, unknown>) =>
+            s.codec_type === 'video' &&
+            (s.disposition as Record<string, unknown> | undefined)?.attached_pic === 1,
+        )
+
+        const tags = info.format.tags || {}
+
+        const duration = parseFloat(info.format.duration)
+        const format = info.format.format_name
+
+        if (coverStream) {
+          const ext = coverStream.codec_name === 'png' ? '.png' : '.jpg'
+          const tempCoverDir = path.join(app.getPath('userData'), 'temp_covers')
+          const tempCoverPath = path.join(tempCoverDir, `${Date.now()}_cover${ext}`)
+          extractCoverArt(filePath, tempCoverPath)
+            .then(() => {
+              resolve({
+                duration,
+                format,
+                hasVideo,
+                chapters,
+                tags,
+                coverPath: tempCoverPath,
+              })
+            })
+            .catch((err) => {
+              console.error('Failed to extract cover:', err)
+              resolve({
+                duration,
+                format,
+                hasVideo,
+                chapters,
+                tags,
+              })
+            })
+        } else {
+          resolve({
+            duration,
+            format,
+            hasVideo,
+            chapters,
+            tags,
+          })
+        }
       } catch (err) {
         reject(new Error(`Failed to parse ffprobe output: ${err}`))
       }

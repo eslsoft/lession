@@ -3,6 +3,7 @@
 export const AUDIO_MIME: Record<string, string> = {
   '.mp3': 'audio/mpeg',
   '.m4a': 'audio/mp4',
+  '.m4b': 'audio/mp4',
   '.wav': 'audio/wav',
   '.ogg': 'audio/ogg',
   '.opus': 'audio/opus',
