@@ -26,6 +26,12 @@ export type EpisodeStatus =
 
 export type PublishStatus = 'draft' | 'preview' | 'published'
 
+export interface Chapter {
+  title: string
+  start: number
+  end: number
+}
+
 export interface Episode {
   id: string
   seriesId: string
@@ -36,6 +42,7 @@ export interface Episode {
   localPath?: string
   remoteUrl?: string
   duration?: number
+  chapters?: Chapter[]
   source?: {
     type: 'url' | 'local' | 'direct'
     origin?: string

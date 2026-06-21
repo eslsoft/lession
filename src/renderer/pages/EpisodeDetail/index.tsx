@@ -12,10 +12,11 @@ import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Progress } from '../../components/ui/progress'
 import { Select } from '../../components/ui/select'
-import type { PublishStatus, Segment, Transcript } from '../../../shared/types'
+import type { Chapter, PublishStatus, Segment, Transcript } from '../../../shared/types'
 import { formatDuration, getStatusVariant, getStatusLabel } from './utils'
 import EditDrawer from './EditDrawer'
 import PublishDialog from './PublishDialog'
+import ChaptersPanel from './ChaptersPanel'
 
 export default function EpisodeDetailPage() {
   const { seriesId, episodeId } = useParams<{ seriesId: string; episodeId: string }>()
@@ -127,6 +128,14 @@ export default function EpisodeDetailPage() {
     await updateEpisode(episodeId, { title: editTitle, description: editDescription })
     setShowEditDrawer(false)
   }
+
+  const handleChaptersChange = useCallback(
+    async (chapters: Chapter[]) => {
+      if (!episodeId) return
+      await updateEpisode(episodeId, { chapters })
+    },
+    [episodeId, updateEpisode],
+  )
 
   const handleTranscribe = useCallback(async () => {
     if (!episodeId || isTranscribing || !transcriptionServiceId) return
@@ -351,6 +360,15 @@ export default function EpisodeDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Chapters */}
+      <ChaptersPanel
+        chapters={currentEpisode.chapters ?? []}
+        duration={currentEpisode.duration}
+        currentTime={currentTime}
+        onSeek={handleSeek}
+        onChange={handleChaptersChange}
+      />
 
       {/* Media player */}
       <div className="shrink-0">

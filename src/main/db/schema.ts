@@ -27,6 +27,7 @@ export function initializeDatabase(db: Database.Database): void {
       localPath TEXT,
       remoteUrl TEXT,
       duration REAL,
+      chapters TEXT,
       sourceType TEXT,
       sourceOrigin TEXT,
       status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'converting', 'generating', 'transcribing', 'transcribed')),
@@ -94,6 +95,7 @@ export function initializeDatabase(db: Database.Database): void {
   migrateSeriesAddFields(db);
   migrateEpisodeAddConverting(db);
   migrateEpisodeAddGenerating(db);
+  migrateEpisodeAddChapters(db);
   migrateDownloadsAddPausedAndMeta(db);
 }
 
@@ -285,6 +287,17 @@ function migrateEpisodeAddGenerating(db: Database.Database): void {
   `);
 
   db.pragma('foreign_keys = ON');
+}
+
+function migrateEpisodeAddChapters(db: Database.Database): void {
+  const tableInfo = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='episodes'"
+  ).get() as { sql: string } | undefined;
+
+  if (!tableInfo) return;
+  if (tableInfo.sql.includes('chapters')) return; // already migrated
+
+  db.exec('ALTER TABLE episodes ADD COLUMN chapters TEXT;');
 }
 
 function migrateDownloadsAddPausedAndMeta(db: Database.Database): void {

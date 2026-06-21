@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { getDatabase } from '../index'
-import type { Episode, EpisodeStatus, PublishStatus } from '../../../shared/types'
+import type { Chapter, Episode, EpisodeStatus, PublishStatus } from '../../../shared/types'
 
 interface EpisodeRow {
   id: string
@@ -12,6 +12,7 @@ interface EpisodeRow {
   localPath: string | null
   remoteUrl: string | null
   duration: number | null
+  chapters: string | null
   sourceType: string | null
   sourceOrigin: string | null
   status: EpisodeStatus
@@ -33,6 +34,7 @@ function rowToEpisode(row: EpisodeRow): Episode {
     localPath: row.localPath ?? undefined,
     remoteUrl: row.remoteUrl ?? undefined,
     duration: row.duration ?? undefined,
+    chapters: row.chapters ? (JSON.parse(row.chapters) as Chapter[]) : undefined,
     status: row.status,
     publishStatus: row.publishStatus,
     createdAt: row.createdAt,
@@ -76,8 +78,8 @@ export function createEpisode(data: Omit<Episode, 'id' | 'createdAt' | 'updatedA
   const id = crypto.randomUUID()
 
   const stmt = db.prepare(`
-    INSERT INTO episodes (id, seriesId, title, description, "order", mimeType, localPath, remoteUrl, duration, sourceType, sourceOrigin, status, publishStatus, lastErrorMessage, lastErrorOccurredAt, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO episodes (id, seriesId, title, description, "order", mimeType, localPath, remoteUrl, duration, chapters, sourceType, sourceOrigin, status, publishStatus, lastErrorMessage, lastErrorOccurredAt, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   stmt.run(
     id,
@@ -89,6 +91,7 @@ export function createEpisode(data: Omit<Episode, 'id' | 'createdAt' | 'updatedA
     data.localPath ?? null,
     data.remoteUrl ?? null,
     data.duration ?? null,
+    data.chapters ? JSON.stringify(data.chapters) : null,
     data.source?.type ?? null,
     data.source?.origin ?? null,
     data.status,
@@ -120,6 +123,11 @@ export function updateEpisode(id: string, data: Partial<Episode>): Episode {
   if ('order' in data) {
     sets.push('"order" = ?')
     values.push(data.order)
+  }
+
+  if ('chapters' in data) {
+    sets.push('chapters = ?')
+    values.push(data.chapters ? JSON.stringify(data.chapters) : null)
   }
 
   if ('source' in data) {

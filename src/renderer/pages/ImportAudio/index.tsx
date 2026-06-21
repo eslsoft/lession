@@ -197,7 +197,10 @@ export default function ImportAudioPage() {
 
           setSplitPoints(pts)
           setSegmentTitles(titles)
-          setMode('split')
+          // Pre-populate split points so the split editor is ready if chosen, but
+          // respect an explicit "single" import — chapters are kept as the
+          // episode's internal markers rather than forcing a split.
+          if (initialMode !== 'single') setMode('split')
         }
       })
       .catch((err) => {
@@ -333,6 +336,7 @@ export default function ImportAudioPage() {
         mimeType: isVideo ? 'video' : 'audio',
         localPath: filePath,
         duration: metadata.duration,
+        chapters: metadata.chapters && metadata.chapters.length > 0 ? metadata.chapters : undefined,
         source: { type: 'direct', origin: filePath },
         status: needsConvert ? 'converting' : 'ready',
         publishStatus: 'draft',
@@ -587,6 +591,11 @@ export default function ImportAudioPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
+            {metadata?.chapters && metadata.chapters.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {metadata.chapters.length} chapters detected — kept as in-episode markers (edit later on the episode page).
+              </p>
+            )}
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => navigate(`/series/${seriesId}`)}>

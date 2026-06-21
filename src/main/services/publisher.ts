@@ -336,6 +336,7 @@ function buildFeedItem(series: Series, episode: Episode) {
     ],
     _order: episode.order,
     _status: episode.publishStatus,
+    _chapters: episode.chapters ?? [],
     _sentence_count: sentenceCount,
     _word_count: wordCount,
     _transcript_url: s3Keys.episodeTranscript(series.id, episode.id),
