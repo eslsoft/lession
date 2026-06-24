@@ -57,6 +57,10 @@ export interface Episode {
   updatedAt: string
 }
 
+export type EpisodeCreateInput = Omit<Episode, 'id' | 'createdAt' | 'updatedAt' | 'order'> & {
+  order?: number
+}
+
 // ── Download ──
 export interface Download {
   id: string
@@ -268,7 +272,7 @@ export interface ElectronAPI {
   episode: {
     list: (seriesId: string) => Promise<Episode[]>
     get: (id: string) => Promise<Episode | null>
-    create: (data: Omit<Episode, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Episode>
+    create: (data: EpisodeCreateInput) => Promise<Episode>
     update: (id: string, data: Partial<Episode>) => Promise<Episode>
     delete: (id: string) => Promise<void>
     publish: (id: string, status: PublishStatus) => Promise<void>

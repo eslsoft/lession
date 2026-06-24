@@ -3,7 +3,7 @@ import { statSync } from 'node:fs'
 import { listEpisodes, getEpisode, updateEpisode } from '../db/repositories/episode'
 import { getSeries, listSeries } from '../db/repositories/series'
 import { getTranscript } from '../db/repositories/transcript'
-import { createS3Client, uploadFile, uploadJson, uploadBuffer, s3Keys } from './storage'
+import { createS3Client, uploadFile, uploadJson, uploadBuffer, deletePrefix, s3Keys } from './storage'
 import { generateSRT, generateVTT } from './subtitle'
 import type { AppConfig, Episode, PublishFileInfo, PublishPreviewFile, PublishStatus, Segment, Series } from '../../shared/types'
 
@@ -89,6 +89,31 @@ export async function unpublishEpisode(episodeId: string, config: AppConfig): Pr
   }
   const index = generateIndexJson(allSeries, episodesMap)
   await uploadJson(s3, bucket, s3Keys.index(), index)
+}
+
+export async function cleanupDeletedEpisodePublication(
+  episode: Episode,
+  config: AppConfig,
+): Promise<void> {
+  const s3 = createS3Client(config.storage)
+  const bucket = config.storage.bucket
+
+  const series = getSeries(episode.seriesId)
+  if (series) {
+    const episodes = listEpisodes(episode.seriesId)
+    const feed = generateFeedJson(series, episodes)
+    await uploadJson(s3, bucket, s3Keys.seriesFeed(episode.seriesId), feed)
+  }
+
+  const allSeries = listSeries()
+  const episodesMap = new Map<string, Episode[]>()
+  for (const s of allSeries) {
+    episodesMap.set(s.id, listEpisodes(s.id))
+  }
+  const index = generateIndexJson(allSeries, episodesMap)
+  await uploadJson(s3, bucket, s3Keys.index(), index)
+
+  await deletePrefix(s3, bucket, `${s3Keys.episodeBase(episode.seriesId, episode.id)}/`)
 }
 
 export async function publishSeries(seriesId: string, config: AppConfig): Promise<void> {

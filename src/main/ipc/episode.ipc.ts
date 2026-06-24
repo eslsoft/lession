@@ -1,7 +1,17 @@
 import { ipcMain } from 'electron'
+import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
 import { listEpisodes, getEpisode, createEpisode, updateEpisode, deleteEpisode } from '../db/repositories/episode'
-import type { Episode, PublishStatus } from '../../shared/types'
+import { cleanupDeletedEpisodePublication } from '../services/publisher'
+import type { AppConfig, Episode, EpisodeCreateInput, PublishStatus } from '../../shared/types'
+
+const store = new Store()
+
+function getConfig(): AppConfig {
+  const config = store.get('config') as AppConfig | undefined
+  if (!config) throw new Error('App not configured. Please complete setup first.')
+  return config
+}
 
 export function registerEpisodeIpc(): void {
   ipcMain.handle(IPC.EPISODE_LIST, (_event, seriesId: string) => {
@@ -12,7 +22,7 @@ export function registerEpisodeIpc(): void {
     return getEpisode(id)
   })
 
-  ipcMain.handle(IPC.EPISODE_CREATE, (_event, data: Omit<Episode, 'id' | 'createdAt' | 'updatedAt'>) => {
+  ipcMain.handle(IPC.EPISODE_CREATE, (_event, data: EpisodeCreateInput) => {
     return createEpisode(data)
   })
 
@@ -20,8 +30,12 @@ export function registerEpisodeIpc(): void {
     return updateEpisode(id, data)
   })
 
-  ipcMain.handle(IPC.EPISODE_DELETE, (_event, id: string) => {
+  ipcMain.handle(IPC.EPISODE_DELETE, async (_event, id: string) => {
+    const episode = getEpisode(id)
+    const needsPublicationCleanup = episode && (episode.publishStatus !== 'draft' || episode.remoteUrl)
+    const config = needsPublicationCleanup ? getConfig() : null
     deleteEpisode(id)
+    if (episode && config) await cleanupDeletedEpisodePublication(episode, config)
   })
 
   ipcMain.handle(IPC.EPISODE_PUBLISH, (_event, id: string, status: PublishStatus) => {

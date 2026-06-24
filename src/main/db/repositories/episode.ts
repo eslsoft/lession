@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { getDatabase } from '../index'
-import type { Chapter, Episode, EpisodeStatus, PublishStatus } from '../../../shared/types'
+import type { Chapter, Episode, EpisodeCreateInput, EpisodeStatus, PublishStatus } from '../../../shared/types'
 
 interface EpisodeRow {
   id: string
@@ -72,10 +72,11 @@ export function getEpisode(id: string): Episode | null {
   return row ? rowToEpisode(row) : null
 }
 
-export function createEpisode(data: Omit<Episode, 'id' | 'createdAt' | 'updatedAt'>): Episode {
+export function createEpisode(data: EpisodeCreateInput): Episode {
   const db = getDatabase()
   const now = new Date().toISOString()
   const id = crypto.randomUUID()
+  const order = data.order ?? getNextOrder(data.seriesId)
 
   const stmt = db.prepare(`
     INSERT INTO episodes (id, seriesId, title, description, "order", mimeType, localPath, remoteUrl, duration, chapters, sourceType, sourceOrigin, status, publishStatus, lastErrorMessage, lastErrorOccurredAt, createdAt, updatedAt)
@@ -86,7 +87,7 @@ export function createEpisode(data: Omit<Episode, 'id' | 'createdAt' | 'updatedA
     data.seriesId,
     data.title,
     data.description ?? null,
-    data.order,
+    order,
     data.mimeType,
     data.localPath ?? null,
     data.remoteUrl ?? null,

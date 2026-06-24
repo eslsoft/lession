@@ -354,7 +354,6 @@ export default function ImportAudioPage() {
       const episode = await createEpisode({
         seriesId,
         title: title.trim(),
-        order: 0,
         mimeType: isVideo ? 'video' : 'audio',
         localPath: filePath,
         duration: metadata.duration,

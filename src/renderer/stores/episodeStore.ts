@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Episode } from '../../shared/types'
+import type { Episode, EpisodeCreateInput } from '../../shared/types'
 
 interface EpisodeState {
   episodes: Episode[]
@@ -8,7 +8,7 @@ interface EpisodeState {
   error: string | null
   fetchEpisodes: (seriesId: string) => Promise<void>
   fetchEpisode: (id: string) => Promise<void>
-  createEpisode: (data: Omit<Episode, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Episode>
+  createEpisode: (data: EpisodeCreateInput) => Promise<Episode>
   updateEpisode: (id: string, data: Partial<Episode>) => Promise<void>
   deleteEpisode: (id: string) => Promise<void>
 }
