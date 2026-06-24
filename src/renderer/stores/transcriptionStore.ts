@@ -47,7 +47,7 @@ window.electronAPI.transcription.onProgress((data) => {
 
   // Done signals: transcription ends with ('nlp', 100), conversion ends with ('converting', 100).
   // Also treat negative percent as error → clear progress.
-  const isDone = (stage === 'nlp' && percent >= 100) || (stage === 'converting' && (percent >= 100 || percent < 0)) || (stage === 'generating' && (percent >= 100 || percent < 0))
+  const isDone = percent < 0 || (stage === 'nlp' && percent >= 100) || (stage === 'converting' && percent >= 100) || (stage === 'generating' && percent >= 100)
   if (isDone) {
     useTranscriptionStore.setState((state) => {
       const { [episodeId]: _, ...rest } = state.progresses

@@ -9,6 +9,7 @@ export interface CachedTranscript {
   language: string
   segments: Segment[]
   createdAt: string
+  source?: 'generated' | 'imported'
 }
 
 function getCacheDir(): string {
@@ -29,8 +30,13 @@ export function getCachedTranscript(filePath: string): CachedTranscript | null {
   return data as CachedTranscript
 }
 
-export function saveCachedTranscript(filePath: string, language: string, segments: Segment[]): void {
-  const data: CachedTranscript = { filePath, language, segments, createdAt: new Date().toISOString() }
+export function saveCachedTranscript(
+  filePath: string,
+  language: string,
+  segments: Segment[],
+  source: CachedTranscript['source'] = 'generated',
+): void {
+  const data: CachedTranscript = { filePath, language, segments, createdAt: new Date().toISOString(), source }
   fs.writeFileSync(getCachePath(filePath), JSON.stringify(data))
 }
 

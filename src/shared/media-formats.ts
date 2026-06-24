@@ -62,9 +62,16 @@ export const MEDIA_FILE_FILTER = { name: 'Media Files', extensions: exts(MEDIA_M
 export const IMAGE_FILE_FILTER = { name: 'Images', extensions: exts(IMAGE_MIME) }
 
 const VIDEO_EXT_SET = new Set(Object.keys(VIDEO_MIME))
+const DIRECT_MP4_AUDIO_EXT_SET = new Set(['.m4a', '.m4b'])
 
 /** Check whether a file path refers to a video format by extension. */
 export function isVideoPath(filePath: string): boolean {
   const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
   return VIDEO_EXT_SET.has(ext)
+}
+
+/** M4A and M4B are both directly usable AAC/MP4 audio containers. */
+export function needsAudioConversion(filePath: string): boolean {
+  const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
+  return !DIRECT_MP4_AUDIO_EXT_SET.has(ext)
 }

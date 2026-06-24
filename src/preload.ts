@@ -28,6 +28,9 @@ const api: ElectronAPI = {
       ipcRenderer.invoke(IPC.TRANSCRIPT_SPLIT_SEGMENT, transcriptId, segmentIndex, wordIndex),
     mergeSegments: (transcriptId, segmentIndex) =>
       ipcRenderer.invoke(IPC.TRANSCRIPT_MERGE_SEGMENTS, transcriptId, segmentIndex),
+    detectSidecar: (filePath) => ipcRenderer.invoke(IPC.TRANSCRIPT_DETECT_SIDECAR, filePath),
+    prepareSidecar: (filePath, language) => ipcRenderer.invoke(IPC.TRANSCRIPT_PREPARE_SIDECAR, filePath, language),
+    attachPrepared: (episodeId, filePath) => ipcRenderer.invoke(IPC.TRANSCRIPT_ATTACH_PREPARED, episodeId, filePath),
     getFileTranscript: (filePath: string) =>
       ipcRenderer.invoke(IPC.TRANSCRIPTION_GET_FILE, filePath),
     transcribeFile: (filePath: string, serviceId: string) =>
@@ -65,7 +68,8 @@ const api: ElectronAPI = {
   },
   splitter: {
     getMetadata: (filePath) => ipcRenderer.invoke(IPC.SPLITTER_GET_METADATA, filePath),
-    split: (filePath, markers, seriesId) => ipcRenderer.invoke(IPC.SPLITTER_SPLIT, filePath, markers, seriesId),
+    split: (filePath, markers, seriesId, transcriptPolicy) =>
+      ipcRenderer.invoke(IPC.SPLITTER_SPLIT, filePath, markers, seriesId, transcriptPolicy),
     detectSilence: (filePath, noiseThreshold?, minDuration?) =>
       ipcRenderer.invoke(IPC.SPLITTER_DETECT_SILENCE, filePath, noiseThreshold, minDuration),
   },

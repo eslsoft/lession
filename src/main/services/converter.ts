@@ -2,13 +2,14 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { getFfmpegPath } from './bin-paths'
+import { needsAudioConversion } from '../../shared/media-formats'
 
 // Extensions that are already AAC-in-MP4 container and can be stream-copied to .m4a
-const AAC_COMPATIBLE_EXTS = new Set(['.m4a', '.m4b', '.mp4', '.aac'])
+const AAC_COMPATIBLE_EXTS = new Set(['.mp4', '.aac'])
 
 /**
  * Convert a media file to M4A format with progress reporting.
- * If already M4A, calls onProgress(100) and returns the original path.
+ * If already M4A or M4B, calls onProgress(100) and returns the original path.
  * AAC-compatible sources use stream copy; others are re-encoded to AAC 128k.
  */
 export async function convertToM4a(
@@ -18,7 +19,7 @@ export async function convertToM4a(
   onProgress?: (percent: number) => void,
 ): Promise<string> {
   const srcExt = path.extname(filePath).toLowerCase()
-  if (srcExt === '.m4a') {
+  if (!needsAudioConversion(filePath)) {
     onProgress?.(100)
     return filePath
   }

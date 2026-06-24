@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Play, Pause, ZoomIn, ZoomOut, Scissors, Loader2,
-  Mic, Check, Search, Plus, AudioLines, X,
+  Mic, Check, Search, Plus, AudioLines, X, FileText,
 } from 'lucide-react'
 import { Waveform } from '../../components/Waveform'
 import type { SplitMarker, SegmentRegion, WaveformHandle } from '../../components/Waveform'
@@ -14,8 +14,8 @@ import { useConfigStore } from '../../stores/configStore'
 import { useSeriesStore } from '../../stores/seriesStore'
 import { Select } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
-import { isVideoPath } from '@shared/media-formats'
-import type { Segment } from '@shared/types'
+import { isVideoPath, needsAudioConversion } from '@shared/media-formats'
+import type { Segment, WordTimedTranscriptInfo } from '@shared/types'
 
 const SEGMENT_COLORS = [
   'rgba(99, 102, 241, 0.15)',
@@ -94,6 +94,8 @@ export default function ImportAudioPage() {
   const { series, fetchSeries, uploadCover } = useSeriesStore()
   const [metadata, setMetadata] = useState<MediaMetadata | null>(null)
   const [useBookCover, setUseBookCover] = useState(false)
+  const [sidecarInfo, setSidecarInfo] = useState<WordTimedTranscriptInfo | null>(null)
+  const [importSidecar, setImportSidecar] = useState(false)
 
   useEffect(() => {
     fetchSeries()
@@ -209,6 +211,22 @@ export default function ImportAudioPage() {
     return () => { cancelled = true }
   }, [filePath, currentSeries])
 
+  // Detect a same-name word-timed VTT sidecar.
+  useEffect(() => {
+    if (!filePath) return
+    let cancelled = false
+    window.electronAPI.transcript.detectSidecar(filePath)
+      .then((info) => {
+        if (cancelled) return
+        setSidecarInfo(info)
+        setImportSidecar(info !== null)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(`Failed to read word-timed VTT: ${(err as Error).message}`)
+      })
+    return () => { cancelled = true }
+  }, [filePath])
+
   // Load existing transcript
   useEffect(() => {
     if (!filePath) return
@@ -323,10 +341,14 @@ export default function ImportAudioPage() {
     setError(null)
     try {
       const isVideo = isVideoPath(filePath)
-      const needsConvert = !isVideo && !filePath.toLowerCase().endsWith('.m4a')
+      const needsConvert = !isVideo && needsAudioConversion(filePath)
 
       if (useBookCover && metadata.coverPath) {
         await uploadCover(seriesId, metadata.coverPath)
+      }
+
+      if (sidecarInfo && importSidecar) {
+        await window.electronAPI.transcript.prepareSidecar(filePath, currentSeries?.language ?? 'en')
       }
 
       const episode = await createEpisode({
@@ -341,6 +363,9 @@ export default function ImportAudioPage() {
         status: needsConvert ? 'converting' : 'ready',
         publishStatus: 'draft',
       })
+      if (sidecarInfo && importSidecar) {
+        await window.electronAPI.transcript.attachPrepared(episode.id, filePath)
+      }
       if (needsConvert) {
         window.electronAPI.converter.convert(episode.id)
       }
@@ -418,7 +443,11 @@ export default function ImportAudioPage() {
         end: s.end,
         title: s.title.trim(),
       }))
-      await window.electronAPI.splitter.split(filePath, splitMarkers, seriesId)
+      if (sidecarInfo && importSidecar) {
+        await window.electronAPI.transcript.prepareSidecar(filePath, currentSeries?.language ?? 'en')
+      }
+      const transcriptPolicy = sidecarInfo && importSidecar ? 'any' : hasTranscript ? 'generated' : 'none'
+      await window.electronAPI.splitter.split(filePath, splitMarkers, seriesId, transcriptPolicy)
       navigate(`/series/${seriesId}`)
     } catch (err) {
       setError((err as Error).message)
@@ -480,6 +509,30 @@ export default function ImportAudioPage() {
             />
             <Label htmlFor="use-book-cover" className="text-xs font-medium cursor-pointer select-none">
               Use as Series Cover
+            </Label>
+          </div>
+        </div>
+      )}
+
+      {sidecarInfo && (
+        <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card">
+          <FileText className="h-8 w-8 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">
+              {sidecarInfo.filePath.split(/[/\\]/).pop()}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Word-timed VTT · {sidecarInfo.segmentCount.toLocaleString()} segments · {sidecarInfo.wordCount.toLocaleString()} words
+            </p>
+          </div>
+          <div className="flex items-center gap-2 pr-2">
+            <Switch
+              id="import-word-timed-vtt"
+              checked={importSidecar}
+              onCheckedChange={setImportSidecar}
+            />
+            <Label htmlFor="import-word-timed-vtt" className="text-xs font-medium cursor-pointer select-none">
+              Import Transcript
             </Label>
           </div>
         </div>

@@ -5,10 +5,11 @@ import { getMediaMetadata, splitFile } from '../services/splitter'
 import { convertToM4a } from '../services/converter'
 import { detectSilence } from '../services/silence-detect'
 import { createEpisode, getEpisode, getNextOrder, updateEpisode, updateEpisodeStatus } from '../db/repositories/episode'
-import { createTranscript, updateTranscriptSegments } from '../db/repositories/transcript'
+import { createTranscript } from '../db/repositories/transcript'
 import { getCachedTranscript } from '../services/transcription'
-import { processTranscript } from '../services/nlp'
+import { enrichTranscriptWithNlp } from '../services/transcript-nlp'
 import type { Episode, Segment } from '../../shared/types'
+import { needsAudioConversion } from '../../shared/media-formats'
 
 /**
  * Slice transcript segments for a time range [start, end).
@@ -63,22 +64,30 @@ export function registerSplitterIpc(): void {
     return getMediaMetadata(filePath)
   })
 
-  ipcMain.handle(IPC.SPLITTER_SPLIT, async (_event, filePath: string, markers: { start: number; end: number; title: string }[], seriesId: string) => {
+  ipcMain.handle(IPC.SPLITTER_SPLIT, async (
+    _event,
+    filePath: string,
+    markers: { start: number; end: number; title: string }[],
+    seriesId: string,
+    transcriptPolicy: 'none' | 'generated' | 'any' = 'none',
+  ) => {
     const metadata = await getMediaMetadata(filePath)
     const outputDir = path.join(app.getPath('userData'), 'episodes', seriesId)
     const outputPaths = await splitFile(filePath, markers, outputDir)
 
     // Load cached transcript if available
     let cached: ReturnType<typeof getCachedTranscript> = null
-    try {
-      cached = getCachedTranscript(filePath)
-    } catch (err) {
-      console.error('Failed to load cached transcript:', err)
+    if (transcriptPolicy !== 'none') {
+      try {
+        cached = getCachedTranscript(filePath)
+        if (transcriptPolicy === 'generated' && cached?.source === 'imported') cached = null
+      } catch (err) {
+        console.error('Failed to load cached transcript:', err)
+      }
     }
 
     const isVideo = metadata.hasVideo
-    const srcExt = path.extname(filePath).toLowerCase()
-    const needsConvert = !isVideo && srcExt !== '.m4a'
+    const needsConvert = !isVideo && needsAudioConversion(filePath)
     const episodes: Episode[] = []
 
     for (let i = 0; i < markers.length; i++) {
@@ -133,7 +142,7 @@ export function registerSplitterIpc(): void {
     }
 
     // Attach transcripts after all episodes are created
-    const transcriptsToProcess: { transcriptId: string; segments: Segment[] }[] = []
+    const transcriptsToProcess: { episodeId: string; transcriptId: string; segments: Segment[] }[] = []
     if (cached) {
       for (let i = 0; i < markers.length; i++) {
         try {
@@ -145,7 +154,11 @@ export function registerSplitterIpc(): void {
               segments: episodeSegments,
             })
             updateEpisodeStatus(episodes[i].id, 'transcribed')
-            transcriptsToProcess.push({ transcriptId: transcript.id, segments: episodeSegments })
+            transcriptsToProcess.push({
+              episodeId: episodes[i].id,
+              transcriptId: transcript.id,
+              segments: episodeSegments,
+            })
           }
         } catch (err) {
           console.error(`Failed to create transcript for episode ${i + 1}:`, err)
@@ -156,13 +169,8 @@ export function registerSplitterIpc(): void {
     // Run NLP in background after returning
     if (transcriptsToProcess.length > 0) {
       setImmediate(async () => {
-        for (const { transcriptId, segments: segs } of transcriptsToProcess) {
-          try {
-            const nlpSegments = await processTranscript(segs)
-            updateTranscriptSegments(transcriptId, nlpSegments)
-          } catch (err) {
-            console.error(`Background NLP failed for transcript ${transcriptId}:`, err)
-          }
+        for (const { episodeId, transcriptId, segments: segs } of transcriptsToProcess) {
+          await enrichTranscriptWithNlp(episodeId, transcriptId, segs)
         }
       })
     }

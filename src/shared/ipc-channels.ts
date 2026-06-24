@@ -23,6 +23,9 @@ export const IPC = {
   TRANSCRIPT_UPDATE_SEGMENT: 'transcript:updateSegment',
   TRANSCRIPT_SPLIT_SEGMENT: 'transcript:splitSegment',
   TRANSCRIPT_MERGE_SEGMENTS: 'transcript:mergeSegments',
+  TRANSCRIPT_DETECT_SIDECAR: 'transcript:detectSidecar',
+  TRANSCRIPT_PREPARE_SIDECAR: 'transcript:prepareSidecar',
+  TRANSCRIPT_ATTACH_PREPARED: 'transcript:attachPrepared',
 
   // Download
   DOWNLOAD_LIST: 'download:list',

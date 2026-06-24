@@ -5,10 +5,36 @@ import { getEpisode, updateEpisodeStatus, updateEpisode } from '../db/repositori
 import { getSeries } from '../db/repositories/series'
 import { dispatchTranscribe, resolveTranscriptionService, getCachedTranscript, saveCachedTranscript } from '../services/transcription'
 import { processTranscript } from '../services/nlp'
+import { loadWordTimedVtt } from '../services/word-timed-vtt'
+import { scheduleTranscriptNlp } from '../services/transcript-nlp'
 
 export function registerTranscriptIpc(): void {
   ipcMain.handle(IPC.TRANSCRIPT_GET, (_event, episodeId: string) => {
     return getTranscript(episodeId)
+  })
+
+  ipcMain.handle(IPC.TRANSCRIPT_DETECT_SIDECAR, (_event, filePath: string) => {
+    return loadWordTimedVtt(filePath)?.info ?? null
+  })
+
+  ipcMain.handle(IPC.TRANSCRIPT_PREPARE_SIDECAR, (_event, filePath: string, language: string) => {
+    const imported = loadWordTimedVtt(filePath)
+    if (!imported) throw new Error('No matching VTT file found')
+    saveCachedTranscript(filePath, language, imported.segments, 'imported')
+    return imported.info
+  })
+
+  ipcMain.handle(IPC.TRANSCRIPT_ATTACH_PREPARED, (_event, episodeId: string, filePath: string) => {
+    const cached = getCachedTranscript(filePath)
+    if (!cached || cached.source !== 'imported') throw new Error('Word-timed VTT has not been prepared')
+
+    const existing = getTranscript(episodeId)
+    const transcript = existing
+      ? updateTranscript(existing.id, { language: cached.language, segments: cached.segments })
+      : createTranscript({ episodeId, language: cached.language, segments: cached.segments })
+    updateEpisodeStatus(episodeId, 'transcribed')
+    scheduleTranscriptNlp(episodeId, transcript.id, cached.segments)
+    return transcript
   })
 
   ipcMain.handle(IPC.TRANSCRIPT_GENERATE, async (_event, episodeId: string, serviceId: string) => {

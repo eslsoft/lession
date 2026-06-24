@@ -4,6 +4,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { getEpisode, updateEpisode, updateEpisodeStatus } from '../db/repositories/episode'
 import { convertToM4a } from '../services/converter'
 import { getMediaMetadata } from '../services/splitter'
+import { needsAudioConversion } from '../../shared/media-formats'
 
 export function registerConverterIpc(): void {
   ipcMain.handle(IPC.CONVERTER_CONVERT, async (_event, episodeId: string) => {
@@ -11,8 +12,7 @@ export function registerConverterIpc(): void {
     if (!episode) throw new Error(`Episode not found: ${episodeId}`)
     if (!episode.localPath) throw new Error(`Episode has no local file: ${episodeId}`)
 
-    // Already M4A — nothing to do
-    if (path.extname(episode.localPath).toLowerCase() === '.m4a') return
+    if (!needsAudioConversion(episode.localPath)) return
 
     const mainWindow = BrowserWindow.getAllWindows()[0]
 

@@ -141,6 +141,12 @@ export interface Transcript {
   updatedAt: string
 }
 
+export interface WordTimedTranscriptInfo {
+  filePath: string
+  segmentCount: number
+  wordCount: number
+}
+
 // ── Book Import ──
 export interface ExtractedBook {
   title: string
@@ -274,6 +280,9 @@ export interface ElectronAPI {
     updateSegment: (transcriptId: string, segmentIndex: number, text: string) => Promise<void>
     splitSegment: (transcriptId: string, segmentIndex: number, wordIndex: number) => Promise<void>
     mergeSegments: (transcriptId: string, segmentIndex: number) => Promise<void>
+    detectSidecar: (filePath: string) => Promise<WordTimedTranscriptInfo | null>
+    prepareSidecar: (filePath: string, language: string) => Promise<WordTimedTranscriptInfo>
+    attachPrepared: (episodeId: string, filePath: string) => Promise<Transcript>
     getFileTranscript: (filePath: string) => Promise<Segment[] | null>
     transcribeFile: (filePath: string, serviceId: string) => Promise<Segment[]>
     onFileProgress: (callback: (data: { stage: string; percent: number }) => void) => () => void
@@ -318,7 +327,12 @@ export interface ElectronAPI {
       }
       coverPath?: string
     }>
-    split: (filePath: string, markers: { start: number; end: number; title: string }[], seriesId: string) => Promise<Episode[]>
+    split: (
+      filePath: string,
+      markers: { start: number; end: number; title: string }[],
+      seriesId: string,
+      transcriptPolicy?: 'none' | 'generated' | 'any',
+    ) => Promise<Episode[]>
     detectSilence: (filePath: string, noiseThreshold?: string, minDuration?: number) => Promise<{ start: number; end: number; duration: number }[]>
   }
   // Converter
