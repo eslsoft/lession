@@ -4,6 +4,7 @@ import path from 'node:path'
 export default defineConfig({
   test: {
     environment: 'node',
+    exclude: ['dist/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
       include: ['src/main/db/repositories/transcript.ts'],
